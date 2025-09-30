@@ -228,7 +228,10 @@ window.onload = () => {
   }
 
   // Request notification permission with better handling
-  requestNotificationPermission();
+  // Wait a bit then request notifications (iOS PWA needs delay)
+  setTimeout(() => {
+    checkAndRequestNotifications();
+  }, 2000);
 
   const now = new Date();
   const hour = now.getHours();
@@ -337,6 +340,9 @@ function setupNotificationControls() {
     }
 
     const permission = Notification.permission;
+    const isStandalone = window.navigator.standalone === true || 
+                        window.matchMedia('(display-mode: standalone)').matches;
+
     switch (permission) {
       case 'granted':
         statusDiv.textContent = "✅ Notifications enabled";
@@ -344,7 +350,11 @@ function setupNotificationControls() {
         enableBtn.style.background = "#10b981";
         break;
       case 'denied':
-        statusDiv.textContent = "❌ Notifications blocked - Check browser settings";
+        if (isStandalone) {
+          statusDiv.textContent = "❌ Notifications blocked - Delete and re-add app to home screen";
+        } else {
+          statusDiv.textContent = "❌ Notifications blocked - Check browser settings";
+        }
         enableBtn.textContent = "🔔 Notifications Blocked";
         enableBtn.style.background = "#ef4444";
         break;
@@ -358,21 +368,36 @@ function setupNotificationControls() {
 
   // Handle button click
   enableBtn.addEventListener('click', async () => {
+    const isStandalone = window.navigator.standalone === true || 
+                        window.matchMedia('(display-mode: standalone)').matches;
+
     if (Notification.permission === 'granted') {
       // Show test notification
       showTestNotification();
     } else if (Notification.permission === 'denied') {
       // Show instructions for re-enabling
-      alert("🔔 Notifications are blocked!\n\n" +
-            "To enable them:\n\n" +
-            "🍎 iOS Safari:\n" +
-            "• Go to Settings > Safari > Notifications\n" +
-            "• Allow notifications\n" +
-            "• Refresh this page\n\n" +
-            "💻 Desktop:\n" +
-            "• Click the lock/info icon in your address bar\n" +
-            "• Allow notifications\n" +
-            "• Refresh this page");
+      let instructions;
+      if (isStandalone) {
+        instructions = "🔔 Notifications are blocked!\n\n" +
+                      "For PWA apps on iOS:\n" +
+                      "• Delete this app from your home screen\n" +
+                      "• Go to the website in Safari\n" +
+                      "• Allow notifications when prompted\n" +
+                      "• Then re-add to home screen\n\n" +
+                      "This will reset the notification permission.";
+      } else {
+        instructions = "🔔 Notifications are blocked!\n\n" +
+                      "To enable them:\n\n" +
+                      "🍎 iOS Safari:\n" +
+                      "• Go to Settings > Safari > Notifications\n" +
+                      "• Allow notifications\n" +
+                      "• Refresh this page\n\n" +
+                      "💻 Desktop:\n" +
+                      "• Click the lock/info icon in your address bar\n" +
+                      "• Allow notifications\n" +
+                      "• Refresh this page";
+      }
+      alert(instructions);
     } else {
       // Request permission
       const granted = await requestNotificationPermission();
@@ -382,6 +407,101 @@ function setupNotificationControls() {
 
   // Initial status update
   updateNotificationStatus();
+}
+
+// Check and request notifications with iOS PWA support
+async function checkAndRequestNotifications() {
+  if (!("Notification" in window)) {
+    console.log("Notifications not supported");
+    return;
+  }
+
+  const permission = Notification.permission;
+  console.log("Notification permission status:", permission);
+
+  // Check if we're in a PWA (standalone mode)
+  const isStandalone = window.navigator.standalone === true || 
+                      window.matchMedia('(display-mode: standalone)').matches ||
+                      window.matchMedia('(display-mode: fullscreen)').matches;
+
+  console.log("Running in standalone mode:", isStandalone);
+
+  if (permission === "default") {
+    if (isStandalone) {
+      // In PWA mode, show a friendly prompt first
+      console.log("PWA detected - showing notification prompt");
+      showNotificationPrompt();
+    } else {
+      // In browser mode, request directly
+      await requestNotificationPermission();
+    }
+  } else if (permission === "granted") {
+    console.log("Notifications already enabled");
+    updateNotificationControls();
+  }
+}
+
+function showNotificationPrompt() {
+  // Create a more prominent notification prompt for PWA users
+  const promptDiv = document.createElement('div');
+  promptDiv.id = 'notification-prompt';
+  promptDiv.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: #4f46e5;
+    color: white;
+    padding: 15px;
+    text-align: center;
+    z-index: 10000;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  `;
+  
+  promptDiv.innerHTML = `
+    <div style="margin-bottom: 10px;">
+      🔔 <strong>Enable Task Notifications?</strong>
+    </div>
+    <div style="font-size: 14px; margin-bottom: 15px;">
+      Get reminded when your tasks are due
+    </div>
+    <button id="allow-notifications" style="background: white; color: #4f46e5; border: none; padding: 8px 20px; border-radius: 4px; margin-right: 10px; font-weight: bold;">
+      Allow
+    </button>
+    <button id="dismiss-notifications" style="background: transparent; color: white; border: 1px solid white; padding: 8px 20px; border-radius: 4px;">
+      Not Now
+    </button>
+  `;
+
+  document.body.appendChild(promptDiv);
+
+  // Handle allow button
+  document.getElementById('allow-notifications').addEventListener('click', async () => {
+    document.body.removeChild(promptDiv);
+    await requestNotificationPermission();
+  });
+
+  // Handle dismiss button
+  document.getElementById('dismiss-notifications').addEventListener('click', () => {
+    document.body.removeChild(promptDiv);
+    console.log("User dismissed notification prompt");
+  });
+
+  // Auto-remove after 10 seconds if no action
+  setTimeout(() => {
+    if (document.getElementById('notification-prompt')) {
+      document.body.removeChild(promptDiv);
+    }
+  }, 10000);
+}
+
+function updateNotificationControls() {
+  const enableBtn = document.getElementById('enableNotifications');
+  const statusDiv = document.getElementById('notificationStatus');
+  
+  if (enableBtn && statusDiv) {
+    setupNotificationControls();
+  }
 }
 
 // === NOTIFICATION FUNCTIONS ===
@@ -399,16 +519,21 @@ async function requestNotificationPermission() {
   if (permission === "default") {
     // Request permission
     try {
+      // For iOS PWA, we need to request permission in response to user action
       permission = await Notification.requestPermission();
       console.log("Notification permission after request:", permission);
     } catch (error) {
       console.error("Error requesting notification permission:", error);
+      // On iOS PWA, permission request might fail if not triggered by user action
       return false;
     }
   }
 
   if (permission === "granted") {
     console.log("✅ Notifications enabled!");
+    
+    // Update UI controls
+    updateNotificationControls();
     
     // Show a test notification to confirm it works
     setTimeout(() => {
@@ -418,14 +543,12 @@ async function requestNotificationPermission() {
     return true;
   } else if (permission === "denied") {
     console.log("❌ Notifications blocked. To enable:");
-    console.log("• On iOS: Settings > Safari > Notifications > Allow");
+    console.log("• On iOS PWA: Delete and re-add the app to home screen");
+    console.log("• On iOS Safari: Settings > Safari > Notifications > Allow");
     console.log("• On Desktop: Click the lock/info icon in address bar");
     
-    // Show user-friendly message
-    alert("📱 To get task reminders:\n\n" +
-          "🍎 iOS: Settings > Safari > Notifications > Allow\n" +
-          "💻 Desktop: Click the lock icon in your address bar\n\n" +
-          "Then refresh this page!");
+    // Update UI controls
+    updateNotificationControls();
     
     return false;
   }
