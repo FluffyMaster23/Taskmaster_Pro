@@ -35,7 +35,58 @@ window.addEventListener('DOMContentLoaded', function() {
   
   // Initialize OneSignal for iOS
   initializeOneSignal();
+  
+  // Check if PWA is installed on home screen
+  checkPWAInstallation();
 });
+
+// === PWA HOME SCREEN DETECTION ===
+function checkPWAInstallation() {
+  // Check if app is running in standalone mode (added to home screen)
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+  const isIOSStandalone = window.navigator.standalone === true;
+  
+  if (isStandalone || isIOSStandalone) {
+    console.log('🎉 PWA detected as home screen app!');
+    
+    // Small delay to ensure everything is loaded
+    setTimeout(() => {
+      sendPWAWelcomeNotification();
+    }, 2000);
+  }
+}
+
+function sendPWAWelcomeNotification() {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  
+  if (isIOS && window.oneSignalEnabled) {
+    // Send OneSignal notification for iOS
+    window.OneSignal.push(function() {
+      window.OneSignal.sendSelfNotification(
+        "🏠 Welcome to TaskMaster Pro!", 
+        "App successfully added to home screen! You're ready to master your tasks.",
+        "https://fluffymaster23.github.io/Taskmaster_Pro/", // URL when notification is clicked
+        "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K" // icon
+      );
+    });
+  } else if (!isIOS && Notification.permission === "granted") {
+    // Send native notification for desktop
+    const notification = new Notification("🏠 Welcome to TaskMaster Pro!", {
+      body: "App successfully added to home screen! You're ready to master your tasks.",
+      icon: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K",
+      tag: "pwa-welcome",
+      requireInteraction: false,
+      silent: false
+    });
+    
+    // Auto-close after 6 seconds
+    setTimeout(() => {
+      notification.close();
+    }, 6000);
+  }
+}
+// === END PWA HOME SCREEN DETECTION ===
 // === END PWA INSTALL BUTTON LOGIC ===
 
 // === ONESIGNAL INITIALIZATION ===
@@ -103,27 +154,6 @@ function initializeOneSignal() {
       updateNotificationControlsForOneSignal();
     });
   });
-}
-
-function updateNotificationControlsForOneSignal() {
-  const enableBtn = document.getElementById('enableNotifications');
-  const statusDiv = document.getElementById('notificationStatus');
-  
-  if (!enableBtn || !statusDiv) return;
-  
-  if (window.oneSignalEnabled) {
-    statusDiv.textContent = "✅ iOS notifications enabled";
-    enableBtn.textContent = "🔔 Notifications Enabled";
-    enableBtn.style.background = "#10b981";
-    enableBtn.style.display = 'block';
-    enableBtn.disabled = true; // Disable button when already enabled
-  } else {
-    statusDiv.textContent = "⚠️ Click to enable iOS task notifications";
-    enableBtn.textContent = "🔔 Enable iOS Notifications";
-    enableBtn.style.background = "#4f46e5";
-    enableBtn.style.display = 'block';
-    enableBtn.disabled = false;
-  }
 }
 
 function requestOneSignalPermission() {
@@ -557,75 +587,61 @@ function setupNotificationControls() {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-  // Update button and status based on current permission and platform
+  // Hide notification controls on iOS (auto-handled)
+  if (isIOS) {
+    enableBtn.style.display = 'none';
+    statusDiv.style.display = 'none';
+    console.log('iOS detected - notification controls hidden (auto-enabled)');
+    return;
+  }
+
+  // Update button and status based on current permission and platform (Desktop only)
   function updateNotificationStatus() {
-    if (isIOS) {
-      // iOS: Use OneSignal status
-      if (typeof window.oneSignalEnabled !== 'undefined') {
-        updateNotificationControlsForOneSignal();
-        return;
-      } else {
-        statusDiv.textContent = "⚠️ Click to enable iOS task notifications";
-        enableBtn.textContent = "🔔 Enable iOS Notifications";
+    // Desktop: Use native Web Notifications
+    if (!("Notification" in window)) {
+      statusDiv.textContent = "❌ Notifications not supported in this browser";
+      enableBtn.style.display = 'none';
+      return;
+    }
+
+    const permission = Notification.permission;
+
+    switch (permission) {
+      case 'granted':
+        statusDiv.textContent = "✅ Notifications enabled";
+        enableBtn.textContent = "🔔 Notifications Enabled";
+        enableBtn.style.background = "#10b981";
+        enableBtn.style.display = 'block';
+        enableBtn.disabled = true; // Disable button when already enabled
+        break;
+      case 'denied':
+        statusDiv.textContent = "❌ Notifications blocked";
+        enableBtn.style.display = 'none'; // Hide button when blocked
+        break;
+      case 'default':
+        statusDiv.textContent = "⚠️ Click to enable task notifications";
+        enableBtn.textContent = "🔔 Enable Notifications";
         enableBtn.style.background = "#4f46e5";
-        enableBtn.style.display = 'block'; // Always show button on iOS
-      }
-    } else {
-      // Desktop: Use native Web Notifications
-      if (!("Notification" in window)) {
-        statusDiv.textContent = "❌ Notifications not supported in this browser";
-        enableBtn.style.display = 'none';
-        return;
-      }
-
-      const permission = Notification.permission;
-
-      switch (permission) {
-        case 'granted':
-          statusDiv.textContent = "✅ Notifications enabled";
-          enableBtn.textContent = "🔔 Notifications Enabled";
-          enableBtn.style.background = "#10b981";
-          enableBtn.style.display = 'block';
-          enableBtn.disabled = true; // Disable button when already enabled
-          break;
-        case 'denied':
-          statusDiv.textContent = "❌ Notifications blocked";
-          enableBtn.style.display = 'none'; // Hide button when blocked
-          break;
-        case 'default':
-          statusDiv.textContent = "⚠️ Click to enable task notifications";
-          enableBtn.textContent = "🔔 Enable Notifications";
-          enableBtn.style.background = "#4f46e5";
-          enableBtn.style.display = 'block';
-          enableBtn.disabled = false;
-          break;
-      }
+        enableBtn.style.display = 'block';
+        enableBtn.disabled = false;
+        break;
     }
   }
 
-  // Handle button click - hybrid approach
+  // Handle button click - desktop only
   enableBtn.addEventListener('click', async () => {
-    if (isIOS) {
-      // iOS: Use OneSignal
-      if (!window.oneSignalEnabled) {
-        // Request OneSignal permission (no test notifications)
-        requestOneSignalPermission();
+    // Desktop: Use native Web Notifications
+    if (Notification.permission === 'default') {
+      // Request permission using appropriate method (no test notifications)
+      const isFirefox = navigator.userAgent.includes('Firefox');
+      if (isFirefox) {
+        showFirefoxPrompt();
+      } else {
+        await requestUniversalNotificationPermission();
       }
-      // If already enabled, button is disabled, so no action needed
-    } else {
-      // Desktop: Use native Web Notifications
-      if (Notification.permission === 'default') {
-        // Request permission using appropriate method (no test notifications)
-        const isFirefox = navigator.userAgent.includes('Firefox');
-        if (isFirefox) {
-          showFirefoxPrompt();
-        } else {
-          await requestUniversalNotificationPermission();
-        }
-      }
-      // If granted, button is disabled, so no action needed
-      // If denied, button is hidden, so no action needed
     }
+    // If granted, button is disabled, so no action needed
+    // If denied, button is hidden, so no action needed
   });
 
   // Initial status update
@@ -653,15 +669,17 @@ function setupAppleNotifications() {
   console.log('Notification support:', 'Notification' in window);
   
   if (isIOS) {
-    console.log('iOS detected - OneSignal will handle notifications');
-    // OneSignal initialization is handled separately in initializeOneSignal()
-    // Setup notification controls for OneSignal
-    setupNotificationControls();
+    console.log('iOS detected - automatically enabling OneSignal notifications');
+    // Auto-enable notifications on iOS without button
+    setTimeout(() => {
+      requestIOSNotificationsAutomatically();
+    }, 2000);
+    // Don't setup notification controls for iOS
   } else {
     console.log('Desktop detected - using native Web Notifications');
     console.log('Notification permission:', Notification.permission);
     
-    // Setup notification controls for desktop
+    // Setup notification controls for desktop only
     setupNotificationControls();
     
     // Handle desktop browsers on first visit
@@ -699,43 +717,59 @@ async function requestIOSNotificationsAutomatically() {
     if (permission === 'default') {
       // Request permission automatically
       console.log('Requesting iOS notification permission automatically...');
-      const newPermission = await Notification.requestPermission();
-      console.log('iOS permission result:', newPermission);
       
-      if (newPermission === 'granted') {
-        console.log('✅ iOS Notifications granted automatically!');
-        
-        // Send immediate test notification
-        setTimeout(() => {
-          sendIOSTestNotification();
-        }, 1000);
-        
-        // Update UI
-        updateNotificationControls();
-        return true;
-      } else {
-        console.log('❌ iOS Notifications denied');
-        updateNotificationControls();
-        return false;
-      }
+      // Use OneSignal for iOS permission request
+      OneSignal.push(function() {
+        OneSignal.registerForPushNotifications().then(function() {
+          console.log('✅ iOS OneSignal notifications enabled automatically!');
+          window.oneSignalEnabled = true;
+          
+          // Send immediate test notification
+          setTimeout(() => {
+            sendIOSAutoTestNotification();
+          }, 1500);
+          
+          return true;
+        }).catch(function(e) {
+          console.error('❌ iOS OneSignal notifications failed:', e);
+          return false;
+        });
+      });
+      
     } else if (permission === 'granted') {
       // Already granted, just send test notification
       console.log('iOS notifications already granted, sending test notification');
+      window.oneSignalEnabled = true;
       setTimeout(() => {
-        sendIOSTestNotification();
+        sendIOSAutoTestNotification();
       }, 1000);
-      updateNotificationControls();
       return true;
     } else {
       // Denied
       console.log('iOS notifications denied');
-      updateNotificationControls();
       return false;
     }
   } catch (error) {
     console.error('Error with iOS notification handling:', error);
     return false;
   }
+}
+
+function sendIOSAutoTestNotification() {
+  console.log('Sending iOS automatic test notification');
+  
+  OneSignal.push(function() {
+    OneSignal.sendSelfNotification(
+      "🎉 TaskMaster Pro - iOS Ready!",
+      "Notifications are now working automatically on your iOS device! You'll get task reminders even when the app is closed.",
+      window.location.href,
+      "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K"
+    ).then(function() {
+      console.log('iOS automatic test notification sent successfully');
+    }).catch(function(error) {
+      console.error('Failed to send iOS test notification:', error);
+    });
+  });
 }
 
 function showFirefoxPrompt() {
@@ -1201,23 +1235,6 @@ function showWelcomeNotification() {
     setTimeout(() => {
       notification.close();
     }, 4000);
-  }
-}
-
-function showTestNotification() {
-  if (Notification.permission === "granted") {
-    const notification = new Notification("🎉 TaskMaster Pro", {
-      body: "Notifications are now enabled! You'll get reminders for your tasks.",
-      icon: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K",
-      tag: "taskmaster-welcome",
-      requireInteraction: false,
-      silent: false
-    });
-
-    // Auto-close after 5 seconds
-    setTimeout(() => {
-      notification.close();
-    }, 5000);
   }
 }
 

@@ -35,11 +35,6 @@
   </style>
 </head>
 <body>
-<button id="enableNotifications" style="margin: 10px auto 15px auto; background: #4f46e5; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; display: block; font-size: 14px;">
-  🔔 Enable Notifications
-</button>
-<div id="notificationStatus" style="margin: 0 auto 20px auto; font-size: 0.9em; color: #666; text-align: center;"></div>
-
   <h1>TaskMaster Pro - Command Your Productivity</h1>
 <label for="voiceSelect">Choose Voice:</label>
 <select id="voiceSelect" aria-label="Choose voice"></select>
@@ -57,6 +52,11 @@
 
   <div id="sections" role="region" aria-label="Todo Lists"></div>
 <button id="checkUpcoming">Check Upcoming Todos</button>
+
+<!-- Desktop-only notification controls -->
+<button id="enableNotifications" style="margin-top: 20px; background: #4f46e5; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; display: block;">
+  🔔 Enable Notifications
+</button>
 
   <button id="installBtn" style="display:none;position:fixed;bottom:20px;right:20px;z-index:1000;">Install TaskMaster Pro</button>
 
