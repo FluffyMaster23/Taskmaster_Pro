@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TaskMaster Pro</title>
+  
+  <!-- PWA Meta Tags -->
+  <meta name="description" content="TaskMaster Pro - Master your tasks, dominate your day with advanced reminders and notifications" />
+  <meta name="theme-color" content="#4f46e5" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="TaskMaster Pro" />
+  <meta name="msapplication-TileColor" content="#4f46e5" />
+  <meta name="msapplication-config" content="browserconfig.xml" />
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="./manifest.json" />
+  
+  <!-- Favicon and App Icons -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPHJlY3Qgd2lkdGg9IjE5MiIgaGVpZ2h0PSIxOTIiIHJ4PSI0OCIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik03MiA5NmwxNiAxNmwzMi0zMiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=" />
+  
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+    summary { font-weight: bold; font-size: 1.2em; cursor: pointer; margin-top: 1em; }
+    .task-section { padding: 10px 20px; background: #fff; border: 1px solid #ccc; margin-bottom: 15px; }
+    input, button, select { display: block; margin: 6px 0; padding: 6px; width: 95%; max-width: 400px; }
+    ul { margin-top: 10px; padding-left: 20px; }
+    li { margin-bottom: 6px; }
+    button#checkIssues { margin-top: 20px; padding: 10px 15px; font-size: 1em; }
+    .form-label { font-size: 0.9em; font-weight: bold; margin-top: 10px; margin-bottom: 2px; }
+  </style>
+</head>
+<body>
+  <h1>TaskMaster Pro - Command Your Productivity</h1>
+<label for="voiceSelect">Choose Voice:</label>
+<select id="voiceSelect" aria-label="Choose voice"></select>
+
+<label for="speechRateSelect">Speech Speed:</label>
+<select id="speechRateSelect" aria-label="Choose speech speed">
+  <option value="0.5">Very Slow (0.5x)</option>
+  <option value="0.75">Slow (0.75x)</option>
+  <option value="1" selected>Normal (1x)</option>
+  <option value="1.25">Fast (1.25x)</option>
+  <option value="1.5">Very Fast (1.5x)</option>
+  <option value="1.75">Super Fast (1.75x)</option>
+  <option value="2">Maximum (2x)</option>
+</select>
+
+  <div id="sections" role="region" aria-label="Todo Lists"></div>
+<button id="checkUpcoming">Check Upcoming Todos</button>
+
+  <button id="installBtn" style="display:none;position:fixed;bottom:20px;right:20px;z-index:1000;">Install TaskMaster Pro</button>
+
+  <button id="checkIssues">Check GitHub Issues</button>
+
+  <script src="todo.js"></script>
+
+</body>
+</html>
