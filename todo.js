@@ -324,6 +324,7 @@ function renderTask(task, ul) {
 
 function setupNotificationControls() {
   const enableBtn = document.getElementById('enableNotifications');
+  const clearBtn = document.getElementById('clearData');
   const statusDiv = document.getElementById('notificationStatus');
   
   if (!enableBtn || !statusDiv) return;
@@ -337,6 +338,8 @@ function setupNotificationControls() {
     }
 
     const permission = Notification.permission;
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
     switch (permission) {
       case 'granted':
@@ -345,7 +348,11 @@ function setupNotificationControls() {
         enableBtn.style.background = "#10b981";
         break;
       case 'denied':
-        statusDiv.textContent = "❌ Notifications blocked - Check browser settings";
+        if (isIOS) {
+          statusDiv.textContent = "❌ Notifications blocked - Try clearing data and refreshing";
+        } else {
+          statusDiv.textContent = "❌ Notifications blocked - Check browser settings";
+        }
         enableBtn.textContent = "🔔 Notifications Blocked";
         enableBtn.style.background = "#ef4444";
         break;
@@ -359,22 +366,61 @@ function setupNotificationControls() {
 
   // Handle button click
   enableBtn.addEventListener('click', async () => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
     if (Notification.permission === 'granted') {
       // Show test notification
       showConfirmationNotification();
     } else if (Notification.permission === 'denied') {
       // Show instructions for re-enabling
-      alert("🔔 Notifications are blocked!\n\n" +
-            "To enable them:\n" +
-            "• Look for the notification icon in your browser's address bar\n" +
-            "• Or check your browser's notification settings\n" +
-            "• Allow notifications for this site\n" +
-            "• Then refresh this page");
+      let instructions;
+      if (isIOS) {
+        instructions = "🔔 Notifications are blocked!\n\n" +
+                      "To enable on iOS:\n" +
+                      "• Try the 'Clear App Data' button below\n" +
+                      "• Then refresh the page\n" +
+                      "• Or go to Settings > Safari > Notifications\n" +
+                      "• Enable 'Allow Websites to Ask for Permission'";
+      } else {
+        instructions = "🔔 Notifications are blocked!\n\n" +
+                      "To enable them:\n" +
+                      "• Look for the notification icon in your browser's address bar\n" +
+                      "• Or check your browser's notification settings\n" +
+                      "• Allow notifications for this site\n" +
+                      "• Then refresh this page";
+      }
+      alert(instructions);
     } else {
-      // Request permission using universal method
-      await requestUniversalNotificationPermission();
+      // Request permission using appropriate method
+      if (isIOS) {
+        showIOSSpecificPrompt();
+      } else {
+        await requestUniversalNotificationPermission();
+      }
     }
   });
+
+  // Handle clear data button
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      // Clear all localStorage data
+      localStorage.clear();
+      
+      // Clear all sessionStorage data
+      sessionStorage.clear();
+      
+      // Clear all cookies for this domain (if possible)
+      document.cookie.split(";").forEach(function(c) { 
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+      });
+      
+      alert('✅ App data cleared!\n\nRefresh the page to test the first-visit notification experience again.');
+      
+      // Update UI
+      updateNotificationStatus();
+    });
+  }
 
   // Initial status update
   updateNotificationStatus();
@@ -384,10 +430,15 @@ function setupNotificationControls() {
 function setupAppleNotifications() {
   console.log('Setting up universal notifications for all browsers');
   
+  // Detect iOS
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  
   // Check if this is first visit
   const hasAskedBefore = localStorage.getItem('notificationAsked');
   const isFirstVisit = !hasAskedBefore;
   
+  console.log('iOS detected:', isIOS);
   console.log('First visit:', isFirstVisit);
   console.log('Notification support:', 'Notification' in window);
   console.log('Notification permission:', Notification.permission);
@@ -397,8 +448,169 @@ function setupAppleNotifications() {
   
   // On first visit, show notification prompt for all browsers
   if (isFirstVisit && 'Notification' in window && Notification.permission === 'default') {
-    // Show universal notification prompt
-    showUniversalNotificationPrompt();
+    if (isIOS) {
+      // For iOS, wait a bit longer and be more explicit
+      setTimeout(() => {
+        showIOSSpecificPrompt();
+      }, 2000);
+    } else {
+      // For other browsers, show immediately
+      showUniversalNotificationPrompt();
+    }
+  }
+}
+
+function showIOSSpecificPrompt() {
+  // Mark that we've shown the prompt
+  localStorage.setItem('notificationAsked', 'true');
+  
+  console.log('Showing iOS-specific notification prompt');
+  
+  // Create iOS-optimized notification prompt
+  const overlay = document.createElement('div');
+  overlay.id = 'ios-notification-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  `;
+  
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    background: white;
+    border-radius: 14px;
+    margin: 20px;
+    max-width: 300px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    animation: modalSlideIn 0.3s ease-out;
+  `;
+  
+  // Add CSS animation
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes modalSlideIn {
+      from { transform: scale(0.8); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+  `;
+  document.head.appendChild(style);
+  
+  modal.innerHTML = `
+    <div style="padding: 20px; text-align: center;">
+      <div style="font-size: 48px; margin-bottom: 15px;">🔔</div>
+      <h3 style="margin: 0 0 10px 0; font-size: 17px; font-weight: 600; color: #000;">
+        "TaskMaster Pro" Would Like to Send You Notifications
+      </h3>
+      <p style="margin: 0 0 15px 0; font-size: 13px; color: #666; line-height: 1.4;">
+        Notifications may include alerts, sounds, and icon badges. These can be configured in Settings.
+      </p>
+      <p style="margin: 0; font-size: 12px; color: #999; line-height: 1.3;">
+        💡 Tip: If nothing happens after clicking Allow, try refreshing the page or check Settings > Safari > Notifications
+      </p>
+    </div>
+    <div style="border-top: 1px solid #e5e5e5; display: flex;">
+      <button id="ios-deny-btn" style="
+        flex: 1;
+        padding: 12px;
+        border: none;
+        background: none;
+        font-size: 17px;
+        color: #007AFF;
+        border-right: 1px solid #e5e5e5;
+        cursor: pointer;
+      ">Don't Allow</button>
+      <button id="ios-allow-btn" style="
+        flex: 1;
+        padding: 12px;
+        border: none;
+        background: none;
+        font-size: 17px;
+        color: #007AFF;
+        font-weight: 600;
+        cursor: pointer;
+      ">Allow</button>
+    </div>
+  `;
+  
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  
+  // Handle button clicks
+  modal.querySelector('#ios-deny-btn').addEventListener('click', () => {
+    document.body.removeChild(overlay);
+    console.log('User denied iOS notifications');
+    updateNotificationControls();
+  });
+  
+  modal.querySelector('#ios-allow-btn').addEventListener('click', async () => {
+    document.body.removeChild(overlay);
+    console.log('User clicked Allow on iOS');
+    await requestIOSNotificationPermission();
+  });
+}
+
+async function requestIOSNotificationPermission() {
+  console.log('Requesting iOS notification permission');
+  
+  if (!('Notification' in window)) {
+    console.log('Notifications not supported on iOS');
+    alert('Notifications are not supported in this browser. Please make sure you\'re using Safari or try adding this app to your home screen.');
+    return false;
+  }
+  
+  try {
+    // For iOS, we need to be very explicit about the request
+    console.log('Making iOS notification permission request...');
+    const permission = await Notification.requestPermission();
+    console.log('iOS permission result:', permission);
+    
+    if (permission === 'granted') {
+      console.log('✅ iOS Notifications granted!');
+      
+      // Show immediate confirmation notification
+      setTimeout(() => {
+        showConfirmationNotification();
+      }, 1000);
+      
+      // Update UI
+      updateNotificationControls();
+      return true;
+    } else if (permission === 'denied') {
+      console.log('❌ iOS Notifications denied');
+      alert('To enable notifications later:\n\n' +
+            '• Go to Settings > Safari > Notifications\n' +
+            '• Enable "Allow Websites to Ask for Permission"\n' +
+            '• Or delete and re-add this app to home screen\n\n' +
+            'Then refresh this page.');
+      updateNotificationControls();
+      return false;
+    } else {
+      console.log('⚠️ iOS notification permission was dismissed');
+      alert('Notification permission was not granted.\n\n' +
+            'To enable notifications:\n' +
+            '• Refresh this page\n' +
+            '• Or clear app data and try again\n' +
+            '• Check Settings > Safari > Notifications');
+      updateNotificationControls();
+      return false;
+    }
+  } catch (error) {
+    console.error('Error requesting iOS notification permission:', error);
+    alert('There was an error requesting notification permission on iOS.\n\n' +
+          'Try:\n' +
+          '• Refreshing the page\n' +
+          '• Checking Settings > Safari > Notifications\n' +
+          '• Using Safari browser instead of other browsers');
+    return false;
   }
 }
 
