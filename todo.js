@@ -227,9 +227,8 @@ window.onload = () => {
       });
   }
 
-  // Request notification permission with better handling
-  // Check if this is first visit and request notifications
-  checkFirstVisitAndRequestNotifications();
+  // Apple-compatible notification setup
+  setupAppleNotifications();
 
   const now = new Date();
   const hour = now.getHours();
@@ -339,8 +338,8 @@ function setupNotificationControls() {
     }
 
     const permission = Notification.permission;
-    const isStandalone = window.navigator.standalone === true || 
-                        window.matchMedia('(display-mode: standalone)').matches;
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
     switch (permission) {
       case 'granted':
@@ -349,8 +348,8 @@ function setupNotificationControls() {
         enableBtn.style.background = "#10b981";
         break;
       case 'denied':
-        if (isStandalone) {
-          statusDiv.textContent = "❌ Notifications blocked - Delete and re-add app to home screen";
+        if (isIOS) {
+          statusDiv.textContent = "❌ Notifications blocked - Reset in Settings > Safari > Notifications";
         } else {
           statusDiv.textContent = "❌ Notifications blocked - Check browser settings";
         }
@@ -367,40 +366,37 @@ function setupNotificationControls() {
 
   // Handle button click
   enableBtn.addEventListener('click', async () => {
-    const isStandalone = window.navigator.standalone === true || 
-                        window.matchMedia('(display-mode: standalone)').matches;
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
     if (Notification.permission === 'granted') {
       // Show test notification
-      showTestNotification();
+      showAppleConfirmationNotification();
     } else if (Notification.permission === 'denied') {
       // Show instructions for re-enabling
       let instructions;
-      if (isStandalone) {
+      if (isIOS) {
         instructions = "🔔 Notifications are blocked!\n\n" +
-                      "For PWA apps on iOS:\n" +
-                      "• Delete this app from your home screen\n" +
-                      "• Go to the website in Safari\n" +
-                      "• Allow notifications when prompted\n" +
-                      "• Then re-add to home screen\n\n" +
-                      "This will reset the notification permission.";
+                      "To enable on iOS:\n" +
+                      "• Go to Settings > Safari > Notifications\n" +
+                      "• Enable 'Allow Websites to Ask for Permission'\n" +
+                      "• Or delete and re-add this app to home screen\n\n" +
+                      "Then refresh this page.";
       } else {
         instructions = "🔔 Notifications are blocked!\n\n" +
-                      "To enable them:\n\n" +
-                      "🍎 iOS Safari:\n" +
-                      "• Go to Settings > Safari > Notifications\n" +
-                      "• Allow notifications\n" +
-                      "• Refresh this page\n\n" +
-                      "💻 Desktop:\n" +
+                      "To enable:\n" +
                       "• Click the lock/info icon in your address bar\n" +
                       "• Allow notifications\n" +
                       "• Refresh this page";
       }
       alert(instructions);
     } else {
-      // Request permission
-      const granted = await requestNotificationPermission();
-      updateNotificationStatus();
+      // Request permission using Apple-compatible method
+      if (isIOS) {
+        showIOSNotificationPrompt();
+      } else {
+        await requestAppleNotificationPermission();
+      }
     }
   });
 
@@ -414,6 +410,175 @@ function setupNotificationControls() {
 
   // Initial status update
   updateNotificationStatus();
+}
+
+// Apple-compatible notification system
+function setupAppleNotifications() {
+  console.log('Setting up Apple-compatible notifications');
+  
+  // Check if we're on iOS
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  
+  // Check if this is first visit
+  const hasAskedBefore = localStorage.getItem('notificationAsked');
+  const isFirstVisit = !hasAskedBefore;
+  
+  console.log('iOS detected:', isIOS);
+  console.log('First visit:', isFirstVisit);
+  console.log('Notification permission:', Notification.permission);
+  
+  // Setup notification controls
+  setupNotificationControls();
+  
+  // On iOS, only request on first visit and with proper user interaction
+  if (isIOS && isFirstVisit && Notification.permission === 'default') {
+    // Show a prominent call-to-action for iOS users
+    showIOSNotificationPrompt();
+  }
+}
+
+function showIOSNotificationPrompt() {
+  // Mark that we've shown the prompt
+  localStorage.setItem('notificationAsked', 'true');
+  
+  // Create iOS-style notification prompt
+  const overlay = document.createElement('div');
+  overlay.id = 'ios-notification-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  `;
+  
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    background: white;
+    border-radius: 14px;
+    margin: 20px;
+    max-width: 300px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  `;
+  
+  modal.innerHTML = `
+    <div style="padding: 20px; text-align: center;">
+      <div style="font-size: 48px; margin-bottom: 15px;">🔔</div>
+      <h3 style="margin: 0 0 10px 0; font-size: 17px; font-weight: 600; color: #000;">
+        "TaskMaster Pro" Would Like to Send You Notifications
+      </h3>
+      <p style="margin: 0; font-size: 13px; color: #666; line-height: 1.4;">
+        Notifications may include alerts, sounds, and icon badges. These can be configured in Settings.
+      </p>
+    </div>
+    <div style="border-top: 1px solid #e5e5e5; display: flex;">
+      <button id="ios-deny-btn" style="
+        flex: 1;
+        padding: 12px;
+        border: none;
+        background: none;
+        font-size: 17px;
+        color: #007AFF;
+        border-right: 1px solid #e5e5e5;
+        cursor: pointer;
+      ">Don't Allow</button>
+      <button id="ios-allow-btn" style="
+        flex: 1;
+        padding: 12px;
+        border: none;
+        background: none;
+        font-size: 17px;
+        color: #007AFF;
+        font-weight: 600;
+        cursor: pointer;
+      ">Allow</button>
+    </div>
+  `;
+  
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  
+  // Handle button clicks
+  document.getElementById('ios-deny-btn').addEventListener('click', () => {
+    document.body.removeChild(overlay);
+    console.log('User denied notifications');
+    // Update UI to show denied state
+    updateNotificationControls();
+  });
+  
+  document.getElementById('ios-allow-btn').addEventListener('click', async () => {
+    document.body.removeChild(overlay);
+    await requestAppleNotificationPermission();
+  });
+}
+
+async function requestAppleNotificationPermission() {
+  console.log('Requesting Apple notification permission');
+  
+  if (!('Notification' in window)) {
+    console.log('Notifications not supported');
+    return false;
+  }
+  
+  try {
+    // Request permission using Apple's API
+    const permission = await Notification.requestPermission();
+    console.log('Permission result:', permission);
+    
+    if (permission === 'granted') {
+      console.log('✅ Notifications granted!');
+      
+      // Show immediate confirmation notification
+      setTimeout(() => {
+        showAppleConfirmationNotification();
+      }, 500);
+      
+      // Update UI
+      updateNotificationControls();
+      return true;
+    } else {
+      console.log('❌ Notifications denied');
+      updateNotificationControls();
+      return false;
+    }
+  } catch (error) {
+    console.error('Error requesting notification permission:', error);
+    return false;
+  }
+}
+
+function showAppleConfirmationNotification() {
+  if (Notification.permission !== 'granted') return;
+  
+  console.log('Showing Apple confirmation notification');
+  
+  const notification = new Notification('TaskMaster Pro', {
+    body: 'Notifications are now enabled! You\'ll receive reminders for your tasks.',
+    icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K',
+    badge: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0iIzRmNDZlNSIgeG1zbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iOCIgY3k9IjgiIHI9IjgiLz4KPC9zdmc+',
+    tag: 'taskmaster-enabled',
+    requireInteraction: false,
+    silent: false
+  });
+  
+  // Handle notification click
+  notification.onclick = () => {
+    window.focus();
+    notification.close();
+  };
+  
+  // Auto-close after 5 seconds
+  setTimeout(() => {
+    notification.close();
+  }, 5000);
 }
 
 // Check first visit and request notifications like Windows
@@ -544,6 +709,16 @@ function updateNotificationControls() {
   }
 }
 
+function updateNotificationControls() {
+  const enableBtn = document.getElementById('enableNotifications');
+  const statusDiv = document.getElementById('notificationStatus');
+  
+  if (enableBtn && statusDiv) {
+    // Re-run the setup to update status
+    setupNotificationControls();
+  }
+}
+
 // === NOTIFICATION FUNCTIONS ===
 async function requestNotificationPermission() {
   // Check if notifications are supported
@@ -627,6 +802,7 @@ function showTestNotification() {
 
 function showNotification(task, isReminder = false) {
   if (!("Notification" in window) || Notification.permission !== "granted") {
+    console.log("Notifications not available or not permitted");
     return;
   }
   
@@ -653,23 +829,27 @@ function showNotification(task, isReminder = false) {
     title = "TaskMaster Pro - Task Due Now";
     body = `${task.task}\nThis task is due now!`;
   }
-  
+
   const notification = new Notification(title, {
     body: body,
-    icon: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTkgMTJMMTEgMTRMMTUgMTBNMjEgMTJDMjEgMTYuOTcwNiAxNi45NzA2IDIxIDEyIDIxQzcuMDI5NDQgMjEgMyAxNi45NzA2IDMgMTJDMyA3LjAyOTQ0IDcuMDI5NDQgMyAxMiAzQzE2Ljk3MDYgMyAyMSA3LjAyOTQ0IDIxIDEyWiIgc3Ryb2tlPSIjNGY0NmU1IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K",
+    icon: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K",
     tag: task.id,
     requireInteraction: false,
-    badge: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0iIzRmNDZlNSIgeG1zbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iOCIgY3k9IjgiIHI9IjgiLz4KPHRleHQgeD0iOCIgeT0iMTIiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPvCfk5U8L3RleHQ+Cjwvc3ZnPg==",
+    badge: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0iIzRmNDZlNSIgeG1zbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iOCIgY3k9IjgiIHI9IjgiLz4KPC9zdmc+",
     silent: false
   });
-  
+
+  // Handle notification click
+  notification.onclick = () => {
+    window.focus();
+    notification.close();
+  };
+
   // Auto-close notification after 10 seconds
   setTimeout(() => {
     notification.close();
   }, 10000);
-}
-
-// === DOM BUILD ===
+}// === DOM BUILD ===
 const sectionsDiv = document.getElementById("sections");
 SECTIONS.forEach(section => {
   const details = document.createElement("details");
