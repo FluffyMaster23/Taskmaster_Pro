@@ -60,15 +60,18 @@ function sendPWAWelcomeNotification() {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   
-  if (isIOS && window.oneSignalEnabled) {
-    // Send OneSignal notification for iOS
+  if (isIOS) {
+    // For iOS, only send welcome notification if user already has notifications enabled
     window.OneSignal.push(function() {
-      window.OneSignal.sendSelfNotification(
-        "🏠 Welcome to TaskMaster Pro!", 
-        "App successfully added to home screen! You're ready to master your tasks.",
-        "https://fluffymaster23.github.io/Taskmaster_Pro/", // URL when notification is clicked
-        "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K" // icon
-      );
+      window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+        if (isEnabled) {
+          // Send welcome notification using existing permission
+          sendIOSWelcomeNotification();
+        } else {
+          // User hasn't enabled notifications yet, just log
+          console.log('PWA added to home screen, but notifications not enabled yet');
+        }
+      });
     });
   } else if (!isIOS && Notification.permission === "granted") {
     // Send native notification for desktop
@@ -85,6 +88,18 @@ function sendPWAWelcomeNotification() {
       notification.close();
     }, 6000);
   }
+}
+
+function sendIOSWelcomeNotification() {
+  window.OneSignal.push(function() {
+    window.OneSignal.sendSelfNotification(
+      "🏠 Welcome to TaskMaster Pro!", 
+      "App successfully added to home screen! You're ready to master your tasks.",
+      "https://fluffymaster23.github.io/Taskmaster_Pro/", // URL when notification is clicked
+      "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K" // icon
+    );
+    console.log('iOS welcome notification sent');
+  });
 }
 // === END PWA HOME SCREEN DETECTION ===
 // === END PWA INSTALL BUTTON LOGIC ===
@@ -127,31 +142,70 @@ function initializeOneSignal() {
         slidedown: {
           prompts: [
             {
-              type: "push", // current types are "push" & "category"
+              type: "push",
               autoPrompt: false,
               text: {
-                actionMessage: "TaskMaster Pro would like to send you task reminders even when the app is closed",
-                acceptButton: "Allow",
-                cancelButton: "No Thanks"
+                actionMessage: "Get notified when your tasks are due! TaskMaster Pro will remind you about upcoming deadlines even when the app is closed.",
+                acceptButton: "Enable Reminders",
+                cancelButton: "Not Now"
               }
             }
           ]
         }
       }
     });
-    
+
     // Check subscription status
     OneSignal.isPushNotificationsEnabled(function(isEnabled) {
       console.log('OneSignal subscription status:', isEnabled);
       window.oneSignalEnabled = isEnabled;
-      updateNotificationControlsForOneSignal();
     });
-    
+
     // Listen for subscription changes
     OneSignal.on('subscriptionChange', function (isSubscribed) {
       console.log("OneSignal subscription changed:", isSubscribed);
       window.oneSignalEnabled = isSubscribed;
-      updateNotificationControlsForOneSignal();
+    });
+  });
+}
+
+// Request permission for task deadline reminders (main prompt)
+function requestTaskReminderPermission() {
+  console.log('Requesting OneSignal permission for task deadline reminders');
+  window.OneSignal.push(function() {
+    window.OneSignal.showSlidedownPrompt().then(function() {
+      console.log('Task reminder prompt shown');
+      
+      // Listen for the user's response
+      window.OneSignal.on('subscriptionChange', function (isSubscribed) {
+        if (isSubscribed) {
+          console.log('✅ User enabled task reminder notifications!');
+          window.oneSignalEnabled = true;
+          
+          // Send a test notification to confirm it's working
+          setTimeout(() => {
+            sendTaskReminderTestNotification();
+          }, 1000);
+        }
+      });
+    }).catch(function(error) {
+      console.error('Error showing task reminder prompt:', error);
+    });
+  });
+}
+
+// Send test notification for task reminders
+function sendTaskReminderTestNotification() {
+  window.OneSignal.push(function() {
+    window.OneSignal.sendSelfNotification(
+      "🎉 Task Reminders Active!",
+      "Perfect! You'll now get notified when your tasks are due, even when the app is closed.",
+      window.location.href,
+      "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K"
+    ).then(function() {
+      console.log('Task reminder test notification sent successfully');
+    }).catch(function(error) {
+      console.error('Failed to send task reminder test notification:', error);
     });
   });
 }
@@ -700,10 +754,10 @@ function setupAppleNotifications() {
 }
 
 async function requestIOSNotificationsAutomatically() {
-  console.log('Automatically requesting iOS notifications and sending test notification');
+  console.log('Automatically requesting iOS task reminder notifications');
   
-  if (!('Notification' in window)) {
-    console.log('Notifications not supported on iOS');
+  if (!window.OneSignal) {
+    console.log('OneSignal not available for iOS');
     return false;
   }
   
@@ -711,65 +765,28 @@ async function requestIOSNotificationsAutomatically() {
   localStorage.setItem('notificationAsked', 'true');
   
   try {
-    const permission = Notification.permission;
-    console.log('Current iOS notification permission:', permission);
-    
-    if (permission === 'default') {
-      // Request permission automatically
-      console.log('Requesting iOS notification permission automatically...');
-      
-      // Use OneSignal for iOS permission request
-      OneSignal.push(function() {
-        OneSignal.registerForPushNotifications().then(function() {
-          console.log('✅ iOS OneSignal notifications enabled automatically!');
+    // Check if already subscribed
+    window.OneSignal.push(function() {
+      window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+        if (isEnabled) {
+          console.log('iOS notifications already granted, sending test notification');
           window.oneSignalEnabled = true;
-          
-          // Send immediate test notification
           setTimeout(() => {
-            sendIOSAutoTestNotification();
-          }, 1500);
-          
-          return true;
-        }).catch(function(e) {
-          console.error('❌ iOS OneSignal notifications failed:', e);
-          return false;
-        });
+            sendTaskReminderTestNotification();
+          }, 500);
+        } else {
+          // Request task reminder permission
+          console.log('Requesting iOS task reminder permission');
+          requestTaskReminderPermission();
+        }
       });
-      
-    } else if (permission === 'granted') {
-      // Already granted, just send test notification
-      console.log('iOS notifications already granted, sending test notification');
-      window.oneSignalEnabled = true;
-      setTimeout(() => {
-        sendIOSAutoTestNotification();
-      }, 1000);
-      return true;
-    } else {
-      // Denied
-      console.log('iOS notifications denied');
-      return false;
-    }
+    });
+    
+    return true;
   } catch (error) {
-    console.error('Error with iOS notification handling:', error);
+    console.error('Error requesting iOS automatic notifications:', error);
     return false;
   }
-}
-
-function sendIOSAutoTestNotification() {
-  console.log('Sending iOS automatic test notification');
-  
-  OneSignal.push(function() {
-    OneSignal.sendSelfNotification(
-      "🎉 TaskMaster Pro - iOS Ready!",
-      "Notifications are now working automatically on your iOS device! You'll get task reminders even when the app is closed.",
-      window.location.href,
-      "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K"
-    ).then(function() {
-      console.log('iOS automatic test notification sent successfully');
-    }).catch(function(error) {
-      console.error('Failed to send iOS test notification:', error);
-    });
-  });
 }
 
 function showFirefoxPrompt() {
