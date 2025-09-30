@@ -1,10 +1,6 @@
 // === CONFIG ===
 const SECTIONS = ["Blogging", "YouTube", "UCLA Simulation", "School", "Admin", "Miscellaneous"];
 
-const GITHUB_USERNAME = "FluffyMaster23";
-const GITHUB_REPO = "BruinHub";
-const GITHUB_TOKEN = "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";
-
 window._clearMessageSpoken = false;
 window._spokenTaskIds = new Set();
 window._notifiedTaskIds = new Set(); // Track which tasks already sent notifications
@@ -158,7 +154,7 @@ function speak(text) {
   speechSynthesis.speak(utter);
 }
 
-// === SPEAK DAVID (used for GitHub, reminders, task reports)
+// === SPEAK DAVID (used for reminders, task reports)
 function speakDavid(text) {
   const utter = new SpeechSynthesisUtterance(text);
   const voices = speechSynthesis.getVoices();
@@ -588,34 +584,6 @@ document.getElementById("checkUpcoming").addEventListener("click", () => {
   } else {
     speakDavid(announcement);
   }
-});
-
-// === GITHUB CHECK
-document.getElementById("checkIssues").addEventListener("click", () => {
-  fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/issues?state=open`, {
-    headers: {
-      Authorization: `token ${GITHUB_TOKEN}`
-    }
-  })
-    .then(res => {
-      if (!res.ok) throw new Error("GitHub API error");
-      return res.json();
-    })
-    .then(data => {
-      // Filter out pull requests (GitHub API includes PRs in issues endpoint)
-      const actualIssues = data.filter(issue => !issue.pull_request);
-      
-      if (actualIssues.length === 0) {
-        speakDavid("You have no open GitHub issues.");
-      } else {
-        const issueList = actualIssues.map(issue => issue.title).join(". ");
-        speakDavid(`You have ${actualIssues.length} open issue${actualIssues.length > 1 ? 's' : ''}. ${issueList}`);
-      }
-    })
-    .catch(err => {
-      console.error("GitHub Error:", err);
-      speakDavid("There was an error checking GitHub issues.");
-    });
 });
 
 // === WIZ QUOTES
