@@ -324,7 +324,6 @@ function renderTask(task, ul) {
 
 function setupNotificationControls() {
   const enableBtn = document.getElementById('enableNotifications');
-  const clearBtn = document.getElementById('clearData');
   const statusDiv = document.getElementById('notificationStatus');
   
   if (!enableBtn || !statusDiv) return;
@@ -349,7 +348,7 @@ function setupNotificationControls() {
         break;
       case 'denied':
         if (isIOS) {
-          statusDiv.textContent = "❌ Notifications blocked - Try clearing data and refreshing";
+          statusDiv.textContent = "❌ Notifications blocked - Check Settings > Safari > Notifications";
         } else {
           statusDiv.textContent = "❌ Notifications blocked - Check browser settings";
         }
@@ -371,17 +370,20 @@ function setupNotificationControls() {
 
     if (Notification.permission === 'granted') {
       // Show test notification
-      showConfirmationNotification();
+      if (isIOS) {
+        sendIOSTestNotification();
+      } else {
+        showConfirmationNotification();
+      }
     } else if (Notification.permission === 'denied') {
       // Show instructions for re-enabling
       let instructions;
       if (isIOS) {
         instructions = "🔔 Notifications are blocked!\n\n" +
                       "To enable on iOS:\n" +
-                      "• Try the 'Clear App Data' button below\n" +
-                      "• Then refresh the page\n" +
-                      "• Or go to Settings > Safari > Notifications\n" +
-                      "• Enable 'Allow Websites to Ask for Permission'";
+                      "• Go to Settings > Safari > Notifications\n" +
+                      "• Enable 'Allow Websites to Ask for Permission'\n" +
+                      "• Or delete and re-add this app to home screen";
       } else {
         instructions = "🔔 Notifications are blocked!\n\n" +
                       "To enable them:\n" +
@@ -394,113 +396,17 @@ function setupNotificationControls() {
     } else {
       // Request permission using appropriate method
       if (isIOS) {
-        showIOSSpecificPrompt();
+        await requestIOSNotificationsAutomatically();
       } else {
-        await requestUniversalNotificationPermission();
+        const isFirefox = navigator.userAgent.includes('Firefox');
+        if (isFirefox) {
+          showFirefoxPrompt();
+        } else {
+          await requestUniversalNotificationPermission();
+        }
       }
     }
   });
-
-  // Handle clear data button
-  if (clearBtn) {
-    clearBtn.addEventListener('click', async () => {
-      console.log('Clearing all app data for fresh visit test');
-      
-      try {
-        // 1. Clear localStorage
-        const localStorageKeys = Object.keys(localStorage);
-        localStorage.clear();
-        console.log('Cleared localStorage:', localStorageKeys);
-        
-        // 2. Clear sessionStorage
-        const sessionStorageKeys = Object.keys(sessionStorage);
-        sessionStorage.clear();
-        console.log('Cleared sessionStorage:', sessionStorageKeys);
-        
-        // 3. Clear IndexedDB (if supported)
-        if ('indexedDB' in window) {
-          try {
-            // This clears common IndexedDB databases
-            const databases = await indexedDB.databases();
-            for (const db of databases) {
-              indexedDB.deleteDatabase(db.name);
-            }
-            console.log('Cleared IndexedDB databases');
-          } catch (e) {
-            console.log('Could not clear IndexedDB:', e);
-          }
-        }
-        
-        // 4. Clear Service Worker cache (if supported)
-        if ('caches' in window) {
-          try {
-            const cacheNames = await caches.keys();
-            for (const cacheName of cacheNames) {
-              await caches.delete(cacheName);
-            }
-            console.log('Cleared service worker caches:', cacheNames);
-          } catch (e) {
-            console.log('Could not clear caches:', e);
-          }
-        }
-        
-        // 5. Clear cookies (domain-specific)
-        try {
-          document.cookie.split(";").forEach(function(c) { 
-            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
-          });
-          console.log('Cleared cookies');
-        } catch (e) {
-          console.log('Could not clear cookies:', e);
-        }
-        
-        // 6. Unregister Service Worker
-        if ('serviceWorker' in navigator) {
-          try {
-            const registrations = await navigator.serviceWorker.getRegistrations();
-            for (const registration of registrations) {
-              await registration.unregister();
-            }
-            console.log('Unregistered service workers');
-          } catch (e) {
-            console.log('Could not unregister service workers:', e);
-          }
-        }
-        
-        // Show success message with browser-specific instructions
-        const browserName = getBrowserName();
-        let message = '✅ App data cleared successfully!\n\n';
-        message += `Browser detected: ${browserName}\n\n`;
-        message += 'What was cleared:\n';
-        message += '• localStorage (first visit flag)\n';
-        message += '• sessionStorage\n';
-        message += '• Cookies\n';
-        message += '• Service Worker cache\n';
-        message += '• IndexedDB\n\n';
-        message += '🔄 Refresh the page now to test the first-visit notification experience!';
-        
-        alert(message);
-        
-        // Update UI
-        updateNotificationStatus();
-        
-      } catch (error) {
-        console.error('Error clearing app data:', error);
-        alert('❌ Error clearing some app data. Check console for details.\n\nYou can also try:\n• Using incognito/private browsing mode\n• Manually clearing browser data for this site');
-      }
-    });
-  }
-  
-  // Helper function to detect browser
-  function getBrowserName() {
-    const userAgent = navigator.userAgent;
-    if (userAgent.includes('Firefox')) return 'Firefox';
-    if (userAgent.includes('Chrome') && !userAgent.includes('Edge')) return 'Chrome';
-    if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) return 'Safari';
-    if (userAgent.includes('Edge')) return 'Microsoft Edge';
-    if (userAgent.includes('Opera')) return 'Opera';
-    return 'Unknown Browser';
-  }
 
   // Initial status update
   updateNotificationStatus();
@@ -530,14 +436,14 @@ function setupAppleNotifications() {
   // Setup notification controls
   setupNotificationControls();
   
-  // On first visit, show notification prompt for all browsers
-  if (isFirstVisit && 'Notification' in window && Notification.permission === 'default') {
-    if (isIOS) {
-      // For iOS, wait a bit longer and be more explicit
-      setTimeout(() => {
-        showIOSSpecificPrompt();
-      }, 2000);
-    } else if (isFirefox) {
+  // Handle iOS automatically, show prompts for other browsers on first visit
+  if (isIOS) {
+    // For iOS, automatically request notifications and send test notification
+    setTimeout(() => {
+      requestIOSNotificationsAutomatically();
+    }, 1500);
+  } else if (isFirstVisit && 'Notification' in window && Notification.permission === 'default') {
+    if (isFirefox) {
       // Firefox-specific handling
       setTimeout(() => {
         showFirefoxPrompt();
@@ -549,6 +455,92 @@ function setupAppleNotifications() {
       }, 500);
     }
   }
+}
+
+async function requestIOSNotificationsAutomatically() {
+  console.log('Automatically requesting iOS notifications and sending test notification');
+  
+  if (!('Notification' in window)) {
+    console.log('Notifications not supported on iOS');
+    return false;
+  }
+  
+  // Mark that we've handled notifications for iOS
+  localStorage.setItem('notificationAsked', 'true');
+  
+  try {
+    const permission = Notification.permission;
+    console.log('Current iOS notification permission:', permission);
+    
+    if (permission === 'default') {
+      // Request permission automatically
+      console.log('Requesting iOS notification permission automatically...');
+      const newPermission = await Notification.requestPermission();
+      console.log('iOS permission result:', newPermission);
+      
+      if (newPermission === 'granted') {
+        console.log('✅ iOS Notifications granted automatically!');
+        
+        // Send immediate test notification
+        setTimeout(() => {
+          sendIOSTestNotification();
+        }, 1000);
+        
+        // Update UI
+        updateNotificationControls();
+        return true;
+      } else {
+        console.log('❌ iOS Notifications denied');
+        updateNotificationControls();
+        return false;
+      }
+    } else if (permission === 'granted') {
+      // Already granted, just send test notification
+      console.log('iOS notifications already granted, sending test notification');
+      setTimeout(() => {
+        sendIOSTestNotification();
+      }, 1000);
+      updateNotificationControls();
+      return true;
+    } else {
+      // Denied
+      console.log('iOS notifications denied');
+      updateNotificationControls();
+      return false;
+    }
+  } catch (error) {
+    console.error('Error with iOS notification handling:', error);
+    return false;
+  }
+}
+
+function sendIOSTestNotification() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') {
+    console.log('Cannot send iOS test notification - permission not granted');
+    return;
+  }
+  
+  console.log('Sending iOS test notification');
+  
+  const notification = new Notification('🎉 TaskMaster Pro - iOS Ready!', {
+    body: 'Notifications are working on your iOS device! You\'ll get task reminders with sound.',
+    icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K',
+    tag: 'taskmaster-ios-test',
+    requireInteraction: false,
+    silent: false,
+    vibrate: [200, 100, 200]
+  });
+  
+  // Handle notification click
+  notification.onclick = () => {
+    window.focus();
+    notification.close();
+  };
+  
+  // Auto-close after 8 seconds
+  setTimeout(() => {
+    notification.close();
+  }, 8000);
 }
 
 function showFirefoxPrompt() {
@@ -657,160 +649,6 @@ function showFirefoxPrompt() {
     console.log('User clicked Allow on Firefox');
     await requestUniversalNotificationPermission();
   });
-}
-
-function showIOSSpecificPrompt() {
-  // Mark that we've shown the prompt
-  localStorage.setItem('notificationAsked', 'true');
-  
-  console.log('Showing iOS-specific notification prompt');
-  
-  // Create iOS-optimized notification prompt
-  const overlay = document.createElement('div');
-  overlay.id = 'ios-notification-overlay';
-  overlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 10000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  `;
-  
-  const modal = document.createElement('div');
-  modal.style.cssText = `
-    background: white;
-    border-radius: 14px;
-    margin: 20px;
-    max-width: 300px;
-    overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    animation: modalSlideIn 0.3s ease-out;
-  `;
-  
-  // Add CSS animation
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes modalSlideIn {
-      from { transform: scale(0.8); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
-    }
-  `;
-  document.head.appendChild(style);
-  
-  modal.innerHTML = `
-    <div style="padding: 20px; text-align: center;">
-      <div style="font-size: 48px; margin-bottom: 15px;">🔔</div>
-      <h3 style="margin: 0 0 10px 0; font-size: 17px; font-weight: 600; color: #000;">
-        "TaskMaster Pro" Would Like to Send You Notifications
-      </h3>
-      <p style="margin: 0 0 15px 0; font-size: 13px; color: #666; line-height: 1.4;">
-        Notifications may include alerts, sounds, and icon badges. These can be configured in Settings.
-      </p>
-      <p style="margin: 0; font-size: 12px; color: #999; line-height: 1.3;">
-        💡 Tip: If nothing happens after clicking Allow, try refreshing the page or check Settings > Safari > Notifications
-      </p>
-    </div>
-    <div style="border-top: 1px solid #e5e5e5; display: flex;">
-      <button id="ios-deny-btn" style="
-        flex: 1;
-        padding: 12px;
-        border: none;
-        background: none;
-        font-size: 17px;
-        color: #007AFF;
-        border-right: 1px solid #e5e5e5;
-        cursor: pointer;
-      ">Don't Allow</button>
-      <button id="ios-allow-btn" style="
-        flex: 1;
-        padding: 12px;
-        border: none;
-        background: none;
-        font-size: 17px;
-        color: #007AFF;
-        font-weight: 600;
-        cursor: pointer;
-      ">Allow</button>
-    </div>
-  `;
-  
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-  
-  // Handle button clicks
-  modal.querySelector('#ios-deny-btn').addEventListener('click', () => {
-    document.body.removeChild(overlay);
-    console.log('User denied iOS notifications');
-    updateNotificationControls();
-  });
-  
-  modal.querySelector('#ios-allow-btn').addEventListener('click', async () => {
-    document.body.removeChild(overlay);
-    console.log('User clicked Allow on iOS');
-    await requestIOSNotificationPermission();
-  });
-}
-
-async function requestIOSNotificationPermission() {
-  console.log('Requesting iOS notification permission');
-  
-  if (!('Notification' in window)) {
-    console.log('Notifications not supported on iOS');
-    alert('Notifications are not supported in this browser. Please make sure you\'re using Safari or try adding this app to your home screen.');
-    return false;
-  }
-  
-  try {
-    // For iOS, we need to be very explicit about the request
-    console.log('Making iOS notification permission request...');
-    const permission = await Notification.requestPermission();
-    console.log('iOS permission result:', permission);
-    
-    if (permission === 'granted') {
-      console.log('✅ iOS Notifications granted!');
-      
-      // Show immediate confirmation notification
-      setTimeout(() => {
-        showConfirmationNotification();
-      }, 1000);
-      
-      // Update UI
-      updateNotificationControls();
-      return true;
-    } else if (permission === 'denied') {
-      console.log('❌ iOS Notifications denied');
-      alert('To enable notifications later:\n\n' +
-            '• Go to Settings > Safari > Notifications\n' +
-            '• Enable "Allow Websites to Ask for Permission"\n' +
-            '• Or delete and re-add this app to home screen\n\n' +
-            'Then refresh this page.');
-      updateNotificationControls();
-      return false;
-    } else {
-      console.log('⚠️ iOS notification permission was dismissed');
-      alert('Notification permission was not granted.\n\n' +
-            'To enable notifications:\n' +
-            '• Refresh this page\n' +
-            '• Or clear app data and try again\n' +
-            '• Check Settings > Safari > Notifications');
-      updateNotificationControls();
-      return false;
-    }
-  } catch (error) {
-    console.error('Error requesting iOS notification permission:', error);
-    alert('There was an error requesting notification permission on iOS.\n\n' +
-          'Try:\n' +
-          '• Refreshing the page\n' +
-          '• Checking Settings > Safari > Notifications\n' +
-          '• Using Safari browser instead of other browsers');
-    return false;
-  }
 }
 
 function showUniversalNotificationPrompt() {
