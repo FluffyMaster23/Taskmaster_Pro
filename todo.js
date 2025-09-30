@@ -106,13 +106,15 @@ function updateNotificationControlsForOneSignal() {
   if (!enableBtn || !statusDiv) return;
   
   if (window.oneSignalEnabled) {
-    statusDiv.textContent = "✅ OneSignal notifications enabled for iOS";
-    enableBtn.textContent = "🔔 Test iOS Notification";
+    statusDiv.textContent = "✅ iOS notifications enabled";
+    enableBtn.textContent = "🔔 Test Notification";
     enableBtn.style.background = "#10b981";
+    enableBtn.style.display = 'block';
   } else {
     statusDiv.textContent = "⚠️ Click to enable iOS task notifications";
     enableBtn.textContent = "🔔 Enable iOS Notifications";
     enableBtn.style.background = "#4f46e5";
+    enableBtn.style.display = 'block';
   }
 }
 
@@ -497,7 +499,7 @@ function setupNotificationControls() {
         updateNotificationControlsForOneSignal();
         return;
       } else {
-        statusDiv.textContent = "⚠️ Click to enable iOS task notifications (OneSignal)";
+        statusDiv.textContent = "⚠️ Click to enable iOS task notifications";
         enableBtn.textContent = "🔔 Enable iOS Notifications";
         enableBtn.style.background = "#4f46e5";
       }
@@ -513,14 +515,13 @@ function setupNotificationControls() {
 
       switch (permission) {
         case 'granted':
-          statusDiv.textContent = "✅ Desktop notifications enabled";
+          statusDiv.textContent = "✅ Notifications enabled";
           enableBtn.textContent = "🔔 Test Notification";
           enableBtn.style.background = "#10b981";
           break;
         case 'denied':
-          statusDiv.textContent = "❌ Notifications blocked - Check browser settings";
-          enableBtn.textContent = "🔔 Notifications Blocked";
-          enableBtn.style.background = "#ef4444";
+          statusDiv.textContent = "❌ Notifications blocked";
+          enableBtn.style.display = 'none'; // Hide button when blocked
           break;
         case 'default':
           statusDiv.textContent = "⚠️ Click to enable task notifications";
@@ -547,16 +548,7 @@ function setupNotificationControls() {
       if (Notification.permission === 'granted') {
         // Show test notification
         showConfirmationNotification();
-      } else if (Notification.permission === 'denied') {
-        // Show instructions for re-enabling
-        const instructions = "🔔 Notifications are blocked!\n\n" +
-                            "To enable them:\n" +
-                            "• Look for the notification icon in your browser's address bar\n" +
-                            "• Or check your browser's notification settings\n" +
-                            "• Allow notifications for this site\n" +
-                            "• Then refresh this page";
-        alert(instructions);
-      } else {
+      } else if (Notification.permission === 'default') {
         // Request permission using appropriate method
         const isFirefox = navigator.userAgent.includes('Firefox');
         if (isFirefox) {
@@ -565,6 +557,7 @@ function setupNotificationControls() {
           await requestUniversalNotificationPermission();
         }
       }
+      // Note: If denied, button is hidden, so no action needed
     }
   });
 
