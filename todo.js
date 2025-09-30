@@ -29,6 +29,9 @@ window.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
+
+  // Setup notification button and status
+  setupNotificationControls();
 });
 // === END PWA INSTALL BUTTON LOGIC ===
 
@@ -224,14 +227,8 @@ window.onload = () => {
       });
   }
 
-  // Request notification permission
-  if ("Notification" in window && Notification.permission === "default") {
-    Notification.requestPermission().then(permission => {
-      if (permission === "granted") {
-        console.log("Notifications enabled");
-      }
-    });
-  }
+  // Request notification permission with better handling
+  requestNotificationPermission();
 
   const now = new Date();
   const hour = now.getHours();
@@ -325,7 +322,134 @@ function renderTask(task, ul) {
   ul.appendChild(li);
 }
 
+function setupNotificationControls() {
+  const enableBtn = document.getElementById('enableNotifications');
+  const statusDiv = document.getElementById('notificationStatus');
+  
+  if (!enableBtn || !statusDiv) return;
+
+  // Update button and status based on current permission
+  function updateNotificationStatus() {
+    if (!("Notification" in window)) {
+      statusDiv.textContent = "❌ Notifications not supported in this browser";
+      enableBtn.style.display = 'none';
+      return;
+    }
+
+    const permission = Notification.permission;
+    switch (permission) {
+      case 'granted':
+        statusDiv.textContent = "✅ Notifications enabled";
+        enableBtn.textContent = "🔔 Test Notification";
+        enableBtn.style.background = "#10b981";
+        break;
+      case 'denied':
+        statusDiv.textContent = "❌ Notifications blocked - Check browser settings";
+        enableBtn.textContent = "🔔 Notifications Blocked";
+        enableBtn.style.background = "#ef4444";
+        break;
+      case 'default':
+        statusDiv.textContent = "⚠️ Click to enable task notifications";
+        enableBtn.textContent = "🔔 Enable Notifications";
+        enableBtn.style.background = "#4f46e5";
+        break;
+    }
+  }
+
+  // Handle button click
+  enableBtn.addEventListener('click', async () => {
+    if (Notification.permission === 'granted') {
+      // Show test notification
+      showTestNotification();
+    } else if (Notification.permission === 'denied') {
+      // Show instructions for re-enabling
+      alert("🔔 Notifications are blocked!\n\n" +
+            "To enable them:\n\n" +
+            "🍎 iOS Safari:\n" +
+            "• Go to Settings > Safari > Notifications\n" +
+            "• Allow notifications\n" +
+            "• Refresh this page\n\n" +
+            "💻 Desktop:\n" +
+            "• Click the lock/info icon in your address bar\n" +
+            "• Allow notifications\n" +
+            "• Refresh this page");
+    } else {
+      // Request permission
+      const granted = await requestNotificationPermission();
+      updateNotificationStatus();
+    }
+  });
+
+  // Initial status update
+  updateNotificationStatus();
+}
+
 // === NOTIFICATION FUNCTIONS ===
+async function requestNotificationPermission() {
+  // Check if notifications are supported
+  if (!("Notification" in window)) {
+    console.log("This browser does not support notifications");
+    return false;
+  }
+
+  // Check current permission status
+  let permission = Notification.permission;
+  console.log("Current notification permission:", permission);
+
+  if (permission === "default") {
+    // Request permission
+    try {
+      permission = await Notification.requestPermission();
+      console.log("Notification permission after request:", permission);
+    } catch (error) {
+      console.error("Error requesting notification permission:", error);
+      return false;
+    }
+  }
+
+  if (permission === "granted") {
+    console.log("✅ Notifications enabled!");
+    
+    // Show a test notification to confirm it works
+    setTimeout(() => {
+      showTestNotification();
+    }, 1000);
+    
+    return true;
+  } else if (permission === "denied") {
+    console.log("❌ Notifications blocked. To enable:");
+    console.log("• On iOS: Settings > Safari > Notifications > Allow");
+    console.log("• On Desktop: Click the lock/info icon in address bar");
+    
+    // Show user-friendly message
+    alert("📱 To get task reminders:\n\n" +
+          "🍎 iOS: Settings > Safari > Notifications > Allow\n" +
+          "💻 Desktop: Click the lock icon in your address bar\n\n" +
+          "Then refresh this page!");
+    
+    return false;
+  }
+
+  return false;
+}
+
+function showTestNotification() {
+  if (Notification.permission === "granted") {
+    const notification = new Notification("🎉 TaskMaster Pro", {
+      body: "Notifications are now enabled! You'll get reminders for your tasks.",
+      icon: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K",
+      tag: "taskmaster-welcome",
+      requireInteraction: false,
+      silent: false
+    });
+
+    // Auto-close after 5 seconds
+    setTimeout(() => {
+      notification.close();
+    }, 5000);
+  }
+}
+
 function showNotification(task, isReminder = false) {
   if (!("Notification" in window) || Notification.permission !== "granted") {
     return;
