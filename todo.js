@@ -66,6 +66,12 @@ function initializeOneSignal() {
         scope: './'
       },
       serviceWorkerPath: 'OneSignalSDKWorker.js',
+      // Enable background notifications for iOS
+      persistNotification: true, // Keep notifications visible
+      showCreatedAt: true, // Show timestamp
+      welcomeNotification: {
+        disable: true // Don't show welcome notification
+      },
       promptOptions: {
         slidedown: {
           prompts: [
@@ -73,7 +79,7 @@ function initializeOneSignal() {
               type: "push", // current types are "push" & "category"
               autoPrompt: false,
               text: {
-                actionMessage: "TaskMaster Pro would like to send you task reminders",
+                actionMessage: "TaskMaster Pro would like to send you task reminders even when the app is closed",
                 acceptButton: "Allow",
                 cancelButton: "No Thanks"
               }
@@ -136,43 +142,110 @@ function scheduleOneSignalTaskReminder(task) {
   
   console.log('Scheduling OneSignal task reminder for:', task.task);
   
-  // Calculate reminder time
-  const dueTime = new Date(task.time);
-  const reminderMinutes = task.reminderMinutes || 0;
-  const reminderTime = new Date(dueTime.getTime() - (reminderMinutes * 60 * 1000));
+  // Get user's OneSignal Player ID for server-side scheduling
+  OneSignal.push(function() {
+    OneSignal.getUserId().then(function(userId) {
+      if (userId) {
+        console.log('OneSignal User ID:', userId);
+        
+        // Calculate reminder time
+        const dueTime = new Date(task.time);
+        const reminderMinutes = task.reminderMinutes || 0;
+        const reminderTime = new Date(dueTime.getTime() - (reminderMinutes * 60 * 1000));
+        
+        // Store task data for background notifications
+        const taskData = {
+          id: task.id,
+          title: task.task,
+          message: task.msg,
+          dueTime: dueTime.toISOString(),
+          reminderTime: reminderTime.toISOString(),
+          reminderMinutes: reminderMinutes,
+          userId: userId
+        };
+        
+        // Store in localStorage for background processing
+        let scheduledTasks = JSON.parse(localStorage.getItem('scheduledOneSignalTasks') || '[]');
+        // Remove any existing task with same ID
+        scheduledTasks = scheduledTasks.filter(t => t.id !== task.id);
+        // Add new task
+        scheduledTasks.push(taskData);
+        localStorage.setItem('scheduledOneSignalTasks', JSON.stringify(scheduledTasks));
+        
+        console.log('Task scheduled for OneSignal background notifications');
+        
+        // Also set up client-side fallback for immediate notifications
+        const now = new Date();
+        const timeUntilReminder = reminderTime.getTime() - now.getTime();
+        const timeUntilDue = dueTime.getTime() - now.getTime();
+        
+        // Schedule reminder notification if time is reasonable (less than 24 hours)
+        if (timeUntilReminder > 0 && timeUntilReminder <= 24 * 60 * 60 * 1000) {
+          setTimeout(() => {
+            sendOneSignalBackgroundNotification(task, true); // isReminder = true
+          }, timeUntilReminder);
+        }
+        
+        // Schedule due notification if time is reasonable (less than 24 hours)
+        if (timeUntilDue > 0 && timeUntilDue <= 24 * 60 * 60 * 1000) {
+          setTimeout(() => {
+            sendOneSignalBackgroundNotification(task, false); // isReminder = false
+          }, timeUntilDue);
+        }
+      }
+    });
+  });
+}
+
+function sendOneSignalBackgroundNotification(task, isReminder = false) {
+  if (!window.oneSignalEnabled) return;
   
-  // For client-side scheduling, we'll use setTimeout (limited)
-  // In production, you'd schedule this on OneSignal's servers
-  const now = new Date();
-  const timeUntilReminder = reminderTime.getTime() - now.getTime();
+  console.log('Sending OneSignal background notification for:', task.task);
   
-  if (timeUntilReminder > 0) {
-    setTimeout(() => {
-      OneSignal.push(function() {
+  OneSignal.push(function() {
+    OneSignal.getUserId().then(function(userId) {
+      if (userId) {
+        let title, message;
+        
+        if (isReminder) {
+          const dueTime = new Date(task.time);
+          const now = new Date();
+          const timeDiff = dueTime - now;
+          const hours = Math.floor(timeDiff / (1000 * 60 * 60));
+          const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+          
+          title = "⏰ TaskMaster Pro - Reminder";
+          if (hours > 0) {
+            message = `${task.task} - Due in ${hours}h ${minutes}m`;
+          } else {
+            message = `${task.task} - Due in ${minutes} minutes`;
+          }
+        } else {
+          title = "🚨 TaskMaster Pro - Task Due Now!";
+          message = `${task.task} - This task is due now!`;
+        }
+        
+        // Use OneSignal's sendSelfNotification for background delivery
         OneSignal.sendSelfNotification(
-          "⏰ TaskMaster Pro - Task Reminder",
-          `${task.task} - Due: ${dueTime.toLocaleString()}`,
-          window.location.href,
-          "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K"
-        );
-      });
-    }, timeUntilReminder);
-  }
-  
-  // Also schedule the final due notification
-  const timeUntilDue = dueTime.getTime() - now.getTime();
-  if (timeUntilDue > 0) {
-    setTimeout(() => {
-      OneSignal.push(function() {
-        OneSignal.sendSelfNotification(
-          "🚨 TaskMaster Pro - Task Due Now!",
-          `${task.task} - This task is due now!`,
-          window.location.href,
-          "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K"
-        );
-      });
-    }, timeUntilDue);
-  }
+          title,
+          message,
+          window.location.href, // URL to open when clicked
+          "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K", // App icon
+          {
+            // Data payload for the notification
+            task_id: task.id,
+            task_title: task.task,
+            is_reminder: isReminder.toString(),
+            due_time: task.time
+          }
+        ).then(function() {
+          console.log('Background notification sent successfully');
+        }).catch(function(error) {
+          console.error('Failed to send background notification:', error);
+        });
+      }
+    });
+  });
 }
 // === END ONESIGNAL IMPLEMENTATION ===
 
@@ -437,6 +510,17 @@ function removeTask(taskId) {
   const all = getTasks();
   const filtered = all.filter(t => t.id !== taskId);
   localStorage.setItem("tasks", JSON.stringify(filtered));
+  
+  // Also remove from OneSignal scheduled tasks for iOS
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  
+  if (isIOS) {
+    let scheduledTasks = JSON.parse(localStorage.getItem('scheduledOneSignalTasks') || '[]');
+    scheduledTasks = scheduledTasks.filter(t => t.id !== taskId);
+    localStorage.setItem('scheduledOneSignalTasks', JSON.stringify(scheduledTasks));
+    console.log('Removed task from OneSignal schedule:', taskId);
+  }
 }
 function renderTask(task, ul) {
   const li = document.createElement("li");
