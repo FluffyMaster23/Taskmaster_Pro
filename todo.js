@@ -631,77 +631,6 @@ function renderTask(task, ul) {
   ul.appendChild(li);
 }
 
-function setupNotificationControls() {
-  const enableBtn = document.getElementById('enableNotifications');
-  const statusDiv = document.getElementById('notificationStatus');
-  
-  if (!enableBtn || !statusDiv) return;
-
-  // Detect platform for hybrid approach
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-  // Hide notification controls on iOS (auto-handled)
-  if (isIOS) {
-    enableBtn.style.display = 'none';
-    statusDiv.style.display = 'none';
-    console.log('iOS detected - notification controls hidden (auto-enabled)');
-    return;
-  }
-
-  // Update button and status based on current permission and platform (Desktop only)
-  function updateNotificationStatus() {
-    // Desktop: Use native Web Notifications
-    if (!("Notification" in window)) {
-      statusDiv.textContent = "❌ Notifications not supported in this browser";
-      enableBtn.style.display = 'none';
-      return;
-    }
-
-    const permission = Notification.permission;
-
-    switch (permission) {
-      case 'granted':
-        statusDiv.textContent = "✅ Notifications enabled";
-        enableBtn.textContent = "🔔 Notifications Enabled";
-        enableBtn.style.background = "#10b981";
-        enableBtn.style.display = 'block';
-        enableBtn.disabled = true; // Disable button when already enabled
-        break;
-      case 'denied':
-        statusDiv.textContent = "❌ Notifications blocked";
-        enableBtn.style.display = 'none'; // Hide button when blocked
-        break;
-      case 'default':
-        statusDiv.textContent = "⚠️ Click to enable task notifications";
-        enableBtn.textContent = "🔔 Enable Notifications";
-        enableBtn.style.background = "#4f46e5";
-        enableBtn.style.display = 'block';
-        enableBtn.disabled = false;
-        break;
-    }
-  }
-
-  // Handle button click - desktop only
-  enableBtn.addEventListener('click', async () => {
-    // Desktop: Use native Web Notifications
-    if (Notification.permission === 'default') {
-      // Request permission using appropriate method (no test notifications)
-      const isFirefox = navigator.userAgent.includes('Firefox');
-      if (isFirefox) {
-        showFirefoxPrompt();
-      } else {
-        await requestUniversalNotificationPermission();
-      }
-    }
-    // If granted, button is disabled, so no action needed
-    // If denied, button is hidden, so no action needed
-  });
-
-  // Initial status update
-  updateNotificationStatus();
-}
-
 // Universal notification system for all browsers with OneSignal for iOS
 function setupAppleNotifications() {
   console.log('Setting up hybrid notifications: OneSignal for iOS, native for desktop');
@@ -709,17 +638,8 @@ function setupAppleNotifications() {
   // Detect browser and platform
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const isFirefox = navigator.userAgent.includes('Firefox');
-  const isChrome = navigator.userAgent.includes('Chrome') && !navigator.userAgent.includes('Edge');
-  const isSafari = navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome');
-  const isEdge = navigator.userAgent.includes('Edge');
   
-  // Check if this is first visit
-  const hasAskedBefore = localStorage.getItem('notificationAsked');
-  const isFirstVisit = !hasAskedBefore;
-  
-  console.log('Platform - iOS:', isIOS, 'Firefox:', isFirefox, 'Chrome:', isChrome, 'Safari:', isSafari, 'Edge:', isEdge);
-  console.log('First visit:', isFirstVisit);
+  console.log('Platform - iOS:', isIOS);
   console.log('Notification support:', 'Notification' in window);
   
   if (isIOS) {
@@ -728,28 +648,12 @@ function setupAppleNotifications() {
     setTimeout(() => {
       requestIOSNotificationsAutomatically();
     }, 2000);
-    // Don't setup notification controls for iOS
   } else {
-    console.log('Desktop detected - using native Web Notifications');
+    console.log('Desktop detected - notifications will work automatically via interval checker');
     console.log('Notification permission:', Notification.permission);
     
-    // Setup notification controls for desktop only
-    setupNotificationControls();
-    
-    // Handle desktop browsers on first visit
-    if (isFirstVisit && 'Notification' in window && Notification.permission === 'default') {
-      if (isFirefox) {
-        // Firefox-specific handling
-        setTimeout(() => {
-          showFirefoxPrompt();
-        }, 1000);
-      } else {
-        // For Chrome, Edge, and other browsers
-        setTimeout(() => {
-          showUniversalNotificationPrompt();
-        }, 500);
-      }
-    }
+    // Desktop browsers will use automatic prompts when users add tasks
+    // No manual button needed anymore since reminders work automatically
   }
 }
 
