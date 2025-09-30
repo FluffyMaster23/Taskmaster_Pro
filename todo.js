@@ -502,6 +502,7 @@ function setupNotificationControls() {
         statusDiv.textContent = "⚠️ Click to enable iOS task notifications";
         enableBtn.textContent = "🔔 Enable iOS Notifications";
         enableBtn.style.background = "#4f46e5";
+        enableBtn.style.display = 'block'; // Always show button on iOS
       }
     } else {
       // Desktop: Use native Web Notifications
@@ -518,6 +519,7 @@ function setupNotificationControls() {
           statusDiv.textContent = "✅ Notifications enabled";
           enableBtn.textContent = "🔔 Test Notification";
           enableBtn.style.background = "#10b981";
+          enableBtn.style.display = 'block';
           break;
         case 'denied':
           statusDiv.textContent = "❌ Notifications blocked";
@@ -527,6 +529,7 @@ function setupNotificationControls() {
           statusDiv.textContent = "⚠️ Click to enable task notifications";
           enableBtn.textContent = "🔔 Enable Notifications";
           enableBtn.style.background = "#4f46e5";
+          enableBtn.style.display = 'block';
           break;
       }
     }
