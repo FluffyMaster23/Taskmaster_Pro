@@ -403,23 +403,103 @@ function setupNotificationControls() {
 
   // Handle clear data button
   if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-      // Clear all localStorage data
-      localStorage.clear();
+    clearBtn.addEventListener('click', async () => {
+      console.log('Clearing all app data for fresh visit test');
       
-      // Clear all sessionStorage data
-      sessionStorage.clear();
-      
-      // Clear all cookies for this domain (if possible)
-      document.cookie.split(";").forEach(function(c) { 
-        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
-      });
-      
-      alert('✅ App data cleared!\n\nRefresh the page to test the first-visit notification experience again.');
-      
-      // Update UI
-      updateNotificationStatus();
+      try {
+        // 1. Clear localStorage
+        const localStorageKeys = Object.keys(localStorage);
+        localStorage.clear();
+        console.log('Cleared localStorage:', localStorageKeys);
+        
+        // 2. Clear sessionStorage
+        const sessionStorageKeys = Object.keys(sessionStorage);
+        sessionStorage.clear();
+        console.log('Cleared sessionStorage:', sessionStorageKeys);
+        
+        // 3. Clear IndexedDB (if supported)
+        if ('indexedDB' in window) {
+          try {
+            // This clears common IndexedDB databases
+            const databases = await indexedDB.databases();
+            for (const db of databases) {
+              indexedDB.deleteDatabase(db.name);
+            }
+            console.log('Cleared IndexedDB databases');
+          } catch (e) {
+            console.log('Could not clear IndexedDB:', e);
+          }
+        }
+        
+        // 4. Clear Service Worker cache (if supported)
+        if ('caches' in window) {
+          try {
+            const cacheNames = await caches.keys();
+            for (const cacheName of cacheNames) {
+              await caches.delete(cacheName);
+            }
+            console.log('Cleared service worker caches:', cacheNames);
+          } catch (e) {
+            console.log('Could not clear caches:', e);
+          }
+        }
+        
+        // 5. Clear cookies (domain-specific)
+        try {
+          document.cookie.split(";").forEach(function(c) { 
+            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+          });
+          console.log('Cleared cookies');
+        } catch (e) {
+          console.log('Could not clear cookies:', e);
+        }
+        
+        // 6. Unregister Service Worker
+        if ('serviceWorker' in navigator) {
+          try {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (const registration of registrations) {
+              await registration.unregister();
+            }
+            console.log('Unregistered service workers');
+          } catch (e) {
+            console.log('Could not unregister service workers:', e);
+          }
+        }
+        
+        // Show success message with browser-specific instructions
+        const browserName = getBrowserName();
+        let message = '✅ App data cleared successfully!\n\n';
+        message += `Browser detected: ${browserName}\n\n`;
+        message += 'What was cleared:\n';
+        message += '• localStorage (first visit flag)\n';
+        message += '• sessionStorage\n';
+        message += '• Cookies\n';
+        message += '• Service Worker cache\n';
+        message += '• IndexedDB\n\n';
+        message += '🔄 Refresh the page now to test the first-visit notification experience!';
+        
+        alert(message);
+        
+        // Update UI
+        updateNotificationStatus();
+        
+      } catch (error) {
+        console.error('Error clearing app data:', error);
+        alert('❌ Error clearing some app data. Check console for details.\n\nYou can also try:\n• Using incognito/private browsing mode\n• Manually clearing browser data for this site');
+      }
     });
+  }
+  
+  // Helper function to detect browser
+  function getBrowserName() {
+    const userAgent = navigator.userAgent;
+    if (userAgent.includes('Firefox')) return 'Firefox';
+    if (userAgent.includes('Chrome') && !userAgent.includes('Edge')) return 'Chrome';
+    if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) return 'Safari';
+    if (userAgent.includes('Edge')) return 'Microsoft Edge';
+    if (userAgent.includes('Opera')) return 'Opera';
+    return 'Unknown Browser';
   }
 
   // Initial status update
@@ -430,15 +510,19 @@ function setupNotificationControls() {
 function setupAppleNotifications() {
   console.log('Setting up universal notifications for all browsers');
   
-  // Detect iOS
+  // Detect browser and platform
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isFirefox = navigator.userAgent.includes('Firefox');
+  const isChrome = navigator.userAgent.includes('Chrome') && !navigator.userAgent.includes('Edge');
+  const isSafari = navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome');
+  const isEdge = navigator.userAgent.includes('Edge');
   
   // Check if this is first visit
   const hasAskedBefore = localStorage.getItem('notificationAsked');
   const isFirstVisit = !hasAskedBefore;
   
-  console.log('iOS detected:', isIOS);
+  console.log('Platform - iOS:', isIOS, 'Firefox:', isFirefox, 'Chrome:', isChrome, 'Safari:', isSafari, 'Edge:', isEdge);
   console.log('First visit:', isFirstVisit);
   console.log('Notification support:', 'Notification' in window);
   console.log('Notification permission:', Notification.permission);
@@ -453,11 +537,126 @@ function setupAppleNotifications() {
       setTimeout(() => {
         showIOSSpecificPrompt();
       }, 2000);
+    } else if (isFirefox) {
+      // Firefox-specific handling
+      setTimeout(() => {
+        showFirefoxPrompt();
+      }, 1000);
     } else {
-      // For other browsers, show immediately
-      showUniversalNotificationPrompt();
+      // For Chrome, Edge, and other browsers
+      setTimeout(() => {
+        showUniversalNotificationPrompt();
+      }, 500);
     }
   }
+}
+
+function showFirefoxPrompt() {
+  // Mark that we've shown the prompt
+  localStorage.setItem('notificationAsked', 'true');
+  
+  console.log('Showing Firefox-specific notification prompt');
+  
+  // Create Firefox-optimized notification prompt
+  const overlay = document.createElement('div');
+  overlay.id = 'firefox-notification-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: system-ui, -apple-system, sans-serif;
+  `;
+  
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    background: white;
+    border-radius: 8px;
+    margin: 20px;
+    max-width: 320px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    animation: modalSlideIn 0.3s ease-out;
+  `;
+  
+  modal.innerHTML = `
+    <div style="padding: 24px; text-align: center;">
+      <div style="font-size: 48px; margin-bottom: 16px;">🦊🔔</div>
+      <h3 style="margin: 0 0 12px 0; font-size: 18px; font-weight: 600; color: #000; line-height: 1.3;">
+        Enable Task Notifications?
+      </h3>
+      <p style="margin: 0 0 12px 0; font-size: 14px; color: #666; line-height: 1.4;">
+        Get reminded when your tasks are due with Firefox notifications.
+      </p>
+      <p style="margin: 0; font-size: 12px; color: #0060df; line-height: 1.3;">
+        💡 Firefox will show a permission bar at the top of the page
+      </p>
+    </div>
+    <div style="border-top: 1px solid #e5e5e5; display: flex;">
+      <button id="firefox-deny-btn" style="
+        flex: 1;
+        padding: 16px;
+        border: none;
+        background: none;
+        font-size: 16px;
+        color: #666;
+        border-right: 1px solid #e5e5e5;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      ">Not Now</button>
+      <button id="firefox-allow-btn" style="
+        flex: 1;
+        padding: 16px;
+        border: none;
+        background: none;
+        font-size: 16px;
+        color: #0060df;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      ">Allow</button>
+    </div>
+  `;
+  
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  
+  // Add hover effects
+  const denyBtn = modal.querySelector('#firefox-deny-btn');
+  const allowBtn = modal.querySelector('#firefox-allow-btn');
+  
+  denyBtn.addEventListener('mouseenter', () => {
+    denyBtn.style.backgroundColor = '#f5f5f5';
+  });
+  denyBtn.addEventListener('mouseleave', () => {
+    denyBtn.style.backgroundColor = 'transparent';
+  });
+  
+  allowBtn.addEventListener('mouseenter', () => {
+    allowBtn.style.backgroundColor = '#f0f6ff';
+  });
+  allowBtn.addEventListener('mouseleave', () => {
+    allowBtn.style.backgroundColor = 'transparent';
+  });
+  
+  // Handle button clicks
+  denyBtn.addEventListener('click', () => {
+    document.body.removeChild(overlay);
+    console.log('User denied Firefox notifications');
+    updateNotificationControls();
+  });
+  
+  allowBtn.addEventListener('click', async () => {
+    document.body.removeChild(overlay);
+    console.log('User clicked Allow on Firefox');
+    await requestUniversalNotificationPermission();
+  });
 }
 
 function showIOSSpecificPrompt() {
