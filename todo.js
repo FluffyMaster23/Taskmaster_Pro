@@ -228,10 +228,8 @@ window.onload = () => {
   }
 
   // Request notification permission with better handling
-  // Wait a bit then request notifications (iOS PWA needs delay)
-  setTimeout(() => {
-    checkAndRequestNotifications();
-  }, 2000);
+  // Check if this is first visit and request notifications
+  checkFirstVisitAndRequestNotifications();
 
   const now = new Date();
   const hour = now.getHours();
@@ -327,6 +325,7 @@ function renderTask(task, ul) {
 
 function setupNotificationControls() {
   const enableBtn = document.getElementById('enableNotifications');
+  const resetBtn = document.getElementById('resetFirstVisit');
   const statusDiv = document.getElementById('notificationStatus');
   
   if (!enableBtn || !statusDiv) return;
@@ -405,8 +404,49 @@ function setupNotificationControls() {
     }
   });
 
+  // Handle reset button for testing
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      localStorage.removeItem('notificationAsked');
+      alert('First visit flag reset! Refresh the page to test the notification prompt again.');
+    });
+  }
+
   // Initial status update
   updateNotificationStatus();
+}
+
+// Check first visit and request notifications like Windows
+async function checkFirstVisitAndRequestNotifications() {
+  if (!("Notification" in window)) {
+    console.log("Notifications not supported");
+    return;
+  }
+
+  const permission = Notification.permission;
+  const hasAskedBefore = localStorage.getItem('notificationAsked');
+  const isFirstVisit = !hasAskedBefore;
+
+  console.log("Notification permission:", permission);
+  console.log("First visit:", isFirstVisit);
+
+  // Only show automatic prompt on first visit (like Windows)
+  if (isFirstVisit && permission === "default") {
+    // Mark that we've asked before
+    localStorage.setItem('notificationAsked', 'true');
+    
+    // Wait for page to fully load, then request
+    setTimeout(async () => {
+      console.log("First visit - requesting notification permission");
+      await requestNotificationPermission();
+    }, 1500);
+  } else if (permission === "granted") {
+    console.log("Notifications already enabled");
+    updateNotificationControls();
+  } else {
+    // Not first visit, just update UI
+    updateNotificationControls();
+  }
 }
 
 // Check and request notifications with iOS PWA support
@@ -517,14 +557,12 @@ async function requestNotificationPermission() {
   console.log("Current notification permission:", permission);
 
   if (permission === "default") {
-    // Request permission
+    // Request permission directly (works on first visit)
     try {
-      // For iOS PWA, we need to request permission in response to user action
       permission = await Notification.requestPermission();
       console.log("Notification permission after request:", permission);
     } catch (error) {
       console.error("Error requesting notification permission:", error);
-      // On iOS PWA, permission request might fail if not triggered by user action
       return false;
     }
   }
@@ -535,17 +573,14 @@ async function requestNotificationPermission() {
     // Update UI controls
     updateNotificationControls();
     
-    // Show a test notification to confirm it works
+    // Show a welcome notification to confirm it works
     setTimeout(() => {
-      showTestNotification();
+      showWelcomeNotification();
     }, 1000);
     
     return true;
   } else if (permission === "denied") {
-    console.log("❌ Notifications blocked. To enable:");
-    console.log("• On iOS PWA: Delete and re-add the app to home screen");
-    console.log("• On iOS Safari: Settings > Safari > Notifications > Allow");
-    console.log("• On Desktop: Click the lock/info icon in address bar");
+    console.log("❌ Notifications blocked");
     
     // Update UI controls
     updateNotificationControls();
@@ -554,6 +589,23 @@ async function requestNotificationPermission() {
   }
 
   return false;
+}
+
+function showWelcomeNotification() {
+  if (Notification.permission === "granted") {
+    const notification = new Notification("🎉 TaskMaster Pro", {
+      body: "Notifications enabled! You'll get reminders for your tasks.",
+      icon: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K",
+      tag: "taskmaster-welcome",
+      requireInteraction: false,
+      silent: false
+    });
+
+    // Auto-close after 4 seconds
+    setTimeout(() => {
+      notification.close();
+    }, 4000);
+  }
 }
 
 function showTestNotification() {
