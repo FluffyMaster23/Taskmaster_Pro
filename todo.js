@@ -117,15 +117,7 @@ function initializeHomePage() {
   const hour = now.getHours();
   let greeting;
 
-  if (hour >= 5 && hour < 12) {
-    greeting = "Morning, G. Let's get the day rolling.";
-  } else if (hour >= 12 && hour < 18) {
-    greeting = "Afternoon, boss. Time to knock some things out.";
-  } else {
-    greeting = "Evening, player. Still grinding?";
-  }
 
-  speak(greeting);
 
   // Check if we're on mobile for speech handling
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -282,7 +274,7 @@ function initializeOneSignal() {
     // Listen for subscription changes
     OneSignal.on('subscriptionChange', function (isSubscribed) {
       console.log("OneSignal subscription changed:", isSubscribed);
-      window.oneSignalEnabled = isSubscribed;
+window.oneSignalEnabled = isSubscribed;
 
     });
   });
@@ -712,42 +704,6 @@ window.onload = () => {
   }
 
   speak(greeting);
-
-  // Check if we're on mobile for speech handling
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  
-  if (isMobile) {
-    // On mobile, speech might be blocked - add user interaction trigger
-    console.log('Mobile detected - speech will play after first user interaction');
-    
-    // Add click listener to enable speech after first user interaction
-    const enableMobileSpeech = () => {
-      console.log('First user interaction - enabling speech');
-      speak(greeting);
-      document.removeEventListener('click', enableMobileSpeech);
-      document.removeEventListener('touchstart', enableMobileSpeech);
-    };
-    
-    // Try to speak immediately, but also add fallback
-    try {
-      speak(greeting);
-    } catch (e) {
-      console.log('Speech blocked, waiting for user interaction');
-      document.addEventListener('click', enableMobileSpeech, { once: true });
-      document.addEventListener('touchstart', enableMobileSpeech, { once: true });
-    }
-  }
-
-  const all = getTasks();
-  all.forEach(task => {
-    const ul = document.getElementById(`ul-${task.section}`);
-    if (ul) renderTask(task, ul);
-  });
-
-  if (all.length > 0) {
-    window._clearMessageSpoken = false;
-  }
-};
 
 // === STORAGE + TASK HANDLING
 function testLocalStorage() {
