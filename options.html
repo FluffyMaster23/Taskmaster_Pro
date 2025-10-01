@@ -113,15 +113,15 @@
 <body>
   <!-- Navigation Bar -->
   <nav class="navbar">
-    <a href="index.html">🏠 TaskMaster Home</a>
-    <a href="taskmaster.html">📋 Your Lists</a>
-    <a href="options.html" class="active">⚙️ Options</a>
+    <a href="index.html">TaskMaster Home</a>
+    <a href="taskmaster.html">Your Lists</a>
+    <a href="options.html" class="active">Options</a>
   </nav>
 
-  <h1>⚙️ TaskMaster Pro Options</h1>
+  <h1>TaskMaster Pro Options</h1>
   
   <div class="options-section">
-    <h2>🗣️ Voice & Speech Settings</h2>
+    <h2>Voice & Speech Settings</h2>
     
     <label for="voiceSelect">Choose Voice:</label>
     <select id="voiceSelect" aria-label="Choose voice">
@@ -139,18 +139,18 @@
       <option value="2">Maximum (2x)</option>
     </select>
 
-    <button class="save-btn" onclick="saveVoiceSettings()">💾 Save Voice Settings</button>
+    <button class="save-btn" onclick="saveVoiceSettings()">Save Voice Settings</button>
     <div id="saveStatus" class="status-message"></div>
   </div>
 
   <div class="options-section">
-    <h2>🔔 Notification Settings</h2>
+    <h2>Notification Settings</h2>
     <p><strong>Status:</strong> <span id="notificationStatus">Checking...</span></p>
     <p>Notifications are automatically configured based on your platform (iOS uses OneSignal, desktop uses native notifications).</p>
   </div>
 
   <div class="options-section">
-    <h2>📱 App Information</h2>
+    <h2>App Information</h2>
     <p><strong>Version:</strong> TaskMaster Pro v1.0</p>
     <p><strong>Platform:</strong> Progressive Web App (PWA)</p>
     <p><strong>Features:</strong> Cross-platform notifications, Voice feedback, Task reminders</p>
@@ -179,7 +179,7 @@
       }
       
       // Show success message
-      statusDiv.textContent = "✅ Voice settings saved successfully!";
+      statusDiv.textContent = "Voice settings saved successfully!";
       statusDiv.className = "status-message success";
       statusDiv.style.display = "block";
       
@@ -223,17 +223,17 @@
       
       if (isIOS) {
         if (window.oneSignalEnabled) {
-          statusSpan.textContent = "✅ iOS notifications active (OneSignal)";
+          statusSpan.textContent = "iOS notifications active (OneSignal)";
         } else {
-          statusSpan.textContent = "⚠️ iOS notifications pending setup";
+          statusSpan.textContent = "iOS notifications pending setup";
         }
       } else {
         if (Notification && Notification.permission === 'granted') {
-          statusSpan.textContent = "✅ Desktop notifications enabled";
+          statusSpan.textContent = "Desktop notifications enabled";
         } else if (Notification && Notification.permission === 'denied') {
-          statusSpan.textContent = "❌ Desktop notifications blocked";
+          statusSpan.textContent = "Desktop notifications blocked";
         } else {
-          statusSpan.textContent = "⚠️ Desktop notifications not configured";
+          statusSpan.textContent = "Desktop notifications not configured";
         }
       }
     }
