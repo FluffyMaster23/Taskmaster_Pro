@@ -136,27 +136,3 @@ body {
   margin: 0;
   font-size: 0.9em;
 }
-
-/* Install Button */
-#installBtn {
-  display: none;
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 1000;
-  background: #4f46e5;
-  color: white;
-  border: none;
-  padding: 12px 20px;
-  border-radius: 8px;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
-  transition: all 0.3s;
-}
-
-#installBtn:hover {
-  background: #4338ca;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(79, 70, 229, 0.5);
-}

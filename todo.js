@@ -8,28 +8,30 @@ window._reminderTaskIds = new Set(); // Track which tasks already sent advance r
 window.selectedVoice = null;
 window.speechRate = 1; // Default speech rate
 
-// === PWA INSTALL BUTTON LOGIC ===
-let deferredPrompt;
+// === APPLICATION INITIALIZATION ===
 window.addEventListener('DOMContentLoaded', function() {
-  const installBtn = document.getElementById('installBtn');
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    if (installBtn) installBtn.style.display = 'block';
-  });
-  if (installBtn) {
-    installBtn.addEventListener('click', async () => {
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === 'accepted') {
-          installBtn.style.display = 'none';
-        }
-        deferredPrompt = null;
-      }
-    });
-  }
-
+  // Clear localStorage function for testing (available in console)
+  window.clearAllData = function() {
+    console.log('🧹 Clearing all localStorage data...');
+    localStorage.clear();
+    
+    // Reset global variables
+    window._clearMessageSpoken = false;
+    window._spokenTaskIds = new Set();
+    window._notifiedTaskIds = new Set();
+    window._reminderTaskIds = new Set();
+    window.selectedVoice = null;
+    window.speechRate = 1;
+    window._greetingSpoken = false;
+    
+    console.log('✅ All data cleared! Refresh the page to start fresh.');
+    alert('All data cleared! Refresh the page to start fresh and see notification prompts.');
+  };
+  
+  // Auto-clear localStorage for fresh start (remove this after testing)
+  console.log('🔄 Auto-clearing localStorage for fresh testing...');
+  window.clearAllData();
+  
   // Initialize OneSignal for iOS
   initializeOneSignal();
   
@@ -493,20 +495,27 @@ function setupVoiceFunctionality() {
   const voiceSelect = document.getElementById("voiceSelect");
   if (voiceSelect) {
     voiceSelect.addEventListener("change", e => {
-      // Save both voice index and name for consistency
-      localStorage.setItem("selectedVoiceIndex", e.target.selectedIndex);
-      localStorage.setItem("selectedVoiceName", e.target.value);
-      
-      // Update global variable
+      // Get the actual voice object
       const voices = window.speechSynthesis.getVoices();
-      if (voices.length > e.target.selectedIndex) {
-        window.selectedVoice = voices[e.target.selectedIndex];
-      }
+      const selectedVoiceObj = voices[e.target.selectedIndex];
       
-      console.log('Voice changed and saved:', {
-        index: e.target.selectedIndex,
-        name: e.target.value
-      });
+      if (selectedVoiceObj) {
+        // Store the voice object globally
+        window.selectedVoice = selectedVoiceObj;
+        
+        // Save both voice index and name for persistence
+        localStorage.setItem("selectedVoiceIndex", e.target.selectedIndex);
+        localStorage.setItem("selectedVoiceName", selectedVoiceObj.name);
+        
+        console.log('Voice changed and saved:', {
+          index: e.target.selectedIndex,
+          name: selectedVoiceObj.name,
+          voiceObject: selectedVoiceObj
+        });
+        
+        // Test the voice immediately
+        speak("Voice changed to " + selectedVoiceObj.name.split(' ')[0]);
+      }
     });
   }
   
@@ -533,43 +542,64 @@ function loadSavedVoicePreferences() {
     const speechRateSelect = document.getElementById("speechRateSelect");
     if (speechRateSelect) {
       speechRateSelect.value = savedRate;
-      console.log('Restored speech rate:', savedRate);
+      console.log('✅ Restored speech rate:', savedRate);
     }
   }
   
   // Load saved voice index (preferred method)
   const savedVoiceIndex = localStorage.getItem("selectedVoiceIndex");
-  if (savedVoiceIndex && savedVoiceIndex !== "null") {
+  const voices = window.speechSynthesis.getVoices();
+  
+  if (savedVoiceIndex && savedVoiceIndex !== "null" && voices.length > 0) {
+    const index = parseInt(savedVoiceIndex);
     const voiceSelect = document.getElementById("voiceSelect");
-    if (voiceSelect && parseInt(savedVoiceIndex) < voiceSelect.options.length) {
-      voiceSelect.selectedIndex = parseInt(savedVoiceIndex);
+    
+    if (voiceSelect && index < voiceSelect.options.length && index < voices.length) {
+      // Set the dropdown selection
+      voiceSelect.selectedIndex = index;
       
-      // Update global variable
-      const voices = window.speechSynthesis.getVoices();
-      if (voices.length > parseInt(savedVoiceIndex)) {
-        window.selectedVoice = voices[parseInt(savedVoiceIndex)];
-        console.log('Restored voice by index:', savedVoiceIndex, window.selectedVoice.name);
+      // Set the global voice object
+      window.selectedVoice = voices[index];
+      
+      console.log('✅ Restored voice by index:', {
+        index: index,
+        name: voices[index].name,
+        voiceObject: voices[index]
+      });
+      
+      return; // Successfully loaded, don't try fallback
+    }
+  }
+  
+  // Fallback: try to find voice by name
+  const savedVoiceName = localStorage.getItem("selectedVoiceName");
+  if (savedVoiceName && voices.length > 0) {
+    const voiceSelect = document.getElementById("voiceSelect");
+    if (voiceSelect) {
+      // Find the voice by name
+      const foundVoice = voices.find(v => v.name === savedVoiceName);
+      if (foundVoice) {
+        const foundIndex = voices.indexOf(foundVoice);
+        voiceSelect.selectedIndex = foundIndex;
+        window.selectedVoice = foundVoice;
+        
+        console.log('✅ Restored voice by name:', {
+          name: savedVoiceName,
+          index: foundIndex,
+          voiceObject: foundVoice
+        });
+        return;
       }
     }
-  } else {
-    // Fallback to saved voice name (for backward compatibility)
-    const savedVoiceName = localStorage.getItem("selectedVoiceName") || localStorage.getItem("selectedVoice");
-    if (savedVoiceName) {
-      const voiceSelect = document.getElementById("voiceSelect");
-      if (voiceSelect) {
-        // Try to find and select the voice by name
-        for (let i = 0; i < voiceSelect.options.length; i++) {
-          if (voiceSelect.options[i].value === savedVoiceName) {
-            voiceSelect.selectedIndex = i;
-            const voices = window.speechSynthesis.getVoices();
-            if (voices.length > i) {
-              window.selectedVoice = voices[i];
-              console.log('Restored voice by name:', savedVoiceName);
-            }
-            break;
-          }
-        }
-      }
+  }
+  
+  // Final fallback: use first available voice
+  if (voices.length > 0) {
+    const voiceSelect = document.getElementById("voiceSelect");
+    if (voiceSelect && voiceSelect.options.length > 0) {
+      voiceSelect.selectedIndex = 0;
+      window.selectedVoice = voices[0];
+      console.log('✅ Using first available voice as fallback:', voices[0].name);
     }
   }
 }
