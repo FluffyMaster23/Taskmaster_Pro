@@ -554,7 +554,7 @@ function showInstallSuccessMessage() {
   
   // Auto-close after 10 seconds
   setTimeout(() => {
-    if (document.body.contains(modal)) {
+          if (document.body.contains(modal)) {
       modal.remove();
     }
   }, 10000);
@@ -607,12 +607,6 @@ function initializeOneSignal() {
       allowLocalhostAsSecureOrigin: true, // Allow localhost testing
       welcomeNotification: {
         disable: true // Don't show welcome notification
-      },
-      // Remove slidedown prompts - using custom iOS prompts instead
-      promptOptions: {
-        slidedown: {
-          enabled: false // Disable OneSignal slidedown for iOS
-        }
       }
     }).then(function() {
       console.log('✅ OneSignal initialized successfully');
@@ -697,21 +691,11 @@ function initializeIOSNativeNotifications() {
   }
 }
 
-// Request permission for task deadline reminders (removed slidedown for iOS custom prompt)
+// Request permission for task deadline reminders
 function requestTaskReminderPermission() {
   console.log('Requesting OneSignal permission for task deadline reminders');
   
-  // Check if it's iOS and use custom prompt instead
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  
-  if (isIOS) {
-    console.log('iOS detected - using custom notification prompt instead of slidedown');
-    showCustomIOSNotificationPrompt();
-    return;
-  }
-  
-  // For non-iOS devices, use OneSignal slidedown
+  // Use OneSignal's built-in prompts
   window.OneSignal.push(function() {
     window.OneSignal.showSlidedownPrompt().then(function() {
       console.log('Task reminder prompt shown');
@@ -730,8 +714,6 @@ function requestTaskReminderPermission() {
       });
     }).catch(function(error) {
       console.error('Error showing task reminder prompt:', error);
-      // Fallback to custom prompt on error
-      showCustomIOSNotificationPrompt();
     });
   });
 }
@@ -1448,23 +1430,9 @@ async function requestIOSNotificationsAutomatically() {
         return true;
       }
     } catch (error) {
-  const notificationAsked = localStorage.getItem('notificationAsked');
-  if (notificationAsked === 'true') {
-    console.log('User already asked about notifications, checking current status...');
-    
-    // Just check current status without prompting again
-    window.OneSignal.push(function() {
-      window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
-        if (isEnabled) {
-          console.log('✅ OneSignal already enabled');
-          window.oneSignalEnabled = true;
-        } else {
-          console.log('⚠️ OneSignal still not enabled - user declined or needs manual setup');
-          window.oneSignalEnabled = false;
-        }
-      });
-    });
-    return true;
+      console.error('Error requesting native notifications:', error);
+    }
+    return false;
   }
   
   try {
@@ -1474,13 +1442,9 @@ async function requestIOSNotificationsAutomatically() {
         if (isEnabled) {
           console.log('✅ OneSignal already enabled');
           window.oneSignalEnabled = true;
-          localStorage.setItem('notificationAsked', 'true');
         } else {
-          console.log('� Showing custom iOS notification prompt');
-          // Show custom in-app prompt instead of OneSignal slidedown
-          setTimeout(() => {
-            showCustomIOSNotificationPrompt();
-          }, 3000); // Show after 3 seconds to let page load
+          console.log('🔔 OneSignal not enabled - will show slidedown prompt when requested');
+          window.oneSignalEnabled = false;
         }
       });
     });
@@ -1490,523 +1454,6 @@ async function requestIOSNotificationsAutomatically() {
     console.error('Error requesting iOS automatic notifications:', error);
     return false;
   }
-}
-
-function showCustomIOSNotificationPrompt() {
-  // Create custom iOS-style notification prompt
-  const promptOverlay = document.createElement('div');
-  promptOverlay.id = 'ios-notification-prompt';
-  promptOverlay.innerHTML = `
-    <div class="ios-prompt-overlay">
-      <div class="ios-prompt-modal">
-        <div class="ios-prompt-header">
-          <div class="ios-prompt-icon">🔔</div>
-          <h3>Stay on Track!</h3>
-        </div>
-        <div class="ios-prompt-content">
-          <p><strong>TaskMaster Pro</strong> would like to send you notifications for:</p>
-          <ul>
-            <li>✅ Task reminders</li>
-            <li>📝 Due date alerts</li>
-            <li>🎯 Progress updates</li>
-          </ul>
-        </div>
-        <div class="ios-prompt-buttons">
-          <button class="ios-btn ios-btn-secondary" onclick="declineIOSNotifications()">Not Now</button>
-          <button class="ios-btn ios-btn-primary" onclick="acceptIOSNotifications()">Allow</button>
-        </div>
-      </div>
-    </div>
-  `;
-  
-  // Add iOS-style CSS
-  const style = document.createElement('style');
-  style.textContent = `
-    .ios-prompt-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.4);
-      backdrop-filter: blur(10px);
-      z-index: 10000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      animation: fadeIn 0.3s ease-out;
-    }
-    
-    .ios-prompt-modal {
-      background: #fff;
-      border-radius: 14px;
-      padding: 24px;
-      margin: 20px;
-      max-width: 320px;
-      width: 100%;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-      text-align: center;
-      animation: slideUp 0.3s ease-out;
-    }
-    
-    .ios-prompt-header {
-      margin-bottom: 16px;
-    }
-    
-    .ios-prompt-icon {
-      font-size: 48px;
-      margin-bottom: 8px;
-    }
-    
-    .ios-prompt-header h3 {
-      margin: 0;
-      font-size: 20px;
-      font-weight: 600;
-      color: #1c1c1e;
-    }
-    
-    .ios-prompt-content {
-      margin-bottom: 24px;
-      text-align: left;
-    }
-    
-    .ios-prompt-content p {
-      margin: 0 0 12px 0;
-      font-size: 16px;
-      color: #3c3c43;
-      text-align: center;
-    }
-    
-    .ios-prompt-content ul {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-    
-    .ios-prompt-content li {
-      padding: 4px 0;
-      font-size: 15px;
-      color: #3c3c43;
-    }
-    
-    .ios-prompt-buttons {
-      display: flex;
-      gap: 12px;
-    }
-    
-    .ios-btn {
-      flex: 1;
-      padding: 12px 16px;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    
-    .ios-btn-primary {
-      background: #007aff;
-      color: white;
-    }
-    
-    .ios-btn-primary:hover {
-      background: #0056cc;
-    }
-    
-    .ios-btn-secondary {
-      background: #f2f2f7;
-      color: #007aff;
-    }
-    
-    .ios-btn-secondary:hover {
-      background: #e5e5ea;
-    }
-    
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-    
-    @keyframes slideUp {
-      from { 
-        opacity: 0;
-        transform: translateY(30px) scale(0.95);
-      }
-      to { 
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
-    
-    @media (max-width: 480px) {
-      .ios-prompt-modal {
-        margin: 16px;
-        max-width: none;
-      }
-      
-      .ios-prompt-buttons {
-        flex-direction: column;
-      }
-    }
-  `;
-  
-  document.head.appendChild(style);
-  document.body.appendChild(promptOverlay);
-}
-
-function acceptIOSNotifications() {
-  console.log('✅ User accepted iOS notifications');
-  
-  // Remove the prompt
-  const prompt = document.getElementById('ios-notification-prompt');
-  if (prompt) {
-    prompt.style.animation = 'fadeOut 0.3s ease-out';
-    setTimeout(() => prompt.remove(), 300);
-  }
-  
-  // Mark as asked and accepted
-  localStorage.setItem('notificationAsked', 'true');
-  localStorage.setItem('notificationAccepted', 'true');
-  
-  // Now request OneSignal permission
-  if (window.OneSignal) {
-    window.OneSignal.push(function() {
-      window.OneSignal.registerForPushNotifications().then(function() {
-        console.log('✅ OneSignal registration successful');
-        window.oneSignalEnabled = true;
-        
-        // Show success message
-        showNotificationStatus('✅ Notifications enabled! You\'ll now get task reminders.', 'success');
-      }).catch(function(error) {
-        console.log('⚠️ OneSignal registration failed:', error.message);
-        window.oneSignalEnabled = false;
-        
-        // Show helpful error message
-        if (error.message.includes('denied')) {
-          showNotificationStatus('❌ Notifications blocked. Please enable in Safari Settings > Notifications.', 'error');
-        } else {
-          showNotificationStatus('⚠️ Couldn\'t enable notifications. Please try again in Settings.', 'warning');
-        }
-      });
-    });
-  }
-}
-
-function declineIOSNotifications() {
-  console.log('❌ User declined iOS notifications');
-  
-  // Remove the prompt
-  const prompt = document.getElementById('ios-notification-prompt');
-  if (prompt) {
-    prompt.style.animation = 'fadeOut 0.3s ease-out';
-    setTimeout(() => prompt.remove(), 300);
-  }
-  
-  // Mark as asked but not accepted
-  localStorage.setItem('notificationAsked', 'true');
-  localStorage.setItem('notificationAccepted', 'false');
-  
-  window.oneSignalEnabled = false;
-  showNotificationStatus('📱 You can enable notifications later in the Settings page.', 'info');
-}
-
-function showNotificationStatus(message, type) {
-  const statusDiv = document.createElement('div');
-  statusDiv.className = `notification-status ${type}`;
-  statusDiv.textContent = message;
-  
-  const style = document.createElement('style');
-  style.textContent = `
-    .notification-status {
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 12px 20px;
-      border-radius: 10px;
-      font-weight: 500;
-      z-index: 10001;
-      animation: slideDown 0.3s ease-out;
-    }
-    
-    .notification-status.success {
-      background: #34c759;
-      color: white;
-    }
-    
-    .notification-status.error {
-      background: #ff3b30;
-      color: white;
-    }
-    
-    .notification-status.warning {
-      background: #ff9500;
-      color: white;
-    }
-    
-    .notification-status.info {
-      background: #007aff;
-      color: white;
-    }
-    
-    @keyframes slideDown {
-      from { 
-        opacity: 0;
-        transform: translateX(-50%) translateY(-20px);
-      }
-      to { 
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
-      }
-    }
-    
-    @keyframes fadeOut {
-      from { opacity: 1; }
-      to { opacity: 0; }
-    }
-  `;
-  
-  if (!document.querySelector('.notification-status-styles')) {
-    style.className = 'notification-status-styles';
-    document.head.appendChild(style);
-  }
-  
-  document.body.appendChild(statusDiv);
-  
-  // Auto-remove after 4 seconds
-  setTimeout(() => {
-    statusDiv.style.animation = 'fadeOut 0.3s ease-out';
-    setTimeout(() => statusDiv.remove(), 300);
-  }, 4000);
-}
-
-function showFirefoxPrompt() {
-  // Mark that we've shown the prompt
-  localStorage.setItem('notificationAsked', 'true');
-  
-  console.log('Showing Firefox-specific notification prompt');
-  
-  // Create Firefox-optimized notification prompt
-  const overlay = document.createElement('div');
-  overlay.id = 'firefox-notification-overlay';
-  overlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 10000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: system-ui, -apple-system, sans-serif;
-  `;
-  
-  const modal = document.createElement('div');
-  modal.style.cssText = `
-    background: white;
-    border-radius: 8px;
-    margin: 20px;
-    max-width: 320px;
-    overflow: hidden;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-    animation: modalSlideIn 0.3s ease-out;
-  `;
-  
-  modal.innerHTML = `
-    <div style="padding: 24px; text-align: center;">
-      <div style="font-size: 48px; margin-bottom: 16px;">🦊🔔</div>
-      <h3 style="margin: 0 0 12px 0; font-size: 18px; font-weight: 600; color: #000; line-height: 1.3;">
-        Enable Task Notifications?
-      </h3>
-      <p style="margin: 0 0 12px 0; font-size: 14px; color: #666; line-height: 1.4;">
-        Get reminded when your tasks are due with Firefox notifications.
-      </p>
-      <p style="margin: 0; font-size: 12px; color: #0060df; line-height: 1.3;">
-        💡 Firefox will show a permission bar at the top of the page
-      </p>
-    </div>
-    <div style="border-top: 1px solid #e5e5e5; display: flex;">
-      <button id="firefox-deny-btn" style="
-        flex: 1;
-        padding: 16px;
-        border: none;
-        background: none;
-        font-size: 16px;
-        color: #666;
-        border-right: 1px solid #e5e5e5;
-        cursor: pointer;
-        transition: background-color 0.2s;
-      ">Not Now</button>
-      <button id="firefox-allow-btn" style="
-        flex: 1;
-        padding: 16px;
-        border: none;
-        background: none;
-        font-size: 16px;
-        color: #0060df;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background-color 0.2s;
-      ">Allow</button>
-    </div>
-  `;
-  
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-  
-  // Add hover effects
-  const denyBtn = modal.querySelector('#firefox-deny-btn');
-  const allowBtn = modal.querySelector('#firefox-allow-btn');
-  
-  denyBtn.addEventListener('mouseenter', () => {
-    denyBtn.style.backgroundColor = '#f5f5f5';
-  });
-  denyBtn.addEventListener('mouseleave', () => {
-    denyBtn.style.backgroundColor = 'transparent';
-  });
-  
-  allowBtn.addEventListener('mouseenter', () => {
-    allowBtn.style.backgroundColor = '#f0f6ff';
-  });
-  allowBtn.addEventListener('mouseleave', () => {
-    allowBtn.style.backgroundColor = 'transparent';
-  });
-  
-  // Handle button clicks
-  denyBtn.addEventListener('click', () => {
-    document.body.removeChild(overlay);
-    console.log('User denied Firefox notifications');
-    updateNotificationControls();
-  });
-  
-  allowBtn.addEventListener('click', async () => {
-    document.body.removeChild(overlay);
-    console.log('User clicked Allow on Firefox');
-    await requestUniversalNotificationPermission();
-  });
-}
-
-function showUniversalNotificationPrompt() {
-  // Mark that we've shown the prompt
-  localStorage.setItem('notificationAsked', 'true');
-  
-  // Create universal notification prompt that works on all browsers
-  const overlay = document.createElement('div');
-  overlay.id = 'notification-overlay';
-  overlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 10000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  `;
-  
-  const modal = document.createElement('div');
-  modal.style.cssText = `
-    background: white;
-    border-radius: 12px;
-    margin: 20px;
-    max-width: 320px;
-    overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    animation: modalSlideIn 0.3s ease-out;
-  `;
-  
-  // Add CSS animation
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes modalSlideIn {
-      from { transform: scale(0.8); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
-    }
-  `;
-  document.head.appendChild(style);
-  
-  modal.innerHTML = `
-    <div style="padding: 24px; text-align: center;">
-      <div style="font-size: 48px; margin-bottom: 16px;">🔔</div>
-      <h3 style="margin: 0 0 12px 0; font-size: 18px; font-weight: 600; color: #000; line-height: 1.3;">
-        Enable Task Notifications?
-      </h3>
-      <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.4;">
-        Get reminded when your tasks are due. You can change this later in your browser settings.
-      </p>
-    </div>
-    <div style="border-top: 1px solid #e5e5e5; display: flex;">
-      <button id="deny-notifications" style="
-        flex: 1;
-        padding: 16px;
-        border: none;
-        background: none;
-        font-size: 16px;
-        color: #666;
-        border-right: 1px solid #e5e5e5;
-        cursor: pointer;
-        transition: background-color 0.2s;
-      ">Not Now</button>
-      <button id="allow-notifications" style="
-        flex: 1;
-        padding: 16px;
-        border: none;
-        background: none;
-        font-size: 16px;
-        color: #4f46e5;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background-color 0.2s;
-      ">Allow</button>
-    </div>
-  `;
-  
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-  
-  // Add hover effects
-  const denyBtn = modal.querySelector('#deny-notifications');
-  const allowBtn = modal.querySelector('#allow-notifications');
-  
-  denyBtn.addEventListener('mouseenter', () => {
-    denyBtn.style.backgroundColor = '#f5f5f5';
-  });
-  denyBtn.addEventListener('mouseleave', () => {
-    denyBtn.style.backgroundColor = 'transparent';
-  });
-  
-  allowBtn.addEventListener('mouseenter', () => {
-    allowBtn.style.backgroundColor = '#f0f0ff';
-  });
-  allowBtn.addEventListener('mouseleave', () => {
-    allowBtn.style.backgroundColor = 'transparent';
-  });
-  
-  // Handle button clicks
-  denyBtn.addEventListener('click', () => {
-    document.body.removeChild(overlay);
-    console.log('User declined notifications');
-    updateNotificationControls();
-  });
-  
-  allowBtn.addEventListener('click', async () => {
-    document.body.removeChild(overlay);
-    await requestUniversalNotificationPermission();
-  });
-  
-  // Close on overlay click
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) {
-      document.body.removeChild(overlay);
-      console.log('User dismissed notification prompt');
-    }
-  });
 }
 
 async function requestUniversalNotificationPermission() {
@@ -2097,9 +1544,9 @@ async function checkAndRequestNotifications() {
 
   if (permission === "default") {
     if (isStandalone) {
-      // In PWA mode, show a friendly prompt first
-      console.log("PWA detected - showing notification prompt");
-      showNotificationPrompt();
+      // In PWA mode, request directly instead of showing custom prompt
+      console.log("PWA detected - requesting notification permission directly");
+      await requestNotificationPermission();
     } else {
       // In browser mode, request directly
       await requestNotificationPermission();
@@ -2108,60 +1555,6 @@ async function checkAndRequestNotifications() {
     console.log("Notifications already enabled");
     updateNotificationControls();
   }
-}
-
-function showNotificationPrompt() {
-  // Create a more prominent notification prompt for PWA users
-  const promptDiv = document.createElement('div');
-  promptDiv.id = 'notification-prompt';
-  promptDiv.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    background: #4f46e5;
-    color: white;
-    padding: 15px;
-    text-align: center;
-    z-index: 10000;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-  `;
-  
-  promptDiv.innerHTML = `
-    <div style="margin-bottom: 10px;">
-      🔔 <strong>Enable Task Notifications?</strong>
-    </div>
-    <div style="font-size: 14px; margin-bottom: 15px;">
-      Get reminded when your tasks are due
-    </div>
-    <button id="allow-notifications" style="background: white; color: #4f46e5; border: none; padding: 8px 20px; border-radius: 4px; margin-right: 10px; font-weight: bold;">
-      Allow
-    </button>
-    <button id="dismiss-notifications" style="background: transparent; color: white; border: 1px solid white; padding: 8px 20px; border-radius: 4px;">
-      Not Now
-    </button>
-  `;
-
-  document.body.appendChild(promptDiv);
-
-  // Handle allow button
-  document.getElementById('allow-notifications').addEventListener('click', async () => {
-    document.body.removeChild(promptDiv);
-    await requestNotificationPermission();
-  });
-
-  // Handle dismiss button
-  document.getElementById('dismiss-notifications').addEventListener('click', () => {
-    document.body.removeChild(promptDiv);
-    console.log("User dismissed notification prompt");
-  });
-
-  // Auto-remove after 10 seconds if no action
-  setTimeout(() => {
-    if (document.getElementById('notification-prompt')) {
-      document.body.removeChild(promptDiv);
-    }
-  }, 10000);
 }
 
 function updateNotificationControls() {
