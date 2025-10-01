@@ -154,6 +154,7 @@
     <p style="font-size: 0.9em; color: #6b7280; margin-top: 5px;">Check this box to trigger the notification permission prompt and enable push notifications for task reminders.</p>
     
     <p style="margin-top: 15px;">Notifications are automatically configured based on your platform (iOS uses OneSignal, desktop uses native notifications).</p>
+    <p style="font-size: 0.9em; color: #f59e0b; margin-top: 10px;"><strong>Note for iOS:</strong> Notifications require the app to be deployed on HTTPS. Local development (localhost) may not support OneSignal notifications on iOS devices.</p>
   </div>
 
   <div class="options-section">
@@ -298,6 +299,17 @@
         if (window.OneSignal) {
           console.log('Triggering OneSignal permission prompt...');
           
+          // Check if we're on HTTPS or localhost
+          const isSecure = window.location.protocol === 'https:' || 
+                          window.location.hostname === 'localhost' || 
+                          window.location.hostname === '127.0.0.1';
+          
+          if (!isSecure) {
+            statusSpan.textContent = "Notifications require HTTPS on iOS";
+            checkbox.checked = false;
+            return;
+          }
+          
           // Force OneSignal to show permission prompt
           OneSignal.showSlidedownPrompt().then(function() {
             console.log('OneSignal slidedown prompt shown');
@@ -309,7 +321,7 @@
               console.log('OneSignal native prompt shown');
             }).catch(function(nativeError) {
               console.log('OneSignal native prompt error:', nativeError);
-              statusSpan.textContent = "Please refresh page and try again";
+              statusSpan.textContent = "OneSignal setup failed - try refreshing page";
               checkbox.checked = false;
             });
           });

@@ -78,7 +78,11 @@ function initializeTaskMasterPage() {
     checkUpcomingBtn.addEventListener('click', () => {
       const upcoming = getUpcomingTasks();
       if (upcoming.length === 0) {
-        speakWizLine("no upcoming");
+        // Use the clear message when no upcoming tasks
+        if (!window._clearMessageSpoken) {
+          window._clearMessageSpoken = true;
+          setTimeout(() => speakWizLine("clear"), 1000);
+        }
       } else {
         upcoming.forEach(task => speakTask(task));
       }
@@ -116,6 +120,16 @@ function initializeHomePage() {
   const now = new Date();
   const hour = now.getHours();
   let greeting;
+
+  if (hour >= 5 && hour < 12) {
+    greeting = "Morning, G. Let's get the day rolling.";
+  } else if (hour >= 12 && hour < 18) {
+    greeting = "Afternoon, boss. Time to knock some things out.";
+  } else {
+    greeting = "Evening, player. Still grinding?";
+  }
+
+  speak(greeting);
 
 
 
@@ -1513,11 +1527,7 @@ setInterval(() => {
     }
   });
 
-  const stillRemaining = getTasks();
-  if (stillRemaining.length === 0 && !window._clearMessageSpoken) {
-    window._clearMessageSpoken = true;
-    setTimeout(() => speakWizLine("clear"), 1000);
-  }
+  // Removed automatic clear message - only trigger manually via "Check Upcoming Todos"
 }, 60000);
 }
 
