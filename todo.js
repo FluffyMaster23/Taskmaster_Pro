@@ -592,7 +592,7 @@ function initializeOneSignal() {
         enable: false, // We'll use our own button
       },
       allowLocalhostAsSecureOrigin: true,
-      autoRegister: false, // Disable auto registration, we'll handle it manually
+      autoRegister: true, // Enable auto registration for better iOS support
       autoResubscribe: true,
       serviceWorkerParam: {
         scope: './',
@@ -607,6 +607,14 @@ function initializeOneSignal() {
       allowLocalhostAsSecureOrigin: true, // Allow localhost testing
       welcomeNotification: {
         disable: true // Don't show welcome notification
+      },
+      // Enhanced iOS configuration
+      httpPermissionRequest: {
+        enable: true,
+        useModal: true,
+        modalTitle: "Enable Notifications",
+        modalMessage: "TaskMaster Pro would like to send you notifications about task deadlines and reminders.",
+        modalButtonText: "Allow"
       }
     }).then(function() {
       console.log('✅ OneSignal initialized successfully');
@@ -616,9 +624,15 @@ function initializeOneSignal() {
         console.log('OneSignal subscription status:', isEnabled);
         window.oneSignalEnabled = isEnabled;
         
-        // If not enabled, we'll request permission later when needed
-        if (!isEnabled) {
-          console.log('OneSignal not enabled yet - will request permission when appropriate');
+        if (isEnabled) {
+          console.log('✅ OneSignal notifications already enabled');
+          
+          // Get user ID for debugging
+          OneSignal.getUserId(function(userId) {
+            console.log('👤 OneSignal User ID:', userId || 'No user ID yet');
+          });
+        } else {
+          console.log('⚠️ OneSignal not enabled yet - will request permission when appropriate');
         }
       });
       
