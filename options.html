@@ -146,7 +146,14 @@
   <div class="options-section">
     <h2>Notification Settings</h2>
     <p><strong>Status:</strong> <span id="notificationStatus">Checking...</span></p>
-    <p>Notifications are automatically configured based on your platform (iOS uses OneSignal, desktop uses native notifications).</p>
+    
+    <label for="enableNotifications" style="margin-top: 20px;">
+      <input type="checkbox" id="enableNotifications" style="width: auto; margin-right: 10px;">
+      Enable Push Notifications
+    </label>
+    <p style="font-size: 0.9em; color: #6b7280; margin-top: 5px;">Check this box to trigger the notification permission prompt and enable push notifications for task reminders.</p>
+    
+    <p style="margin-top: 15px;">Notifications are automatically configured based on your platform (iOS uses OneSignal, desktop uses native notifications).</p>
   </div>
 
   <div class="options-section">
@@ -242,7 +249,106 @@
     document.addEventListener('DOMContentLoaded', function() {
       loadVoiceSettings();
       setTimeout(checkNotificationStatus, 1000); // Give time for OneSignal to load
+      
+      // Setup notification checkbox handler
+      setupNotificationCheckbox();
     });
+    
+    // Handle notification checkbox
+    function setupNotificationCheckbox() {
+      const checkbox = document.getElementById('enableNotifications');
+      const statusSpan = document.getElementById('notificationStatus');
+      
+      if (!checkbox) return;
+      
+      // Check initial state based on current permissions
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      
+      if (isIOS) {
+        // For iOS, check if OneSignal is enabled and subscribed
+        if (window.OneSignal) {
+          OneSignal.getSubscription().then(function(subscription) {
+            checkbox.checked = !!subscription;
+          });
+        }
+      } else {
+        // For desktop, check native notification permission
+        checkbox.checked = Notification && Notification.permission === 'granted';
+      }
+      
+      // Handle checkbox change
+      checkbox.addEventListener('change', function() {
+        if (this.checked) {
+          triggerNotificationPrompt();
+        } else {
+          // If unchecked, just update status (can't really disable notifications once granted)
+          statusSpan.textContent = "Notifications disabled by user";
+        }
+      });
+    }
+    
+    // Trigger notification permission prompt
+    function triggerNotificationPrompt() {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const statusSpan = document.getElementById('notificationStatus');
+      const checkbox = document.getElementById('enableNotifications');
+      
+      if (isIOS) {
+        // For iOS, use OneSignal
+        if (window.OneSignal) {
+          console.log('Triggering OneSignal permission prompt...');
+          
+          // Force OneSignal to show permission prompt
+          OneSignal.showSlidedownPrompt().then(function() {
+            console.log('OneSignal slidedown prompt shown');
+          }).catch(function(error) {
+            console.log('OneSignal slidedown prompt error:', error);
+            
+            // Fallback: try direct notification prompt
+            OneSignal.showNativePrompt().then(function() {
+              console.log('OneSignal native prompt shown');
+            }).catch(function(nativeError) {
+              console.log('OneSignal native prompt error:', nativeError);
+              statusSpan.textContent = "Please refresh page and try again";
+              checkbox.checked = false;
+            });
+          });
+          
+          // Check subscription status after prompt
+          setTimeout(() => {
+            OneSignal.getSubscription().then(function(subscription) {
+              if (subscription) {
+                statusSpan.textContent = "iOS notifications enabled (OneSignal)";
+                checkbox.checked = true;
+              } else {
+                statusSpan.textContent = "iOS notifications denied or cancelled";
+                checkbox.checked = false;
+              }
+            });
+          }, 2000);
+          
+        } else {
+          statusSpan.textContent = "OneSignal not loaded - please refresh page";
+          checkbox.checked = false;
+        }
+      } else {
+        // For desktop, use native notifications
+        if (Notification) {
+          Notification.requestPermission().then(function(permission) {
+            if (permission === 'granted') {
+              statusSpan.textContent = "Desktop notifications enabled";
+              checkbox.checked = true;
+            } else {
+              statusSpan.textContent = "Desktop notifications denied";
+              checkbox.checked = false;
+            }
+          });
+        } else {
+          statusSpan.textContent = "Notifications not supported in this browser";
+          checkbox.checked = false;
+        }
+      }
+    }
   </script>
 
 </body>

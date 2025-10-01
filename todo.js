@@ -105,6 +105,49 @@ function initializeHomePage() {
   
   // Start notification checker even on home page for background notifications
   startNotificationChecker();
+  
+  // Voice greeting - only on home page
+  const now = new Date();
+  const hour = now.getHours();
+  let greeting;
+
+  if (hour >= 5 && hour < 12) {
+    greeting = "Morning, G. Let's get the day rolling.";
+  } else if (hour >= 12 && hour < 18) {
+    greeting = "Afternoon, boss. Time to knock some things out.";
+  } else {
+    greeting = "Evening, player. Still grinding?";
+  }
+
+  speak(greeting);
+  setTimeout(() => speakWizLine("startup"), 3000);
+
+  // Check if we're on mobile for speech handling
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  if (isMobile) {
+    // On mobile, speech might be blocked - add user interaction trigger
+    console.log('Mobile detected - speech will play after first user interaction');
+    
+    // Add click listener to enable speech after first user interaction
+    const enableMobileSpeech = () => {
+      console.log('First user interaction - enabling speech');
+      speak(greeting);
+      setTimeout(() => speakWizLine("startup"), 3000);
+      document.removeEventListener('click', enableMobileSpeech);
+      document.removeEventListener('touchstart', enableMobileSpeech);
+    };
+    
+    // Try to speak immediately, but also add fallback
+    try {
+      speak(greeting);
+      setTimeout(() => speakWizLine("startup"), 3000);
+    } catch (e) {
+      console.log('Speech blocked, waiting for user interaction');
+      document.addEventListener('click', enableMobileSpeech, { once: true });
+      document.addEventListener('touchstart', enableMobileSpeech, { once: true });
+    }
+  }
 }
 
 // === PWA HOME SCREEN DETECTION ===
@@ -629,10 +672,32 @@ window.onload = () => {
       });
   }
 
-  // Apple-compatible notification setup
-  setupAppleNotifications();
+  // Initialize page based on current page
+  initializeCurrentPage();
+  
+  // Test localStorage functionality (especially important for iOS)
+  testLocalStorage();
 
-  const now = new Date();
+  // Load tasks on task master page only
+  if (window.location.pathname.includes('taskmaster.html')) {
+    console.log('Loading tasks on TaskMaster page...');
+    const all = getTasks();
+    console.log(`Found ${all.length} tasks to render:`, all);
+    
+    all.forEach(task => {
+      const ul = document.getElementById(`ul-${task.section}`);
+      if (ul) {
+        renderTask(task, ul);
+        console.log(`Rendered task "${task.name}" in section "${task.section}"`);
+      } else {
+        console.warn(`Could not find ul element for section "${task.section}"`);
+      }
+    });
+
+    if (all.length > 0) {
+      window._clearMessageSpoken = false;
+    }
+  }
   const hour = now.getHours();
   let greeting;
 
@@ -686,13 +751,46 @@ window.onload = () => {
 };
 
 // === STORAGE + TASK HANDLING
+function testLocalStorage() {
+  try {
+    const testKey = 'test_storage';
+    const testValue = 'test_data';
+    localStorage.setItem(testKey, testValue);
+    const retrieved = localStorage.getItem(testKey);
+    localStorage.removeItem(testKey);
+    
+    if (retrieved === testValue) {
+      console.log('✅ localStorage is working properly');
+      return true;
+    } else {
+      console.error('❌ localStorage test failed - data mismatch');
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ localStorage test failed:', error);
+    return false;
+  }
+}
+
 function getTasks() {
-  return JSON.parse(localStorage.getItem("tasks") || "[]");
+  try {
+    const tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
+    console.log(`getTasks(): Found ${tasks.length} tasks in localStorage`);
+    return tasks;
+  } catch (error) {
+    console.error('Error reading tasks from localStorage:', error);
+    return [];
+  }
 }
 function saveTask(task) {
-  const all = getTasks();
-  all.push(task);
-  localStorage.setItem("tasks", JSON.stringify(all));
+  try {
+    const all = getTasks();
+    all.push(task);
+    localStorage.setItem("tasks", JSON.stringify(all));
+    console.log(`saveTask(): Saved task "${task.name}" to localStorage. Total tasks: ${all.length}`);
+  } catch (error) {
+    console.error('Error saving task to localStorage:', error);
+  }
 }
 function removeTask(taskId) {
   const all = getTasks();
