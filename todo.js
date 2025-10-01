@@ -28,10 +28,6 @@ window.addEventListener('DOMContentLoaded', function() {
     alert('All data cleared! Refresh the page to start fresh and see notification prompts.');
   };
   
-  // Auto-clear localStorage for fresh start (remove this after testing)
-  console.log('🔄 Auto-clearing localStorage for fresh testing...');
-  window.clearAllData();
-  
   // Initialize OneSignal for iOS
   initializeOneSignal();
   
@@ -279,16 +275,19 @@ function initializeOneSignal() {
           prompts: [
             {
               type: "push",
-              autoPrompt: true, // Enable auto prompt since you configured it in dashboard
+              autoPrompt: true, // Show auto prompt
+              delay: {
+                pageViews: 1, // Show after 1 page view
+                timeDelay: 2 // Show after 2 seconds
+              },
               text: {
                 actionMessage: "Get notified when your tasks are due! TaskMaster Pro will remind you about upcoming deadlines even when the app is closed.",
-                acceptButton: "Enable Reminders",
+                acceptButton: "Allow",
                 cancelButton: "Not Now"
               }
             }
           ]
         }
-        
       }
     });
 
@@ -932,11 +931,29 @@ function setupAppleNotifications() {
       requestIOSNotificationsAutomatically();
     }, 2000);
   } else {
-    console.log('Desktop detected - notifications will work automatically via interval checker');
+    console.log('Desktop detected - setting up native notifications');
     console.log('Notification permission:', Notification.permission);
     
-    // Desktop browsers will use automatic prompts when users add tasks
-    // No manual button needed anymore since reminders work automatically
+    // For desktop browsers, request notification permission
+    if ('Notification' in window) {
+      if (Notification.permission === 'default') {
+        console.log('🔔 Requesting notification permission for desktop...');
+        Notification.requestPermission().then(permission => {
+          console.log('🔔 Desktop notification permission result:', permission);
+          if (permission === 'granted') {
+            console.log('✅ Desktop notifications enabled');
+          } else {
+            console.log('❌ Desktop notifications denied');
+          }
+        });
+      } else if (Notification.permission === 'granted') {
+        console.log('✅ Desktop notifications already granted');
+      } else {
+        console.log('❌ Desktop notifications denied');
+      }
+    } else {
+      console.log('❌ Notifications not supported in this browser');
+    }
   }
 }
 

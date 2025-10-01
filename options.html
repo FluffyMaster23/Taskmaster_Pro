@@ -374,15 +374,35 @@
       } else {
         // For desktop, use native notifications
         if (Notification) {
-          Notification.requestPermission().then(function(permission) {
-            if (permission === 'granted') {
-              statusSpan.textContent = "Desktop notifications enabled";
-              checkbox.checked = true;
-            } else {
-              statusSpan.textContent = "Desktop notifications denied";
-              checkbox.checked = false;
-            }
-          });
+          console.log('Current permission:', Notification.permission);
+          
+          if (Notification.permission === 'default') {
+            console.log('Requesting desktop notification permission...');
+            Notification.requestPermission().then(function(permission) {
+              console.log('Permission result:', permission);
+              if (permission === 'granted') {
+                statusSpan.textContent = "Desktop notifications enabled";
+                checkbox.checked = true;
+                
+                // Show test notification
+                setTimeout(() => {
+                  new Notification('TaskMaster Pro', {
+                    body: 'Notifications enabled! You\'ll get reminders when tasks are due.',
+                    icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K'
+                  });
+                }, 500);
+              } else {
+                statusSpan.textContent = "Desktop notifications denied";
+                checkbox.checked = false;
+              }
+            });
+          } else if (Notification.permission === 'granted') {
+            statusSpan.textContent = "Desktop notifications already enabled";
+            checkbox.checked = true;
+          } else {
+            statusSpan.textContent = "Notifications denied - check browser settings";
+            checkbox.checked = false;
+          }
         } else {
           statusSpan.textContent = "Notifications not supported in this browser";
           checkbox.checked = false;
