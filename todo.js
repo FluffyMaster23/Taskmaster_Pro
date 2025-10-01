@@ -28,6 +28,11 @@ window.addEventListener('DOMContentLoaded', function() {
     alert('All data cleared! Refresh the page to start fresh and see notification prompts.');
   };
   
+  // TEMPORARY: Auto-clear localStorage for testing
+  // Remove this after testing
+  console.log('🧪 TESTING MODE: Auto-clearing localStorage');
+  localStorage.clear();
+  
   // Initialize OneSignal for iOS
   initializeOneSignal();
   
@@ -293,12 +298,10 @@ function setupInstallButton() {
   // Show install button immediately for browsers that support it
   // but don't fire beforeinstallprompt (like some mobile browsers)
   setTimeout(() => {
-    if (!deferredPrompt && !isStandalone) {
-      // Check if PWA installation is likely supported
-      if ('serviceWorker' in navigator && window.matchMedia('(display-mode: browser)').matches) {
-        console.log('Showing install button for PWA-capable browser');
-        showInstallButton(installButton, installText);
-      }
+    if (!deferredPrompt && !isStandalone && !isIOS) {
+      // For Windows/Desktop: Always show install button if not standalone
+      console.log('Showing install button for Windows/Desktop browser');
+      showInstallButton(installButton, installText);
     }
   }, 2000);
 }
@@ -784,20 +787,32 @@ function setupVoiceFunctionality() {
   const voiceSelect = document.getElementById("voiceSelect");
   if (voiceSelect) {
     voiceSelect.addEventListener("change", e => {
-      // Get the actual voice object
+      // Check if "Choose voice" option is selected
+      if (e.target.selectedIndex === 0) {
+        // "Choose voice" selected - clear voice selection
+        window.selectedVoice = null;
+        localStorage.removeItem("selectedVoiceIndex");
+        localStorage.removeItem("selectedVoiceName");
+        console.log('Voice cleared - "Choose voice" option selected');
+        return;
+      }
+      
+      // Get the actual voice object (subtract 1 for "Choose voice" option)
       const voices = window.speechSynthesis.getVoices();
-      const selectedVoiceObj = voices[e.target.selectedIndex];
+      const actualVoiceIndex = e.target.selectedIndex - 1; // Subtract 1 for "Choose voice" option
+      const selectedVoiceObj = voices[actualVoiceIndex];
       
       if (selectedVoiceObj) {
         // Store the voice object globally
         window.selectedVoice = selectedVoiceObj;
         
-        // Save both voice index and name for persistence
-        localStorage.setItem("selectedVoiceIndex", e.target.selectedIndex);
+        // Save both voice index and name for persistence (store actual voice index, not dropdown index)
+        localStorage.setItem("selectedVoiceIndex", actualVoiceIndex);
         localStorage.setItem("selectedVoiceName", selectedVoiceObj.name);
         
         console.log('Voice changed and saved:', {
-          index: e.target.selectedIndex,
+          dropdownIndex: e.target.selectedIndex,
+          actualVoiceIndex: actualVoiceIndex,
           name: selectedVoiceObj.name,
           voiceObject: selectedVoiceObj
         });
@@ -843,15 +858,19 @@ function loadSavedVoicePreferences() {
     const index = parseInt(savedVoiceIndex);
     const voiceSelect = document.getElementById("voiceSelect");
     
-    if (voiceSelect && index < voiceSelect.options.length && index < voices.length) {
-      // Set the dropdown selection
-      voiceSelect.selectedIndex = index;
+    // Account for the new "Choose voice" option at index 0
+    const adjustedIndex = index + 1; // Add 1 because we have "Choose voice" at index 0
+    
+    if (voiceSelect && adjustedIndex < voiceSelect.options.length && index < voices.length) {
+      // Set the dropdown selection (adjusted for "Choose voice" option)
+      voiceSelect.selectedIndex = adjustedIndex;
       
       // Set the global voice object
       window.selectedVoice = voices[index];
       
       console.log('✅ Restored voice by index:', {
         index: index,
+        dropdownIndex: adjustedIndex,
         name: voices[index].name,
         voiceObject: voices[index]
       });
@@ -869,12 +888,14 @@ function loadSavedVoicePreferences() {
       const foundVoice = voices.find(v => v.name === savedVoiceName);
       if (foundVoice) {
         const foundIndex = voices.indexOf(foundVoice);
-        voiceSelect.selectedIndex = foundIndex;
+        const adjustedIndex = foundIndex + 1; // Add 1 for "Choose voice" option
+        voiceSelect.selectedIndex = adjustedIndex;
         window.selectedVoice = foundVoice;
         
         console.log('✅ Restored voice by name:', {
           name: savedVoiceName,
           index: foundIndex,
+          dropdownIndex: adjustedIndex,
           voiceObject: foundVoice
         });
         return;
@@ -882,14 +903,12 @@ function loadSavedVoicePreferences() {
     }
   }
   
-  // Final fallback: use first available voice
-  if (voices.length > 0) {
-    const voiceSelect = document.getElementById("voiceSelect");
-    if (voiceSelect && voiceSelect.options.length > 0) {
-      voiceSelect.selectedIndex = 0;
-      window.selectedVoice = voices[0];
-      console.log('✅ Using first available voice as fallback:', voices[0].name);
-    }
+  // No saved voice found - leave on "Choose voice" option
+  const voiceSelect = document.getElementById("voiceSelect");
+  if (voiceSelect) {
+    voiceSelect.selectedIndex = 0; // "Choose voice" option
+    window.selectedVoice = null; // No voice selected
+    console.log('✅ No saved voice - defaulting to "Choose voice" option');
   }
 }
 
@@ -916,14 +935,67 @@ function loadVoices() {
   
   console.log('Loading', voices.length, 'voices into dropdown');
   
-  // Filter for English voices or all voices if no English found
-  let filteredVoices = voices.filter(v => v.lang.startsWith("en"));
-  if (filteredVoices.length === 0) {
-    filteredVoices = voices; // Use all voices if no English ones
+  // Detect iOS for voice filtering
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  
+  let filteredVoices;
+  
+  if (isIOS) {
+    // For iOS, only show iOS-specific voices
+    filteredVoices = voices.filter(v => 
+      v.name.includes('Siri') || 
+      v.localService === true ||
+      v.name.includes('Alex') ||
+      v.name.includes('Victoria') ||
+      v.name.includes('Daniel') ||
+      v.name.includes('Karen') ||
+      v.name.includes('Moira') ||
+      v.name.includes('Tessa') ||
+      v.name.includes('Samantha') ||
+      v.name.includes('Aaron') ||
+      v.name.includes('Fred') ||
+      v.name.includes('Nicky') ||
+      v.name.includes('Vicki') ||
+      v.name.includes('Princess') ||
+      v.name.includes('Junior') ||
+      v.name.includes('Ralph') ||
+      v.name.includes('Albert') ||
+      v.name.includes('Kathy') ||
+      v.name.includes('Cellos') ||
+      v.name.includes('Zarvox') ||
+      v.name.includes('Trinoids') ||
+      v.name.includes('Whisper') ||
+      v.name.includes('Deranged') ||
+      v.name.includes('Goodness') ||
+      v.name.includes('Hysterical') ||
+      v.name.includes('Novelty') ||
+      v.name.includes('Organ') ||
+      v.name.includes('Bubbles') ||
+      v.name.includes('Boing') ||
+      v.name.includes('Bahh') ||
+      v.name.includes('Bells') ||
+      v.name.includes('Bad News') ||
+      v.name.includes('Pipe Organ')
+    );
+    console.log(`iOS detected: Filtered to ${filteredVoices.length} iOS voices`);
+  } else {
+    // For non-iOS, filter for English voices or all voices if no English found
+    filteredVoices = voices.filter(v => v.lang.startsWith("en"));
+    if (filteredVoices.length === 0) {
+      filteredVoices = voices; // Use all voices if no English ones
+    }
+    console.log(`Desktop detected: Using ${filteredVoices.length} English voices`);
   }
   
   // Sort voices by name for better organization
   filteredVoices.sort((a, b) => a.name.localeCompare(b.name));
+  
+  // Add default "Choose voice" option
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = "Choose voice...";
+  voiceSelect.appendChild(defaultOption);
   
   filteredVoices.forEach(voice => {
     const option = document.createElement("option");
@@ -932,13 +1004,9 @@ function loadVoices() {
     voiceSelect.appendChild(option);
   });
 
-  // Set default to first voice (will be overridden by saved preferences)
-  if (filteredVoices.length > 0) {
-    const defaultVoice = filteredVoices[0];
-    window.selectedVoice = defaultVoice;
-    voiceSelect.selectedIndex = 0;
-    console.log('Set default voice:', defaultVoice.name);
-  }
+  // Set default to "Choose voice" (will be overridden by saved preferences)
+  voiceSelect.selectedIndex = 0;
+  console.log('Set default to "Choose voice" option');
 
   // Load saved voice preferences after voices are populated
   loadSavedVoicePreferences();
