@@ -155,6 +155,12 @@
     
     <p style="margin-top: 15px;">Notifications are automatically configured based on your platform (iOS uses OneSignal, desktop uses native notifications).</p>
     <p style="font-size: 0.9em; color: #f59e0b; margin-top: 10px;"><strong>Note for iOS:</strong> Notifications require the app to be deployed on HTTPS. Local development (localhost) may not support OneSignal notifications on iOS devices.</p>
+    
+    <!-- Test Notification Button -->
+    <button onclick="testNotification()" style="margin-top: 15px; background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
+      Test Notification
+    </button>
+    <p style="font-size: 0.8em; color: #6b7280; margin-top: 5px;">Click to test if notifications are working on your device.</p>
   </div>
 
   <div class="options-section">
@@ -166,6 +172,68 @@
 
   <script src="todo.js"></script>
   <script>
+    // Test notification function
+    function testNotification() {
+      console.log('Testing notification...');
+      
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      
+      if (isIOS) {
+        // Test OneSignal on iOS
+        if (window.OneSignal) {
+          window.OneSignal.push(function() {
+            window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+              if (isEnabled) {
+                console.log('Sending OneSignal test notification...');
+                window.OneSignal.sendSelfNotification(
+                  "🧪 Test Notification",
+                  "TaskMaster Pro notifications are working on iOS!",
+                  window.location.href,
+                  "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K"
+                ).then(function() {
+                  alert('✅ Test notification sent! Check your notifications.');
+                }).catch(function(error) {
+                  console.error('OneSignal test failed:', error);
+                  alert('❌ OneSignal test failed. Check console for details.');
+                });
+              } else {
+                console.log('OneSignal not enabled, requesting permission...');
+                window.OneSignal.registerForPushNotifications().then(function() {
+                  alert('✅ Notification permission granted! Try the test again.');
+                }).catch(function(error) {
+                  console.error('Permission request failed:', error);
+                  alert('❌ Permission request failed. Make sure you\'re on HTTPS.');
+                });
+              }
+            });
+          });
+        } else {
+          alert('❌ OneSignal not available. Make sure you\'re on HTTPS.');
+        }
+      } else {
+        // Test native notifications on desktop
+        if ('Notification' in window) {
+          if (Notification.permission === 'granted') {
+            new Notification('🧪 Test Notification', {
+              body: 'TaskMaster Pro notifications are working!',
+              icon: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K"
+            });
+            alert('✅ Test notification sent!');
+          } else {
+            Notification.requestPermission().then(function(permission) {
+              if (permission === 'granted') {
+                alert('✅ Permission granted! Try the test again.');
+              } else {
+                alert('❌ Permission denied. Please enable notifications in browser settings.');
+              }
+            });
+          }
+        } else {
+          alert('❌ Notifications not supported in this browser.');
+        }
+      }
+    }
     // Auto-save voice settings when changed
     function autoSaveVoiceSettings() {
       const voiceSelect = document.getElementById('voiceSelect');
@@ -202,34 +270,47 @@
       const speechRateSelect = document.getElementById('speechRateSelect');
       const statusDiv = document.getElementById('saveStatus');
       
-      // Save to localStorage
-      localStorage.setItem('selectedVoiceIndex', voiceSelect.selectedIndex);
-      localStorage.setItem('speechRate', speechRateSelect.value);
+      // Get the original voice index from the selected option's data attribute
+      const selectedOption = voiceSelect.options[voiceSelect.selectedIndex];
+      let originalVoiceIndex = null;
+      let selectedVoice = null;
       
-      // Update global variables if they exist
-      if (window.selectedVoice && window.speechSynthesis) {
-        window.selectedVoice = window.speechSynthesis.getVoices()[voiceSelect.selectedIndex];
+      if (voiceSelect.selectedIndex > 0) { // Not "Choose voice" option
+        originalVoiceIndex = parseInt(selectedOption.dataset.originalIndex);
+        const voices = window.speechSynthesis.getVoices();
+        selectedVoice = voices[originalVoiceIndex];
+        
+        // Save the original voice index and name
+        localStorage.setItem('selectedVoiceIndex', originalVoiceIndex);
+        localStorage.setItem('selectedVoiceName', selectedVoice.name);
+        
+        // Update global variables
+        window.selectedVoice = selectedVoice;
+      } else {
+        // "Choose voice" selected - clear selection
+        localStorage.removeItem('selectedVoiceIndex');
+        localStorage.removeItem('selectedVoiceName');
+        window.selectedVoice = null;
       }
+      
+      // Save speech rate
+      localStorage.setItem('speechRate', speechRateSelect.value);
       if (window.speechRate !== undefined) {
         window.speechRate = parseFloat(speechRateSelect.value);
       }
       
-      // Get selected voice for confirmation
-      const voices = window.speechSynthesis.getVoices();
-      const selectedVoice = voices[voiceSelect.selectedIndex];
-      const voiceName = selectedVoice ? selectedVoice.name : 'default voice';
-      
-      // iOS voice confirmation - speak "You have selected [voice name]"
+      // Voice confirmation using the correct voice
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       
-      if (isIOS && window.speechSynthesis && selectedVoice) {
-        const confirmationText = `You have selected ${voiceName}`;
+      if (selectedVoice) {
+        const confirmationText = `Voice settings saved. You have selected ${selectedVoice.name.split(' ')[0]}`;
         const utterance = new SpeechSynthesisUtterance(confirmationText);
         utterance.voice = selectedVoice;
         utterance.rate = parseFloat(speechRateSelect.value);
+        utterance.lang = "en-US"; // Force English
         window.speechSynthesis.speak(utterance);
-        console.log(`🔊 iOS Voice confirmation: "${confirmationText}" using voice: ${voiceName}`);
+        console.log(`🔊 Voice confirmation: "${confirmationText}" using voice: ${selectedVoice.name} (${selectedVoice.lang})`);
       }
       
       // Show success message

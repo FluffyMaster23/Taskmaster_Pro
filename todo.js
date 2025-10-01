@@ -591,7 +591,7 @@ function initializeOneSignal() {
         enable: false, // We'll use our own button
       },
       allowLocalhostAsSecureOrigin: true,
-      autoRegister: true, // Enable auto registration for auto prompt
+      autoRegister: false, // Disable auto registration, we'll handle it manually
       autoResubscribe: true,
       serviceWorkerParam: {
         scope: './',
@@ -606,36 +606,27 @@ function initializeOneSignal() {
       allowLocalhostAsSecureOrigin: true, // Allow localhost testing
       welcomeNotification: {
         disable: true // Don't show welcome notification
-      },
-      promptOptions: {
-        slidedown: {
-          prompts: [
-            {
-              type: "push",
-              autoPrompt: true, // Show auto prompt
-              delay: {
-                pageViews: 1, // Show after 1 page view
-                timeDelay: 2 // Show after 2 seconds
-              },
-              text: {
-                actionMessage: "Get notified when your tasks are due! TaskMaster Pro will remind you about upcoming deadlines even when the app is closed.",
-                acceptButton: "Allow",
-                cancelButton: "Not Now"
-              }
-            }
-          ]
-        }
       }
-    });
-
-    // Check subscription status
-    OneSignal.isPushNotificationsEnabled(function(isEnabled) {
-      console.log('OneSignal subscription status:', isEnabled);
-      window.oneSignalEnabled = isEnabled;
+    }).then(function() {
+      console.log('✅ OneSignal initialized successfully');
       
-      // If OneSignal fails on localhost, fallback to native
-      if (!isEnabled && (location.protocol === 'http:' || location.hostname === 'localhost')) {
-        console.log('⚠️ OneSignal failed on localhost, falling back to native notifications');
+      // Check subscription status after initialization
+      OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+        console.log('OneSignal subscription status:', isEnabled);
+        window.oneSignalEnabled = isEnabled;
+        
+        // If not enabled, we'll request permission later when needed
+        if (!isEnabled) {
+          console.log('OneSignal not enabled yet - will request permission when appropriate');
+        }
+      });
+      
+    }).catch(function(error) {
+      console.error('❌ OneSignal initialization failed:', error);
+      
+      // Fallback to native notifications on initialization failure
+      if (location.protocol === 'http:' || location.hostname === 'localhost') {
+        console.log('⚠️ OneSignal failed, falling back to native notifications');
         initializeIOSNativeNotifications();
       }
     });
@@ -898,8 +889,10 @@ function setupVoiceFunctionality() {
           voiceObject: selectedVoiceObj
         });
         
-        // Test the voice immediately
-        speak("Voice changed to " + selectedVoiceObj.name.split(' ')[0]);
+        // Test the voice immediately (only if not on options page to avoid duplicate announcements)
+        if (!window.location.pathname.includes('options.html')) {
+          speak("Voice changed to " + selectedVoiceObj.name.split(' ')[0]);
+        }
       }
     });
   }
@@ -1403,7 +1396,18 @@ async function requestIOSNotificationsAutomatically() {
   console.log('Automatically requesting iOS task reminder notifications');
   
   if (!window.OneSignal) {
-    console.log('OneSignal not available for iOS');
+    console.log('OneSignal not available for iOS, trying native notifications');
+    // Fallback to native notifications if OneSignal not available
+    try {
+      const permission = await Notification.requestPermission();
+      console.log('Native notification permission:', permission);
+      if (permission === 'granted') {
+        console.log('✅ Native iOS notifications enabled');
+        return true;
+      }
+    } catch (error) {
+      console.error('Error requesting native notifications:', error);
+    }
     return false;
   }
   
@@ -1421,9 +1425,22 @@ async function requestIOSNotificationsAutomatically() {
             sendTaskReminderTestNotification();
           }, 500);
         } else {
-          // Request task reminder permission
+          // Request task reminder permission explicitly
           console.log('Requesting iOS task reminder permission');
-          requestTaskReminderPermission();
+          
+          // Try to trigger the prompt manually
+          window.OneSignal.showSlidedownPrompt().then(function() {
+            console.log('OneSignal prompt shown successfully');
+          }).catch(function(error) {
+            console.error('Error showing OneSignal prompt:', error);
+            // Fallback to registerForPushNotifications
+            window.OneSignal.registerForPushNotifications().then(function() {
+              console.log('OneSignal registration successful');
+              window.oneSignalEnabled = true;
+            }).catch(function(registerError) {
+              console.error('OneSignal registration failed:', registerError);
+            });
+          });
         }
       });
     });
