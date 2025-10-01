@@ -265,10 +265,11 @@ function setupInstallButton() {
     return;
   }
   
-  // For iOS Safari, always show install instructions (even if not standalone)
+  // Hide install button completely for iOS users since it doesn't work properly
   if (isIOS) {
-    console.log('iOS detected - showing install instructions');
-    showIOSInstallButton(installButton, installText);
+    console.log('iOS detected - hiding install button (doesn\'t work properly on iOS)');
+    installButton.style.display = 'none';
+    installText.style.display = 'none';
     return;
   }
   

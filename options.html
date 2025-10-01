@@ -178,38 +178,89 @@
       
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isFirefox = navigator.userAgent.includes('Firefox');
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      
+      console.log('Platform detection:', { isIOS, isFirefox, isSafari });
       
       if (isIOS) {
-        // Test OneSignal on iOS
-        if (window.OneSignal) {
+        // For iOS, try multiple notification methods
+        console.log('iOS detected - trying multiple notification methods...');
+        
+        // First, try native Web Notifications (works on iOS 16.4+ in Firefox/Chrome)
+        if ('Notification' in window && !isSafari) {
+          console.log('Trying native notifications on iOS (non-Safari)...');
+          
+          if (Notification.permission === 'granted') {
+            console.log('Native notification permission already granted');
+            try {
+              const notification = new Notification('🧪 Test Notification', {
+                body: 'TaskMaster Pro notifications are working on iOS!',
+                icon: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K",
+                tag: 'test-notification'
+              });
+              
+              // Auto-close after 5 seconds
+              setTimeout(() => {
+                notification.close();
+              }, 5000);
+              
+              alert('✅ Native test notification sent! Check your notifications.');
+              return;
+            } catch (error) {
+              console.error('Native notification failed:', error);
+            }
+          } else if (Notification.permission === 'default') {
+            console.log('Requesting native notification permission...');
+            Notification.requestPermission().then(function(permission) {
+              console.log('Native permission result:', permission);
+              if (permission === 'granted') {
+                alert('✅ Native notification permission granted! Try the test again.');
+              } else {
+                alert('❌ Native notification permission denied.');
+              }
+            }).catch(function(error) {
+              console.error('Permission request failed:', error);
+              alert('❌ Permission request failed: ' + error.message);
+            });
+            return;
+          }
+        }
+        
+        // Fallback to OneSignal for Safari on iOS
+        if (window.OneSignal && isSafari) {
+          console.log('Trying OneSignal on iOS Safari...');
           window.OneSignal.push(function() {
             window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+              console.log('OneSignal enabled status:', isEnabled);
               if (isEnabled) {
                 console.log('Sending OneSignal test notification...');
                 window.OneSignal.sendSelfNotification(
                   "🧪 Test Notification",
-                  "TaskMaster Pro notifications are working on iOS!",
+                  "TaskMaster Pro notifications are working on iOS Safari!",
                   window.location.href,
                   "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K"
                 ).then(function() {
-                  alert('✅ Test notification sent! Check your notifications.');
+                  alert('✅ OneSignal test notification sent! Check your notifications.');
                 }).catch(function(error) {
                   console.error('OneSignal test failed:', error);
-                  alert('❌ OneSignal test failed. Check console for details.');
+                  alert('❌ OneSignal test failed: ' + error.message);
                 });
               } else {
                 console.log('OneSignal not enabled, requesting permission...');
                 window.OneSignal.registerForPushNotifications().then(function() {
-                  alert('✅ Notification permission granted! Try the test again.');
+                  alert('✅ OneSignal permission granted! Try the test again.');
                 }).catch(function(error) {
-                  console.error('Permission request failed:', error);
-                  alert('❌ Permission request failed. Make sure you\'re on HTTPS.');
+                  console.error('OneSignal permission request failed:', error);
+                  alert('❌ OneSignal permission request failed: ' + error.message);
                 });
               }
             });
           });
+        } else if (!window.OneSignal && isSafari) {
+          alert('❌ OneSignal not available on iOS Safari. Make sure you\'re on HTTPS and the page has fully loaded.');
         } else {
-          alert('❌ OneSignal not available. Make sure you\'re on HTTPS.');
+          alert('❌ No notification methods available for this iOS browser. Try using Safari or updating to iOS 16.4+ for Firefox support.');
         }
       } else {
         // Test native notifications on desktop
@@ -234,30 +285,44 @@
         }
       }
     }
-    // Auto-save voice settings when changed
+    // Auto-save voice settings when changed (silent auto-save, no voice announcements)
     function autoSaveVoiceSettings() {
       const voiceSelect = document.getElementById('voiceSelect');
       const speechRateSelect = document.getElementById('speechRateSelect');
       
       if (voiceSelect && speechRateSelect) {
-        // Save to localStorage using consistent method with todo.js
-        localStorage.setItem('selectedVoiceIndex', voiceSelect.selectedIndex);
-        localStorage.setItem('selectedVoiceName', voiceSelect.value);
-        localStorage.setItem('speechRate', speechRateSelect.value);
+        // Get the original voice index from the selected option's data attribute
+        const selectedOption = voiceSelect.options[voiceSelect.selectedIndex];
         
-        // Update global variables if they exist
-        if (window.speechSynthesis && voiceSelect.selectedIndex >= 0) {
+        if (voiceSelect.selectedIndex > 0) { // Not "Choose voice" option
+          const originalVoiceIndex = parseInt(selectedOption.dataset.originalIndex);
           const voices = window.speechSynthesis.getVoices();
-          if (voices.length > voiceSelect.selectedIndex) {
-            window.selectedVoice = voices[voiceSelect.selectedIndex];
+          const selectedVoice = voices[originalVoiceIndex];
+          
+          if (selectedVoice) {
+            // Save the original voice index and name (correct method)
+            localStorage.setItem('selectedVoiceIndex', originalVoiceIndex);
+            localStorage.setItem('selectedVoiceName', selectedVoice.name);
+            
+            // Update global variables
+            window.selectedVoice = selectedVoice;
           }
+        } else {
+          // "Choose voice" selected - clear selection
+          localStorage.removeItem('selectedVoiceIndex');
+          localStorage.removeItem('selectedVoiceName');
+          window.selectedVoice = null;
         }
+        
+        // Save speech rate
+        localStorage.setItem('speechRate', speechRateSelect.value);
         if (window.speechRate !== undefined) {
           window.speechRate = parseFloat(speechRateSelect.value);
         }
         
-        console.log('Auto-saved voice settings:', {
+        console.log('Auto-saved voice settings (silent):', {
           voiceIndex: voiceSelect.selectedIndex,
+          originalIndex: selectedOption.dataset.originalIndex,
           voiceName: voiceSelect.value,
           speechRate: speechRateSelect.value
         });
@@ -299,17 +364,25 @@
         window.speechRate = parseFloat(speechRateSelect.value);
       }
       
-      // Voice confirmation using the correct voice
+      // Voice confirmation using the correct voice (only speak once)
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       
       if (selectedVoice) {
+        // Clear any pending speech to prevent conflicts
+        window.speechSynthesis.cancel();
+        
         const confirmationText = `Voice settings saved. You have selected ${selectedVoice.name.split(' ')[0]}`;
         const utterance = new SpeechSynthesisUtterance(confirmationText);
         utterance.voice = selectedVoice;
         utterance.rate = parseFloat(speechRateSelect.value);
         utterance.lang = "en-US"; // Force English
-        window.speechSynthesis.speak(utterance);
+        
+        // Small delay to ensure speech synthesis is ready
+        setTimeout(() => {
+          window.speechSynthesis.speak(utterance);
+        }, 100);
+        
         console.log(`🔊 Voice confirmation: "${confirmationText}" using voice: ${selectedVoice.name} (${selectedVoice.lang})`);
       }
       
