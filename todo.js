@@ -74,24 +74,27 @@ function initializeTaskMasterPage() {
   const checkUpcomingBtn = document.getElementById('checkUpcoming');
   if (checkUpcomingBtn) {
     checkUpcomingBtn.addEventListener('click', () => {
-      console.log('Check Upcoming Todos button clicked');
+      console.log('🔘 Check Upcoming Todos button clicked');
       const upcoming = getUpcomingTasks();
-      console.log('Found upcoming tasks:', upcoming.length);
+      console.log('📋 Found upcoming tasks:', upcoming.length);
+      console.log('📋 Upcoming tasks details:', upcoming);
       
       if (upcoming.length === 0) {
         // Use the clear message when no upcoming tasks
-        if (!window._clearMessageSpoken) {
-          window._clearMessageSpoken = true;
-          setTimeout(() => speakWizLine("clear"), 1000);
-        }
-        console.log('No upcoming tasks - playing clear message');
+        console.log('📭 No upcoming tasks - playing clear message');
+        // Always play the clear message when manually requested, reset the flag first
+        window._clearMessageSpoken = false;
+        setTimeout(() => speakWizLine("clear"), 1000);
       } else {
-        console.log('Speaking upcoming tasks...');
+        console.log('🔊 Speaking upcoming tasks...');
         upcoming.forEach((task, index) => {
+          console.log(`📢 Scheduling task ${index + 1}/${upcoming.length}: ${task.task}`);
           setTimeout(() => speakTask(task), index * 3000); // 3 second delay between tasks
         });
       }
     });
+  } else {
+    console.log('⚠️ Check Upcoming button not found');
   }
   
   // Start the notification checker
@@ -1117,16 +1120,23 @@ function loadVoices() {
 
 // === SPEAK (User-selected voice)
 function speak(text) {
+  console.log('🔊 speak() called with:', text);
+  
   const utter = new SpeechSynthesisUtterance(text);
   
   if (window.selectedVoice) {
     // selectedVoice is now a voice object, not a string
     utter.voice = window.selectedVoice;
+    console.log('Using selected voice:', window.selectedVoice.name);
   } else {
     // Fallback to first available voice
     const voices = speechSynthesis.getVoices();
+    console.log('Available voices:', voices.length);
     if (voices.length > 0) {
       utter.voice = voices[0];
+      console.log('Using fallback voice:', voices[0].name);
+    } else {
+      console.log('⚠️ No voices available');
     }
   }
   
@@ -1134,6 +1144,11 @@ function speak(text) {
   utter.rate = window.speechRate || 1; // Use selected speech rate
   utter.pitch = 1;
   utter.volume = 1;
+  
+  // Add event listeners for debugging
+  utter.onstart = () => console.log('speak() - Speech started');
+  utter.onend = () => console.log('speak() - Speech ended');
+  utter.onerror = (event) => console.error('speak() - Speech error:', event);
   
   // Clear any pending speech and speak
   speechSynthesis.cancel();
@@ -1142,16 +1157,23 @@ function speak(text) {
 
 // === SPEAK DAVID (used for reminders, task reports)
 function speakDavid(text) {
+  console.log('🔊 Speaking:', text);
+  
   const utter = new SpeechSynthesisUtterance(text);
   
   // Always use the selected voice instead of trying to find David
   if (window.selectedVoice) {
+    console.log('Using selected voice:', window.selectedVoice.name);
     utter.voice = window.selectedVoice;
   } else {
     // Fallback to first available voice
     const voices = speechSynthesis.getVoices();
+    console.log('Available voices:', voices.length);
     if (voices.length > 0) {
       utter.voice = voices[0];
+      console.log('Using fallback voice:', voices[0].name);
+    } else {
+      console.log('⚠️ No voices available yet, using default voice');
     }
   }
   
@@ -1160,6 +1182,11 @@ function speakDavid(text) {
   utter.pitch = 1;
   utter.volume = 1;
   
+  // Add event listeners for debugging
+  utter.onstart = () => console.log('Speech started');
+  utter.onend = () => console.log('Speech ended');
+  utter.onerror = (event) => console.error('Speech error:', event);
+  
   // Clear any pending speech and speak
   speechSynthesis.cancel();
   speechSynthesis.speak(utter);
@@ -1167,6 +1194,8 @@ function speakDavid(text) {
 
 // === SPEAK TASK (for upcoming tasks)
 function speakTask(task) {
+  console.log('🗣️ Speaking task:', task.task, 'due:', task.time);
+  
   const now = new Date();
   const due = new Date(task.time);
   const timeDiff = due - now;
@@ -1204,6 +1233,7 @@ function speakTask(task) {
     }
   }
   
+  console.log('📢 Announcement:', announcement);
   speakDavid(announcement);
 }
 
@@ -1899,7 +1929,11 @@ function getUpcomingTasks() {
   const now = new Date();
   const all = getTasks();
   
+  console.log('📅 Current time:', now.toISOString());
+  console.log('📋 All tasks:', all.length);
+  
   if (all.length === 0) {
+    console.log('📭 No tasks found in storage');
     return [];
   }
   
@@ -1907,9 +1941,14 @@ function getUpcomingTasks() {
   const relevant = all.filter(task => {
     const due = new Date(task.time);
     const timeDiff = due - now;
-    return timeDiff <= 24 * 60 * 60 * 1000; // Include overdue and next 24 hours
+    const isRelevant = timeDiff <= 24 * 60 * 60 * 1000; // Include overdue and next 24 hours
+    
+    console.log(`⏰ Task "${task.task}" due ${due.toISOString()}, diff: ${Math.round(timeDiff / 1000 / 60)} minutes, relevant: ${isRelevant}`);
+    
+    return isRelevant;
   });
   
+  console.log('🎯 Filtered relevant tasks:', relevant.length);
   return relevant;
 }
 
