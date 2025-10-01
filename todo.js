@@ -129,32 +129,36 @@ function initializeHomePage() {
     greeting = "Evening, player. Still grinding?";
   }
 
-  speak(greeting);
-
-
-
-  // Check if we're on mobile for speech handling
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  
-  if (isMobile) {
-    // On mobile, speech might be blocked - add user interaction trigger
-    console.log('Mobile detected - speech will play after first user interaction');
+  // Prevent multiple greetings per page load
+  if (!window._greetingSpoken) {
+    window._greetingSpoken = true;
     
-    // Add click listener to enable speech after first user interaction
-    const enableMobileSpeech = () => {
-      console.log('First user interaction - enabling speech');
-      speak(greeting);
-      document.removeEventListener('click', enableMobileSpeech);
-      document.removeEventListener('touchstart', enableMobileSpeech);
-    };
+    // Check if we're on mobile for speech handling
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
-    // Try to speak immediately, but also add fallback
-    try {
+    if (isMobile) {
+      // On mobile, speech might be blocked - add user interaction trigger
+      console.log('Mobile detected - speech will play after first user interaction');
+      
+      // Add click listener to enable speech after first user interaction
+      const enableMobileSpeech = () => {
+        console.log('First user interaction - enabling speech');
+        speak(greeting);
+        document.removeEventListener('click', enableMobileSpeech);
+        document.removeEventListener('touchstart', enableMobileSpeech);
+      };
+      
+      // Try to speak immediately, but also add fallback
+      try {
+        speak(greeting);
+      } catch (e) {
+        console.log('Speech blocked, waiting for user interaction');
+        document.addEventListener('click', enableMobileSpeech, { once: true });
+        document.addEventListener('touchstart', enableMobileSpeech, { once: true });
+      }
+    } else {
+      // Desktop - just speak directly
       speak(greeting);
-    } catch (e) {
-      console.log('Speech blocked, waiting for user interaction');
-      document.addEventListener('click', enableMobileSpeech, { once: true });
-      document.addEventListener('touchstart', enableMobileSpeech, { once: true });
     }
   }
 }
@@ -482,10 +486,20 @@ function setupVoiceFunctionality() {
   const voiceSelect = document.getElementById("voiceSelect");
   if (voiceSelect) {
     voiceSelect.addEventListener("change", e => {
-      window.selectedVoice = e.target.value;
-      // Save voice preference to localStorage
-      localStorage.setItem("selectedVoice", e.target.value);
-      console.log('Voice changed and saved:', e.target.value);
+      // Save both voice index and name for consistency
+      localStorage.setItem("selectedVoiceIndex", e.target.selectedIndex);
+      localStorage.setItem("selectedVoiceName", e.target.value);
+      
+      // Update global variable
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > e.target.selectedIndex) {
+        window.selectedVoice = voices[e.target.selectedIndex];
+      }
+      
+      console.log('Voice changed and saved:', {
+        index: e.target.selectedIndex,
+        name: e.target.value
+      });
     });
   }
   
@@ -512,13 +526,44 @@ function loadSavedVoicePreferences() {
     const speechRateSelect = document.getElementById("speechRateSelect");
     if (speechRateSelect) {
       speechRateSelect.value = savedRate;
+      console.log('Restored speech rate:', savedRate);
     }
   }
   
-  // Load saved voice (will be applied when voices are loaded)
-  const savedVoice = localStorage.getItem("selectedVoice");
-  if (savedVoice) {
-    window.selectedVoice = savedVoice;
+  // Load saved voice index (preferred method)
+  const savedVoiceIndex = localStorage.getItem("selectedVoiceIndex");
+  if (savedVoiceIndex && savedVoiceIndex !== "null") {
+    const voiceSelect = document.getElementById("voiceSelect");
+    if (voiceSelect && parseInt(savedVoiceIndex) < voiceSelect.options.length) {
+      voiceSelect.selectedIndex = parseInt(savedVoiceIndex);
+      
+      // Update global variable
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > parseInt(savedVoiceIndex)) {
+        window.selectedVoice = voices[parseInt(savedVoiceIndex)];
+        console.log('Restored voice by index:', savedVoiceIndex, window.selectedVoice.name);
+      }
+    }
+  } else {
+    // Fallback to saved voice name (for backward compatibility)
+    const savedVoiceName = localStorage.getItem("selectedVoiceName") || localStorage.getItem("selectedVoice");
+    if (savedVoiceName) {
+      const voiceSelect = document.getElementById("voiceSelect");
+      if (voiceSelect) {
+        // Try to find and select the voice by name
+        for (let i = 0; i < voiceSelect.options.length; i++) {
+          if (voiceSelect.options[i].value === savedVoiceName) {
+            voiceSelect.selectedIndex = i;
+            const voices = window.speechSynthesis.getVoices();
+            if (voices.length > i) {
+              window.selectedVoice = voices[i];
+              console.log('Restored voice by name:', savedVoiceName);
+            }
+            break;
+          }
+        }
+      }
+    }
   }
 }
 
@@ -560,42 +605,33 @@ function loadVoices() {
     option.textContent = `${voice.name} (${voice.lang})`;
     voiceSelect.appendChild(option);
   });
-  
-  // Load saved voice preference or set default
-  const savedVoice = localStorage.getItem("selectedVoice");
-  let defaultVoice = null;
-  
-  if (savedVoice) {
-    // Use saved voice if available
-    defaultVoice = filteredVoices.find(v => v.name === savedVoice);
+
+  // Set default to first voice (will be overridden by saved preferences)
+  if (filteredVoices.length > 0) {
+    const defaultVoice = filteredVoices[0];
+    window.selectedVoice = defaultVoice;
+    voiceSelect.selectedIndex = 0;
+    console.log('Set default voice:', defaultVoice.name);
   }
+
+  // Load saved voice preferences after voices are populated
+  loadSavedVoicePreferences();
   
-  if (!defaultVoice) {
-    // Use first available voice as default (like before)
-    if (filteredVoices.length > 0) {
-      defaultVoice = filteredVoices[0];
-      console.log('Using first available voice as default:', defaultVoice.name);
-    }
-  }
-  
-  if (defaultVoice) {
-    window.selectedVoice = defaultVoice.name;
-    voiceSelect.value = defaultVoice.name;
-    console.log('✅ Voice loading complete. Selected voice:', defaultVoice.name);
-  } else {
-    console.error('❌ No voice could be selected');
-  }
+  console.log('✅ Voice loading complete');
 }
 
 // === SPEAK (User-selected voice)
 function speak(text) {
   const utter = new SpeechSynthesisUtterance(text);
-  const voices = speechSynthesis.getVoices();
   
   if (window.selectedVoice) {
-    const voice = voices.find(v => v.name === window.selectedVoice);
-    if (voice) {
-      utter.voice = voice;
+    // selectedVoice is now a voice object, not a string
+    utter.voice = window.selectedVoice;
+  } else {
+    // Fallback to first available voice
+    const voices = speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      utter.voice = voices[0];
     }
   }
   
@@ -612,19 +648,16 @@ function speak(text) {
 // === SPEAK DAVID (used for reminders, task reports)
 function speakDavid(text) {
   const utter = new SpeechSynthesisUtterance(text);
-  const voices = speechSynthesis.getVoices();
   
   // Always use the selected voice instead of trying to find David
   if (window.selectedVoice) {
-    const voice = voices.find(v => v.name === window.selectedVoice);
-    if (voice) {
-      utter.voice = voice;
+    utter.voice = window.selectedVoice;
+  } else {
+    // Fallback to first available voice
+    const voices = speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      utter.voice = voices[0];
     }
-  }
-  
-  // Fallback to any available voice if selected voice not found
-  if (!utter.voice && voices.length > 0) {
-    utter.voice = voices[0];
   }
   
   utter.lang = "en-US";

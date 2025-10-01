@@ -124,12 +124,12 @@
     <h2>Voice & Speech Settings</h2>
     
     <label for="voiceSelect">Choose Voice:</label>
-    <select id="voiceSelect" aria-label="Choose voice">
+    <select id="voiceSelect" aria-label="Choose voice" onchange="autoSaveVoiceSettings()">
       <option value="">Loading voices...</option>
     </select>
 
     <label for="speechRateSelect">Speech Speed:</label>
-    <select id="speechRateSelect" aria-label="Choose speech speed">
+    <select id="speechRateSelect" aria-label="Choose speech speed" onchange="autoSaveVoiceSettings()">
       <option value="0.5">Very Slow (0.5x)</option>
       <option value="0.75">Slow (0.75x)</option>
       <option value="1" selected>Normal (1x)</option>
@@ -168,6 +168,36 @@
 
   <script src="todo.js"></script>
   <script>
+    // Auto-save voice settings when changed
+    function autoSaveVoiceSettings() {
+      const voiceSelect = document.getElementById('voiceSelect');
+      const speechRateSelect = document.getElementById('speechRateSelect');
+      
+      if (voiceSelect && speechRateSelect) {
+        // Save to localStorage using consistent method with todo.js
+        localStorage.setItem('selectedVoiceIndex', voiceSelect.selectedIndex);
+        localStorage.setItem('selectedVoiceName', voiceSelect.value);
+        localStorage.setItem('speechRate', speechRateSelect.value);
+        
+        // Update global variables if they exist
+        if (window.speechSynthesis && voiceSelect.selectedIndex >= 0) {
+          const voices = window.speechSynthesis.getVoices();
+          if (voices.length > voiceSelect.selectedIndex) {
+            window.selectedVoice = voices[voiceSelect.selectedIndex];
+          }
+        }
+        if (window.speechRate !== undefined) {
+          window.speechRate = parseFloat(speechRateSelect.value);
+        }
+        
+        console.log('Auto-saved voice settings:', {
+          voiceIndex: voiceSelect.selectedIndex,
+          voiceName: voiceSelect.value,
+          speechRate: speechRateSelect.value
+        });
+      }
+    }
+
     // Voice settings functionality
     function saveVoiceSettings() {
       const voiceSelect = document.getElementById('voiceSelect');
