@@ -28,11 +28,6 @@ window.addEventListener('DOMContentLoaded', function() {
     alert('All data cleared! Refresh the page to start fresh and see notification prompts.');
   };
   
-  // TEMPORARY: Auto-clear localStorage for testing
-  // Remove this after testing
-  console.log('🧪 TESTING MODE: Auto-clearing localStorage');
-  localStorage.clear();
-  
   // Initialize OneSignal for iOS
   initializeOneSignal();
   
@@ -258,16 +253,19 @@ function setupInstallButton() {
                       window.navigator.standalone === true ||
                       document.referrer.includes('android-app://');
   
+  // Detect iOS
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  
+  console.log('Platform detection:', { isStandalone, isIOS });
+  
   if (isStandalone) {
     console.log('App is already running in standalone mode');
     // Don't show install button if already installed
     return;
   }
   
-  // For iOS Safari, show install instructions
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  
+  // For iOS Safari, always show install instructions (even if not standalone)
   if (isIOS) {
     console.log('iOS detected - showing install instructions');
     showIOSInstallButton(installButton, installText);
@@ -292,6 +290,7 @@ function setupInstallButton() {
   window.addEventListener('appinstalled', (evt) => {
     console.log('App was installed successfully');
     hideInstallButton(installButton, installText);
+    showInstallSuccessMessage();
     deferredPrompt = null;
   });
   
@@ -350,6 +349,10 @@ async function handleInstallClick() {
   
   if (outcome === 'accepted') {
     console.log('User accepted the install prompt');
+    // Show success message immediately since appinstalled event might not fire
+    setTimeout(() => {
+      showInstallSuccessMessage();
+    }, 1000);
   } else {
     console.log('User dismissed the install prompt');
   }
@@ -478,6 +481,82 @@ function showGenericInstallInstructions() {
       modal.remove();
     }
   });
+}
+
+function showInstallSuccessMessage() {
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: system-ui, sans-serif;
+  `;
+  
+  modal.innerHTML = `
+    <div style="
+      background: white;
+      border-radius: 12px;
+      margin: 20px;
+      max-width: 350px;
+      overflow: hidden;
+      text-align: center;
+    ">
+      <div style="padding: 30px 20px;">
+        <div style="font-size: 64px; margin-bottom: 20px;">🎉</div>
+        <h3 style="margin: 0 0 15px 0; font-size: 20px; color: #000;">
+          App Installed Successfully!
+        </h3>
+        <p style="color: #666; line-height: 1.6; margin: 20px 0;">
+          TaskMaster Pro has been installed to your device!
+        </p>
+        <div style="background: #f8f9fa; border-radius: 8px; padding: 15px; margin: 15px 0; text-align: left;">
+          <h4 style="margin: 0 0 10px 0; font-size: 14px; color: #333;">How to verify installation:</h4>
+          <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #666; line-height: 1.4;">
+            <li>Check your Start Menu, Desktop, or Apps folder for "TaskMaster Pro"</li>
+            <li>Look for the app icon in your taskbar or dock</li>
+            <li>Search for "TaskMaster Pro" in your system</li>
+            <li>The app should open in its own window (not a browser tab)</li>
+          </ul>
+        </div>
+        <p style="font-size: 12px; color: #999; margin: 15px 0 0 0;">
+          You can now close this browser tab and use the installed app!
+        </p>
+      </div>
+      <button onclick="this.parentElement.parentElement.remove()" style="
+        width: 100%;
+        padding: 15px;
+        border: none;
+        background: #4f46e5;
+        color: white;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+      ">Awesome!</button>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Close on backdrop click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+  
+  // Auto-close after 10 seconds
+  setTimeout(() => {
+    if (document.body.contains(modal)) {
+      modal.remove();
+    }
+  }, 10000);
 }
 // === END PWA INSTALL BUTTON LOGIC ===
 
@@ -797,23 +876,25 @@ function setupVoiceFunctionality() {
         return;
       }
       
-      // Get the actual voice object (subtract 1 for "Choose voice" option)
+      // Get the original voice index from the data attribute
+      const selectedOption = e.target.options[e.target.selectedIndex];
+      const originalVoiceIndex = parseInt(selectedOption.dataset.originalIndex);
       const voices = window.speechSynthesis.getVoices();
-      const actualVoiceIndex = e.target.selectedIndex - 1; // Subtract 1 for "Choose voice" option
-      const selectedVoiceObj = voices[actualVoiceIndex];
+      const selectedVoiceObj = voices[originalVoiceIndex];
       
       if (selectedVoiceObj) {
         // Store the voice object globally
         window.selectedVoice = selectedVoiceObj;
         
-        // Save both voice index and name for persistence (store actual voice index, not dropdown index)
-        localStorage.setItem("selectedVoiceIndex", actualVoiceIndex);
+        // Save the original voice index and name for persistence
+        localStorage.setItem("selectedVoiceIndex", originalVoiceIndex);
         localStorage.setItem("selectedVoiceName", selectedVoiceObj.name);
         
         console.log('Voice changed and saved:', {
           dropdownIndex: e.target.selectedIndex,
-          actualVoiceIndex: actualVoiceIndex,
+          originalVoiceIndex: originalVoiceIndex,
           name: selectedVoiceObj.name,
+          lang: selectedVoiceObj.lang,
           voiceObject: selectedVoiceObj
         });
         
@@ -858,24 +939,24 @@ function loadSavedVoicePreferences() {
     const index = parseInt(savedVoiceIndex);
     const voiceSelect = document.getElementById("voiceSelect");
     
-    // Account for the new "Choose voice" option at index 0
-    const adjustedIndex = index + 1; // Add 1 because we have "Choose voice" at index 0
-    
-    if (voiceSelect && adjustedIndex < voiceSelect.options.length && index < voices.length) {
-      // Set the dropdown selection (adjusted for "Choose voice" option)
-      voiceSelect.selectedIndex = adjustedIndex;
-      
-      // Set the global voice object
-      window.selectedVoice = voices[index];
-      
-      console.log('✅ Restored voice by index:', {
-        index: index,
-        dropdownIndex: adjustedIndex,
-        name: voices[index].name,
-        voiceObject: voices[index]
-      });
-      
-      return; // Successfully loaded, don't try fallback
+    if (voiceSelect && index < voices.length) {
+      // Find the option with the matching originalIndex
+      const options = voiceSelect.options;
+      for (let i = 1; i < options.length; i++) { // Start from 1 to skip "Choose voice"
+        if (parseInt(options[i].dataset.originalIndex) === index) {
+          voiceSelect.selectedIndex = i;
+          window.selectedVoice = voices[index];
+          
+          console.log('✅ Restored voice by index:', {
+            originalIndex: index,
+            dropdownIndex: i,
+            name: voices[index].name,
+            lang: voices[index].lang,
+            voiceObject: voices[index]
+          });
+          return; // Successfully loaded
+        }
+      }
     }
   }
   
@@ -884,21 +965,22 @@ function loadSavedVoicePreferences() {
   if (savedVoiceName && voices.length > 0) {
     const voiceSelect = document.getElementById("voiceSelect");
     if (voiceSelect) {
-      // Find the voice by name
-      const foundVoice = voices.find(v => v.name === savedVoiceName);
-      if (foundVoice) {
-        const foundIndex = voices.indexOf(foundVoice);
-        const adjustedIndex = foundIndex + 1; // Add 1 for "Choose voice" option
-        voiceSelect.selectedIndex = adjustedIndex;
-        window.selectedVoice = foundVoice;
-        
-        console.log('✅ Restored voice by name:', {
-          name: savedVoiceName,
-          index: foundIndex,
-          dropdownIndex: adjustedIndex,
-          voiceObject: foundVoice
-        });
-        return;
+      // Find the voice by name in the dropdown options
+      const options = voiceSelect.options;
+      for (let i = 1; i < options.length; i++) { // Start from 1 to skip "Choose voice"
+        if (options[i].value === savedVoiceName) {
+          const originalIndex = parseInt(options[i].dataset.originalIndex);
+          voiceSelect.selectedIndex = i;
+          window.selectedVoice = voices[originalIndex];
+          
+          console.log('✅ Restored voice by name:', {
+            name: savedVoiceName,
+            originalIndex: originalIndex,
+            dropdownIndex: i,
+            voiceObject: voices[originalIndex]
+          });
+          return;
+        }
       }
     }
   }
@@ -1001,6 +1083,8 @@ function loadVoices() {
     const option = document.createElement("option");
     option.value = voice.name;
     option.textContent = `${voice.name} (${voice.lang})`;
+    // Store the original voice index from the full voices array
+    option.dataset.originalIndex = voices.indexOf(voice);
     voiceSelect.appendChild(option);
   });
 

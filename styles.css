@@ -4,6 +4,15 @@ body {
   font-family: sans-serif; 
   padding: 20px; 
   background: #f5f5f5; 
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  body {
+    padding: 10px;
+  }
 }
 
 /* Hero Section */
@@ -16,10 +25,24 @@ body {
   border-radius: 0 0 20px 20px;
 }
 
+@media (max-width: 768px) {
+  .hero {
+    padding: 40px 15px;
+    margin: -10px -10px 20px -10px;
+  }
+}
+
 .hero h1 {
   font-size: 3em;
   margin: 0 0 20px 0;
   text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+@media (max-width: 768px) {
+  .hero h1 {
+    font-size: 2.2em;
+    margin: 0 0 15px 0;
+  }
 }
 
 .hero p {
@@ -28,9 +51,23 @@ body {
   opacity: 0.9;
 }
 
+@media (max-width: 768px) {
+  .hero p {
+    font-size: 1.1em;
+    margin: 0 0 25px 0;
+    line-height: 1.4;
+  }
+}
+
 /* Navigation */
 .main-nav {
   margin: 40px 0;
+}
+
+@media (max-width: 768px) {
+  .main-nav {
+    margin: 20px 0;
+  }
 }
 
 .nav-list {
@@ -40,6 +77,13 @@ body {
   list-style: none;
   padding: 0;
   margin: 0;
+}
+
+@media (max-width: 768px) {
+  .nav-list {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
 }
 
 .nav-item {
@@ -56,6 +100,12 @@ body {
   transition: transform 0.3s, box-shadow 0.3s;
   text-decoration: none;
   color: inherit;
+}
+
+@media (max-width: 768px) {
+  .nav-link {
+    padding: 25px 20px;
+  }
 }
 
 .nav-link:hover {
@@ -97,10 +147,24 @@ body {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+@media (max-width: 768px) {
+  .features {
+    padding: 30px 15px;
+    margin: 20px -10px;
+  }
+}
+
 .features h2 {
   text-align: center;
   color: #4f46e5;
   margin-bottom: 30px;
+}
+
+@media (max-width: 768px) {
+  .features h2 {
+    font-size: 1.5em;
+    margin-bottom: 20px;
+  }
 }
 
 .feature-grid {
@@ -109,9 +173,22 @@ body {
   gap: 20px;
 }
 
+@media (max-width: 768px) {
+  .feature-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+}
+
 .feature {
   text-align: center;
   padding: 20px;
+}
+
+@media (max-width: 768px) {
+  .feature {
+    padding: 15px;
+  }
 }
 
 .feature .icon {
@@ -142,6 +219,12 @@ body {
   margin-top: 30px;
 }
 
+@media (max-width: 768px) {
+  .install-section {
+    margin-top: 20px;
+  }
+}
+
 .install-btn {
   background: rgba(255, 255, 255, 0.2);
   color: white;
@@ -157,6 +240,14 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+}
+
+@media (max-width: 768px) {
+  .install-btn {
+    padding: 12px 25px;
+    font-size: 16px;
+    gap: 8px;
+  }
 }
 
 .install-btn:hover {
@@ -175,9 +266,23 @@ body {
   font-size: 20px;
 }
 
+@media (max-width: 768px) {
+  .install-icon {
+    font-size: 18px;
+  }
+}
+
 .install-text {
   margin-top: 15px;
   font-size: 14px;
   color: rgba(255, 255, 255, 0.8);
   font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .install-text {
+    margin-top: 12px;
+    font-size: 13px;
+    line-height: 1.4;
+  }
 }
