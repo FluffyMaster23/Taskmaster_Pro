@@ -30,15 +30,82 @@ window.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // Setup notification button and status
-  setupNotificationControls();
-  
   // Initialize OneSignal for iOS
   initializeOneSignal();
   
   // Check if PWA is installed on home screen
   checkPWAInstallation();
+  
+  // Page-specific initialization
+  initializeCurrentPage();
 });
+
+// === PAGE-SPECIFIC INITIALIZATION ===
+function initializeCurrentPage() {
+  const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+  
+  switch(currentPage) {
+    case 'taskmaster.html':
+      initializeTaskMasterPage();
+      break;
+    case 'options.html':
+      initializeOptionsPage();
+      break;
+    case 'index.html':
+    case '':
+      initializeHomePage();
+      break;
+    default:
+      console.log('Unknown page, using default initialization');
+  }
+}
+
+function initializeTaskMasterPage() {
+  console.log('Initializing TaskMaster page');
+  
+  // Setup voice functionality
+  setupVoiceFunctionality();
+  
+  // Setup notification system
+  setupAppleNotifications();
+  
+  // Create task sections
+  createSections();
+  
+  // Setup upcoming tasks checker
+  const checkUpcomingBtn = document.getElementById('checkUpcoming');
+  if (checkUpcomingBtn) {
+    checkUpcomingBtn.addEventListener('click', () => {
+      const upcoming = getUpcomingTasks();
+      if (upcoming.length === 0) {
+        speakWizLine("no upcoming");
+      } else {
+        upcoming.forEach(task => speakTask(task));
+      }
+    });
+  }
+  
+  // Start the notification checker
+  startNotificationChecker();
+}
+
+function initializeOptionsPage() {
+  console.log('Initializing Options page');
+  
+  // Setup voice functionality for the options page
+  setupVoiceFunctionality();
+}
+
+function initializeHomePage() {
+  console.log('Initializing Home page');
+  
+  // Initialize OneSignal and notifications on home page too
+  // This ensures the auto-prompt shows on first visit
+  setupAppleNotifications();
+  
+  // Start notification checker even on home page for background notifications
+  startNotificationChecker();
+}
 
 // === PWA HOME SCREEN DETECTION ===
 function checkPWAInstallation() {
@@ -126,15 +193,19 @@ function initializeOneSignal() {
         enable: false, // We'll use our own button
       },
       allowLocalhostAsSecureOrigin: true,
-      autoRegister: false, // We'll control when to show prompt
+      autoRegister: true, // Enable auto registration for auto prompt
       autoResubscribe: true,
       serviceWorkerParam: {
-        scope: './'
+        scope: './',
+        // Enhanced service worker config for background notifications
+        updateViaCache: 'none'
       },
       serviceWorkerPath: 'OneSignalSDKWorker.js',
-      // Enable background notifications for iOS
+      // Enhanced iOS background notification settings
       persistNotification: true, // Keep notifications visible
       showCreatedAt: true, // Show timestamp
+      requiresUserPrivacyConsent: false, // Don't block notifications with privacy consent
+      allowLocalhostAsSecureOrigin: true, // Allow localhost testing
       welcomeNotification: {
         disable: true // Don't show welcome notification
       },
@@ -143,7 +214,7 @@ function initializeOneSignal() {
           prompts: [
             {
               type: "push",
-              autoPrompt: false,
+              autoPrompt: true, // Enable auto prompt since you configured it in dashboard
               text: {
                 actionMessage: "Get notified when your tasks are due! TaskMaster Pro will remind you about upcoming deadlines even when the app is closed.",
                 acceptButton: "Enable Reminders",
@@ -152,6 +223,7 @@ function initializeOneSignal() {
             }
           ]
         }
+        
       }
     });
 
@@ -165,6 +237,7 @@ function initializeOneSignal() {
     OneSignal.on('subscriptionChange', function (isSubscribed) {
       console.log("OneSignal subscription changed:", isSubscribed);
       window.oneSignalEnabled = isSubscribed;
+
     });
   });
 }
@@ -333,6 +406,66 @@ function sendOneSignalBackgroundNotification(task, isReminder = false) {
 }
 // === END ONESIGNAL IMPLEMENTATION ===
 
+// === VOICE FUNCTIONALITY SETUP ===
+function setupVoiceFunctionality() {
+  // Only setup if voice elements exist on this page
+  if (!document.getElementById("voiceSelect") && !document.getElementById("speechRateSelect")) {
+    console.log('Voice elements not found on this page, skipping voice setup');
+    return;
+  }
+  
+  console.log('Setting up voice functionality');
+  
+  // Load voices when they're ready
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+  
+  // Also try loading immediately (for some browsers)
+  loadVoices();
+  
+  // Setup voice select event listener
+  const voiceSelect = document.getElementById("voiceSelect");
+  if (voiceSelect) {
+    voiceSelect.addEventListener("change", e => {
+      window.selectedVoice = e.target.value;
+      // Save voice preference to localStorage
+      localStorage.setItem("selectedVoice", e.target.value);
+      console.log('Voice changed and saved:', e.target.value);
+    });
+  }
+  
+  // Setup speech rate event listener
+  const speechRateSelect = document.getElementById("speechRateSelect");
+  if (speechRateSelect) {
+    speechRateSelect.addEventListener("change", e => {
+      window.speechRate = parseFloat(e.target.value);
+      // Save speech rate preference to localStorage
+      localStorage.setItem("speechRate", e.target.value);
+      console.log('Speech rate changed and saved:', e.target.value);
+    });
+  }
+  
+  // Load saved preferences
+  loadSavedVoicePreferences();
+}
+
+function loadSavedVoicePreferences() {
+  // Load saved speech rate
+  const savedRate = localStorage.getItem("speechRate");
+  if (savedRate) {
+    window.speechRate = parseFloat(savedRate);
+    const speechRateSelect = document.getElementById("speechRateSelect");
+    if (speechRateSelect) {
+      speechRateSelect.value = savedRate;
+    }
+  }
+  
+  // Load saved voice (will be applied when voices are loaded)
+  const savedVoice = localStorage.getItem("selectedVoice");
+  if (savedVoice) {
+    window.selectedVoice = savedVoice;
+  }
+}
+
 // === VOICE LOADING ===
 function loadVoices() {
   const voiceSelect = document.getElementById("voiceSelect");
@@ -403,35 +536,6 @@ function loadVoices() {
     console.log('Selected voice:', defaultVoice.name);
   }
 }
-
-// Load voices when they're ready
-window.speechSynthesis.onvoiceschanged = loadVoices;
-
-// Also try loading immediately (for some browsers)
-loadVoices();
-
-document.getElementById("voiceSelect").addEventListener("change", e => {
-  window.selectedVoice = e.target.value;
-  // Save voice preference to localStorage
-  localStorage.setItem("selectedVoice", e.target.value);
-  console.log('Voice changed and saved:', e.target.value);
-});
-
-// === SPEECH RATE HANDLING ===
-document.getElementById("speechRateSelect").addEventListener("change", e => {
-  window.speechRate = parseFloat(e.target.value);
-  // Save speech rate preference to localStorage
-  localStorage.setItem("speechRate", e.target.value);
-  console.log('Speech rate changed and saved:', e.target.value);
-});
-
-// === SPEECH RATE HANDLING ===
-document.getElementById("speechRateSelect").addEventListener("change", e => {
-  window.speechRate = parseFloat(e.target.value);
-  // Save speech rate preference to localStorage
-  localStorage.setItem("speechRate", e.target.value);
-  console.log('Speech rate changed and saved:', e.target.value);
-});
 
 // === SPEAK (User-selected voice)
 function speak(text) {
@@ -1208,9 +1312,17 @@ function showNotification(task, isReminder = false) {
   setTimeout(() => {
     notification.close();
   }, 10000);
-}// === DOM BUILD ===
-const sectionsDiv = document.getElementById("sections");
-SECTIONS.forEach(section => {
+}
+
+// === DOM BUILD ===
+function createSections() {
+  const sectionsDiv = document.getElementById("sections");
+  if (!sectionsDiv) {
+    console.log('Sections div not found, skipping section creation');
+    return;
+  }
+  
+  SECTIONS.forEach(section => {
   const details = document.createElement("details");
   details.className = "task-section";
 
@@ -1310,7 +1422,15 @@ SECTIONS.forEach(section => {
   sectionsDiv.appendChild(details);
 });
 
-// === REMINDER CHECKER
+// Render existing tasks after creating all sections
+renderExistingTasks();
+}
+
+// === NOTIFICATION CHECKER ===
+function startNotificationChecker() {
+  console.log('Starting notification checker...');
+  
+  // === REMINDER CHECKER
 setInterval(() => {
   const now = new Date();
   const all = getTasks();
@@ -1346,9 +1466,40 @@ setInterval(() => {
     setTimeout(() => speakWizLine("clear"), 1000);
   }
 }, 60000);
+}
 
-// === CHECK UPCOMING TODOS
-document.getElementById("checkUpcoming").addEventListener("click", () => {
+// === RENDER EXISTING TASKS ===
+function renderExistingTasks() {
+  const all = getTasks();
+  all.forEach(task => {
+    const ul = document.getElementById(`ul-${task.section}`);
+    if (ul) {
+      renderTask(task, ul);
+    }
+  });
+}
+
+// === GET UPCOMING TASKS FUNCTION ===
+function getUpcomingTasks() {
+  const now = new Date();
+  const all = getTasks();
+  
+  if (all.length === 0) {
+    return [];
+  }
+  
+  // Filter for overdue and upcoming tasks (within the next 24 hours)
+  const relevant = all.filter(task => {
+    const due = new Date(task.time);
+    const timeDiff = due - now;
+    return timeDiff <= 24 * 60 * 60 * 1000; // Include overdue and next 24 hours
+  });
+  
+  return relevant;
+}
+
+// === WIZ QUOTES
+function speakWizLine(type = "startup") {
   const now = new Date();
   const all = getTasks();
   
@@ -1433,7 +1584,7 @@ document.getElementById("checkUpcoming").addEventListener("click", () => {
   } else {
     speakDavid(announcement);
   }
-});
+};
 
 // === WIZ QUOTES
 function speakWizLine(type = "startup") {
