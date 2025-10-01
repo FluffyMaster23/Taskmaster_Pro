@@ -76,15 +76,22 @@ function initializeTaskMasterPage() {
   const checkUpcomingBtn = document.getElementById('checkUpcoming');
   if (checkUpcomingBtn) {
     checkUpcomingBtn.addEventListener('click', () => {
+      console.log('Check Upcoming Todos button clicked');
       const upcoming = getUpcomingTasks();
+      console.log('Found upcoming tasks:', upcoming.length);
+      
       if (upcoming.length === 0) {
         // Use the clear message when no upcoming tasks
         if (!window._clearMessageSpoken) {
           window._clearMessageSpoken = true;
           setTimeout(() => speakWizLine("clear"), 1000);
         }
+        console.log('No upcoming tasks - playing clear message');
       } else {
-        upcoming.forEach(task => speakTask(task));
+        console.log('Speaking upcoming tasks...');
+        upcoming.forEach((task, index) => {
+          setTimeout(() => speakTask(task), index * 3000); // 3 second delay between tasks
+        });
       }
     });
   }
@@ -668,6 +675,48 @@ function speakDavid(text) {
   // Clear any pending speech and speak
   speechSynthesis.cancel();
   speechSynthesis.speak(utter);
+}
+
+// === SPEAK TASK (for upcoming tasks)
+function speakTask(task) {
+  const now = new Date();
+  const due = new Date(task.time);
+  const timeDiff = due - now;
+  
+  let announcement = "";
+  
+  if (timeDiff < 0) {
+    // Overdue task
+    const overdueDays = Math.floor(Math.abs(timeDiff) / (1000 * 60 * 60 * 24));
+    const overdueHours = Math.floor((Math.abs(timeDiff) % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    
+    if (overdueDays > 0) {
+      announcement = `Overdue: ${task.task}. Was due ${overdueDays} day${overdueDays > 1 ? 's' : ''} ago.`;
+    } else if (overdueHours > 0) {
+      announcement = `Overdue: ${task.task}. Was due ${overdueHours} hour${overdueHours > 1 ? 's' : ''} ago.`;
+    } else {
+      announcement = `Overdue: ${task.task}. This task is overdue.`;
+    }
+  } else {
+    // Upcoming task
+    const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (days > 0) {
+      announcement = `${task.task}. Due in ${days} day${days > 1 ? 's' : ''} and ${hours} hour${hours !== 1 ? 's' : ''}.`;
+    } else if (hours > 0) {
+      announcement = `${task.task}. Due in ${hours} hour${hours > 1 ? 's' : ''} and ${minutes} minute${minutes !== 1 ? 's' : ''}.`;
+    } else if (minutes > 5) {
+      announcement = `${task.task}. Due in ${minutes} minutes.`;
+    } else if (minutes > 0) {
+      announcement = `${task.task}. Due in ${minutes} minute${minutes !== 1 ? 's' : ''}. Almost due!`;
+    } else {
+      announcement = `${task.task}. This task is due now!`;
+    }
+  }
+  
+  speakDavid(announcement);
 }
 
 // === INITIAL LOAD
@@ -1364,8 +1413,27 @@ function showWelcomeNotification() {
 }
 
 function showNotification(task, isReminder = false) {
-  if (!("Notification" in window) || Notification.permission !== "granted") {
-    console.log("Notifications not available or not permitted");
+  console.log(`🔔 showNotification called for: "${task.task}" | isReminder: ${isReminder}`);
+  console.log(`📱 Notification support: ${"Notification" in window} | Permission: ${Notification.permission}`);
+  
+  if (!("Notification" in window)) {
+    console.log("❌ Notifications not supported in this browser");
+    return;
+  }
+  
+  if (Notification.permission !== "granted") {
+    console.log("❌ Notification permission not granted. Current permission:", Notification.permission);
+    
+    // Try to request permission if not denied
+    if (Notification.permission === "default") {
+      console.log("🔔 Requesting notification permission...");
+      Notification.requestPermission().then(permission => {
+        console.log("🔔 Permission result:", permission);
+        if (permission === "granted") {
+          showNotification(task, isReminder); // Retry
+        }
+      });
+    }
     return;
   }
   
@@ -1528,12 +1596,20 @@ renderExistingTasks();
 
 // === NOTIFICATION CHECKER ===
 function startNotificationChecker() {
-  console.log('Starting notification checker...');
+  console.log('🔔 Starting notification checker...');
+  console.log('Current notification permission:', Notification.permission);
+  
+  // Initialize tracking sets if not already done
+  if (!window._notifiedTaskIds) window._notifiedTaskIds = new Set();
+  if (!window._reminderTaskIds) window._reminderTaskIds = new Set();
+  if (!window._spokenTaskIds) window._spokenTaskIds = new Set();
   
   // === REMINDER CHECKER
 setInterval(() => {
   const now = new Date();
   const all = getTasks();
+  
+  console.log(`⏰ Notification check: ${all.length} tasks found at ${now.toLocaleTimeString()}`);
 
   all.forEach(task => {
     const due = new Date(task.time);
@@ -1541,20 +1617,26 @@ setInterval(() => {
     const reminderMinutes = task.reminderMinutes || 0;
     const reminderTime = reminderMinutes * 60 * 1000; // Convert to milliseconds
     
+    // Debug logging for each task
+    console.log(`📋 Task: "${task.task}" | Due: ${due.toLocaleString()} | Time diff: ${Math.round(timeDiff/1000/60)} mins | Reminder: ${reminderMinutes} mins`);
+    
     // Check for advance reminder (if not already sent)
     if (reminderMinutes > 0 && timeDiff <= reminderTime && timeDiff > reminderTime - 60000 && !window._reminderTaskIds.has(task.id)) {
+      console.log(`🔔 Sending advance reminder for: ${task.task}`);
       window._reminderTaskIds.add(task.id);
       showNotification(task, true);
     }
     
     // Check for final due notification (if not already sent)
     if (timeDiff <= 60000 && timeDiff >= -60000 && !window._notifiedTaskIds.has(task.id)) {
+      console.log(`🚨 Sending due notification for: ${task.task}`);
       window._notifiedTaskIds.add(task.id);
       showNotification(task, false);
     }
 
     // Original voice reminder logic (at due time)
     if (timeDiff <= 60000 && timeDiff >= -60000 && !window._spokenTaskIds.has(task.id)) {
+      console.log(`🗣️ Speaking task due now: ${task.task}`);
       window._spokenTaskIds.add(task.id);
       setTimeout(() => speakDavid(task.msg), 500);
     }
