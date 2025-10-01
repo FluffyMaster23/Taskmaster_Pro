@@ -214,6 +214,24 @@
         window.speechRate = parseFloat(speechRateSelect.value);
       }
       
+      // Get selected voice for confirmation
+      const voices = window.speechSynthesis.getVoices();
+      const selectedVoice = voices[voiceSelect.selectedIndex];
+      const voiceName = selectedVoice ? selectedVoice.name : 'default voice';
+      
+      // iOS voice confirmation - speak "You have selected [voice name]"
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      
+      if (isIOS && window.speechSynthesis && selectedVoice) {
+        const confirmationText = `You have selected ${voiceName}`;
+        const utterance = new SpeechSynthesisUtterance(confirmationText);
+        utterance.voice = selectedVoice;
+        utterance.rate = parseFloat(speechRateSelect.value);
+        window.speechSynthesis.speak(utterance);
+        console.log(`🔊 iOS Voice confirmation: "${confirmationText}" using voice: ${voiceName}`);
+      }
+      
       // Show success message
       statusDiv.textContent = "Voice settings saved successfully!";
       statusDiv.className = "status-message success";
@@ -260,6 +278,10 @@
       if (isIOS) {
         if (window.oneSignalEnabled) {
           statusSpan.textContent = "iOS notifications active (OneSignal)";
+        } else if (window.iosNativeNotificationsAvailable && Notification.permission === 'granted') {
+          statusSpan.textContent = "iOS notifications active (Native Web Push)";
+        } else if (window.iosNativeNotificationsAvailable) {
+          statusSpan.textContent = "iOS native notifications available - permission needed";
         } else {
           statusSpan.textContent = "iOS notifications pending setup";
         }
@@ -323,7 +345,7 @@
       const checkbox = document.getElementById('enableNotifications');
       
       if (isIOS) {
-        // For iOS, use OneSignal
+        // For iOS, try OneSignal first, fallback to native
         if (window.OneSignal) {
           console.log('Triggering OneSignal permission prompt...');
           
@@ -349,8 +371,8 @@
               console.log('OneSignal native prompt shown');
             }).catch(function(nativeError) {
               console.log('OneSignal native prompt error:', nativeError);
-              statusSpan.textContent = "OneSignal setup failed - try refreshing page";
-              checkbox.checked = false;
+              // Final fallback: try iOS native notifications
+              tryIOSNativeNotifications();
             });
           });
           
@@ -363,13 +385,15 @@
               } else {
                 statusSpan.textContent = "iOS notifications denied or cancelled";
                 checkbox.checked = false;
+                // Try iOS native as fallback
+                tryIOSNativeNotifications();
               }
             });
           }, 2000);
           
         } else {
-          statusSpan.textContent = "OneSignal not loaded - please refresh page";
-          checkbox.checked = false;
+          // OneSignal not available, try iOS native notifications
+          tryIOSNativeNotifications();
         }
       } else {
         // For desktop, use native notifications
@@ -407,6 +431,50 @@
           statusSpan.textContent = "Notifications not supported in this browser";
           checkbox.checked = false;
         }
+      }
+    }
+    
+    // iOS Native Notification Fallback Function
+    function tryIOSNativeNotifications() {
+      const statusSpan = document.getElementById('notificationStatus');
+      const checkbox = document.getElementById('enableNotifications');
+      
+      console.log('🍎 Attempting iOS native notifications fallback...');
+      
+      // Check if iOS native notifications are available
+      if (window.iosNativeNotificationsAvailable && 'Notification' in window) {
+        if (Notification.permission === 'default') {
+          console.log('📱 Requesting iOS native notification permission...');
+          Notification.requestPermission().then(function(permission) {
+            console.log('📱 iOS native permission result:', permission);
+            if (permission === 'granted') {
+              statusSpan.textContent = "iOS notifications enabled (Native Web Push)";
+              checkbox.checked = true;
+              window.iosNativeEnabled = true;
+              
+              // Show test notification
+              setTimeout(() => {
+                new Notification('TaskMaster Pro - iOS Native', {
+                  body: 'Native iOS notifications enabled! You\'ll get reminders when tasks are due.',
+                  icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K'
+                });
+              }, 500);
+            } else {
+              statusSpan.textContent = "iOS native notifications denied";
+              checkbox.checked = false;
+            }
+          });
+        } else if (Notification.permission === 'granted') {
+          statusSpan.textContent = "iOS notifications already enabled (Native)";
+          checkbox.checked = true;
+          window.iosNativeEnabled = true;
+        } else {
+          statusSpan.textContent = "iOS notifications denied - check Safari settings";
+          checkbox.checked = false;
+        }
+      } else {
+        statusSpan.textContent = "iOS native notifications not supported (requires iOS 16.4+)";
+        checkbox.checked = false;
       }
     }
   </script>

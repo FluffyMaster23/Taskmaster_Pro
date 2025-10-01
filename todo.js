@@ -243,7 +243,16 @@ function initializeOneSignal() {
     return;
   }
   
-  console.log('iOS detected - initializing OneSignal');
+  console.log('iOS detected - initializing OneSignal with native fallback');
+  
+  // iOS fallback: Check for native Web Push API support (iOS 16.4+)
+  const supportsWebPush = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  
+  if (supportsWebPush && (location.protocol === 'http:' || location.hostname === 'localhost')) {
+    console.log('🍎 iOS localhost detected - using native Web Push API instead of OneSignal');
+    initializeIOSNativeNotifications();
+    return;
+  }
   
   window.OneSignal = window.OneSignal || [];
   OneSignal.push(function() {
@@ -295,15 +304,50 @@ function initializeOneSignal() {
     OneSignal.isPushNotificationsEnabled(function(isEnabled) {
       console.log('OneSignal subscription status:', isEnabled);
       window.oneSignalEnabled = isEnabled;
+      
+      // If OneSignal fails on localhost, fallback to native
+      if (!isEnabled && (location.protocol === 'http:' || location.hostname === 'localhost')) {
+        console.log('⚠️ OneSignal failed on localhost, falling back to native notifications');
+        initializeIOSNativeNotifications();
+      }
     });
 
     // Listen for subscription changes
     OneSignal.on('subscriptionChange', function (isSubscribed) {
       console.log("OneSignal subscription changed:", isSubscribed);
-window.oneSignalEnabled = isSubscribed;
-
+      window.oneSignalEnabled = isSubscribed;
     });
   });
+}
+
+// iOS Native Notification Fallback for localhost/http
+function initializeIOSNativeNotifications() {
+  console.log('🍎 Initializing iOS native notifications for localhost');
+  
+  // Check if Web Push API is supported
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+    console.log('❌ Web Push API not supported on this iOS version (requires iOS 16.4+)');
+    return;
+  }
+  
+  // Mark native notifications as available
+  window.iosNativeNotificationsAvailable = true;
+  window.oneSignalEnabled = false; // Use our own system instead
+  
+  // Register service worker for background notifications
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').then(function(registration) {
+      console.log('✅ Service Worker registered for iOS notifications');
+      
+      // Check if notification permission is already granted
+      if (Notification.permission === 'granted') {
+        console.log('✅ iOS native notifications already permitted');
+        window.iosNativeEnabled = true;
+      }
+    }).catch(function(error) {
+      console.log('❌ Service Worker registration failed:', error);
+    });
+  }
 }
 
 // Request permission for task deadline reminders (main prompt)
@@ -1601,7 +1645,7 @@ function createSections() {
     const msg = messageInput.value.trim();
     const time = dateInput.value;
     const reminderMinutes = parseInt(reminderSelect.value);
-    if (!task || !msg || !time) return alert("All fields required.");
+    if (!task || !time) return alert("Task name and due date/time are required.");
     const id = Date.now().toString();
     const data = { id, section, task, msg, time, reminderMinutes };
     saveTask(data);
@@ -1611,9 +1655,17 @@ function createSections() {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     
-    if (isIOS && window.oneSignalEnabled) {
-      // Schedule OneSignal notification for iOS
-      scheduleOneSignalTaskReminder(data);
+    if (isIOS) {
+      if (window.oneSignalEnabled) {
+        // Schedule OneSignal notification for iOS (production)
+        scheduleOneSignalTaskReminder(data);
+      } else if (window.iosNativeNotificationsAvailable) {
+        // Fallback to iOS native notifications (localhost/development)
+        console.log('📱 Using iOS native notifications for task:', data.task);
+        // iOS native notifications are handled by the interval checker like desktop
+      } else {
+        console.log('⚠️ No iOS notification system available');
+      }
     }
     // Desktop notifications are handled by the interval checker
     
@@ -1685,7 +1737,8 @@ setInterval(() => {
     if (timeDiff <= 60000 && timeDiff >= -60000 && !window._spokenTaskIds.has(task.id)) {
       console.log(`🗣️ Speaking task due now: ${task.task}`);
       window._spokenTaskIds.add(task.id);
-      setTimeout(() => speakDavid(task.msg), 500);
+      const reminderMessage = task.msg && task.msg.trim() ? task.msg : `Task: ${task.task}`;
+      setTimeout(() => speakDavid(reminderMessage), 500);
     }
   });
 
