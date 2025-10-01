@@ -191,22 +191,6 @@
       if (isIOS) {
         console.log('📱 iOS detected - starting comprehensive notification test...');
         
-        // Check if user has already been asked about notifications
-        const notificationAsked = localStorage.getItem('notificationAsked');
-        const notificationAccepted = localStorage.getItem('notificationAccepted');
-        
-        if (notificationAsked !== 'true') {
-          console.log('🔔 User not asked yet - showing custom iOS prompt...');
-          showCustomIOSNotificationPrompt();
-          return;
-        }
-        
-        if (notificationAccepted === 'false') {
-          console.log('❌ User previously declined notifications');
-          alert('❌ Notifications were previously declined.\n\nTo enable:\n1. Clear this site\'s data\n2. Refresh the page\n3. Allow notifications when prompted\n\nOr enable manually in iOS Settings → Safari → Notifications');
-          return;
-        }
-        
         // Method 1: Try native Web Notifications first (iOS 16.4+ with Firefox/Chrome)
         if ('Notification' in window && !isSafari) {
           console.log('🌐 Testing native Web Notifications on iOS...');

@@ -1435,7 +1435,7 @@ function setupAppleNotifications() {
 }
 
 async function requestIOSNotificationsAutomatically() {
-  console.log('🍎 Setting up iOS task reminder notifications with custom prompt');
+  console.log('🍎 Setting up iOS task reminder notifications');
   
   if (!window.OneSignal) {
     console.log('OneSignal not available for iOS, trying native notifications');
@@ -1448,12 +1448,6 @@ async function requestIOSNotificationsAutomatically() {
         return true;
       }
     } catch (error) {
-      console.error('Error requesting native notifications:', error);
-    }
-    return false;
-  }
-  
-  // Check if user has already been asked
   const notificationAsked = localStorage.getItem('notificationAsked');
   if (notificationAsked === 'true') {
     console.log('User already asked about notifications, checking current status...');
