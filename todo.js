@@ -120,7 +120,6 @@ function initializeHomePage() {
   }
 
   speak(greeting);
-  setTimeout(() => speakWizLine("startup"), 3000);
 
   // Check if we're on mobile for speech handling
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -133,7 +132,6 @@ function initializeHomePage() {
     const enableMobileSpeech = () => {
       console.log('First user interaction - enabling speech');
       speak(greeting);
-      setTimeout(() => speakWizLine("startup"), 3000);
       document.removeEventListener('click', enableMobileSpeech);
       document.removeEventListener('touchstart', enableMobileSpeech);
     };
@@ -141,7 +139,6 @@ function initializeHomePage() {
     // Try to speak immediately, but also add fallback
     try {
       speak(greeting);
-      setTimeout(() => speakWizLine("startup"), 3000);
     } catch (e) {
       console.log('Speech blocked, waiting for user interaction');
       document.addEventListener('click', enableMobileSpeech, { once: true });
@@ -549,28 +546,10 @@ function loadVoices() {
   }
   
   if (!defaultVoice) {
-    // Check if we're on iOS/mobile
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    if (isIOS || isMobile) {
-      // Prefer iOS/mobile voices
-      defaultVoice = filteredVoices.find(v => 
-        v.name.includes("Samantha") || 
-        v.name.includes("Alex") || 
-        v.name.includes("Daniel") ||
-        v.name.includes("Karen") ||
-        v.localService === true // iOS voices are usually local
-      );
-    } else {
-      // Desktop - prefer Google voices
-      defaultVoice = filteredVoices.find(v => v.name === "Google US English");
+    // Use first available voice as default (like before)
+    if (filteredVoices.length > 0) {
+      defaultVoice = filteredVoices[0];
     }
-  }
-  
-  // Fallback to first available voice
-  if (!defaultVoice && filteredVoices.length > 0) {
-    defaultVoice = filteredVoices[0];
   }
   
   if (defaultVoice) {
@@ -647,7 +626,7 @@ function warmUpVoices() {
   const dummy = new SpeechSynthesisUtterance("Initializing voice system.");
   dummy.volume = 0.001; // Silent
   dummy.rate = 1;
-  dummy.voice = voices.find(v => v.name === window.selectedVoice || v.name === "Google US English");
+  dummy.voice = voices.find(v => v.name === window.selectedVoice) || voices[0];
   speechSynthesis.speak(dummy);
 }
 
@@ -698,8 +677,9 @@ window.onload = () => {
       window._clearMessageSpoken = false;
     }
   }
-  const hour = now.getHours();
-  let greeting;
+};
+
+// === STORAGE + TASK HANDLING
 
   if (hour >= 5 && hour < 12) {
     greeting = "Morning, G. Let’s get the day rolling.";
@@ -710,7 +690,6 @@ window.onload = () => {
   }
 
   speak(greeting);
-  setTimeout(() => speakWizLine("startup"), 3000);
 
   // Check if we're on mobile for speech handling
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -723,7 +702,6 @@ window.onload = () => {
     const enableMobileSpeech = () => {
       console.log('First user interaction - enabling speech');
       speak(greeting);
-      setTimeout(() => speakWizLine("startup"), 3000);
       document.removeEventListener('click', enableMobileSpeech);
       document.removeEventListener('touchstart', enableMobileSpeech);
     };
@@ -731,7 +709,6 @@ window.onload = () => {
     // Try to speak immediately, but also add fallback
     try {
       speak(greeting);
-      setTimeout(() => speakWizLine("startup"), 3000);
     } catch (e) {
       console.log('Speech blocked, waiting for user interaction');
       document.addEventListener('click', enableMobileSpeech, { once: true });
