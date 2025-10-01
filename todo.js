@@ -121,6 +121,9 @@ function initializeHomePage() {
   // Start notification checker even on home page for background notifications
   startNotificationChecker();
   
+  // Setup PWA install button
+  setupInstallButton();
+  
   // Voice greeting - only on home page
   const now = new Date();
   const hour = now.getHours();
@@ -230,6 +233,249 @@ function sendIOSWelcomeNotification() {
   });
 }
 // === END PWA HOME SCREEN DETECTION ===
+
+// === PWA INSTALL BUTTON LOGIC ===
+let deferredPrompt;
+
+function setupInstallButton() {
+  console.log('Setting up PWA install button');
+  
+  const installButton = document.getElementById('installButton');
+  const installText = document.getElementById('installText');
+  
+  if (!installButton || !installText) {
+    console.log('Install button elements not found on this page');
+    return;
+  }
+  
+  // Check if app is already installed (standalone mode)
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                      window.navigator.standalone === true ||
+                      document.referrer.includes('android-app://');
+  
+  if (isStandalone) {
+    console.log('App is already running in standalone mode');
+    // Don't show install button if already installed
+    return;
+  }
+  
+  // For iOS Safari, show install instructions
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  
+  if (isIOS) {
+    console.log('iOS detected - showing install instructions');
+    showIOSInstallButton(installButton, installText);
+    return;
+  }
+  
+  // For other browsers, use beforeinstallprompt event
+  window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('beforeinstallprompt event fired');
+    // Prevent the mini-infobar from appearing on mobile
+    e.preventDefault();
+    // Stash the event so it can be triggered later
+    deferredPrompt = e;
+    // Show the install button
+    showInstallButton(installButton, installText);
+  });
+  
+  // Handle install button click
+  installButton.addEventListener('click', handleInstallClick);
+  
+  // Listen for app installed event
+  window.addEventListener('appinstalled', (evt) => {
+    console.log('App was installed successfully');
+    hideInstallButton(installButton, installText);
+    deferredPrompt = null;
+  });
+  
+  // Show install button immediately for browsers that support it
+  // but don't fire beforeinstallprompt (like some mobile browsers)
+  setTimeout(() => {
+    if (!deferredPrompt && !isStandalone) {
+      // Check if PWA installation is likely supported
+      if ('serviceWorker' in navigator && window.matchMedia('(display-mode: browser)').matches) {
+        console.log('Showing install button for PWA-capable browser');
+        showInstallButton(installButton, installText);
+      }
+    }
+  }, 2000);
+}
+
+function showIOSInstallButton(installButton, installText) {
+  installButton.innerHTML = '<span class="install-icon">📱</span>Add to Home Screen';
+  installText.textContent = 'Tap the Share button, then "Add to Home Screen" for the best experience!';
+  
+  installButton.style.display = 'inline-flex';
+  installText.style.display = 'block';
+  
+  // On iOS, the button just shows instructions
+  installButton.addEventListener('click', () => {
+    showIOSInstallInstructions();
+  });
+}
+
+function showInstallButton(installButton, installText) {
+  installButton.style.display = 'inline-flex';
+  installText.style.display = 'block';
+  console.log('Install button shown');
+}
+
+function hideInstallButton(installButton, installText) {
+  installButton.style.display = 'none';
+  installText.style.display = 'none';
+  console.log('Install button hidden');
+}
+
+async function handleInstallClick() {
+  console.log('Install button clicked');
+  
+  if (!deferredPrompt) {
+    console.log('No deferred prompt available');
+    // For browsers without beforeinstallprompt, show generic instructions
+    showGenericInstallInstructions();
+    return;
+  }
+  
+  // Show the install prompt
+  deferredPrompt.prompt();
+  
+  // Wait for the user to respond to the prompt
+  const { outcome } = await deferredPrompt.userChoice;
+  console.log(`User choice: ${outcome}`);
+  
+  if (outcome === 'accepted') {
+    console.log('User accepted the install prompt');
+  } else {
+    console.log('User dismissed the install prompt');
+  }
+  
+  // Clear the deferredPrompt
+  deferredPrompt = null;
+}
+
+function showIOSInstallInstructions() {
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  `;
+  
+  modal.innerHTML = `
+    <div style="
+      background: white;
+      border-radius: 12px;
+      margin: 20px;
+      max-width: 320px;
+      overflow: hidden;
+      text-align: center;
+    ">
+      <div style="padding: 30px 20px;">
+        <div style="font-size: 64px; margin-bottom: 20px;">📱</div>
+        <h3 style="margin: 0 0 15px 0; font-size: 20px; color: #000;">
+          Install TaskMaster Pro
+        </h3>
+        <ol style="text-align: left; padding-left: 20px; margin: 20px 0; color: #666; line-height: 1.6;">
+          <li>Tap the <strong>Share</strong> button <span style="font-size: 18px;">⬆️</span></li>
+          <li>Scroll down and tap <strong>"Add to Home Screen"</strong></li>
+          <li>Tap <strong>"Add"</strong> to install</li>
+        </ol>
+        <p style="font-size: 14px; color: #999; margin: 20px 0 0 0;">
+          Once installed, TaskMaster Pro will work like a native app!
+        </p>
+      </div>
+      <button onclick="this.parentElement.parentElement.remove()" style="
+        width: 100%;
+        padding: 15px;
+        border: none;
+        background: #4f46e5;
+        color: white;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+      ">Got it!</button>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Close on backdrop click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+}
+
+function showGenericInstallInstructions() {
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: system-ui, sans-serif;
+  `;
+  
+  modal.innerHTML = `
+    <div style="
+      background: white;
+      border-radius: 12px;
+      margin: 20px;
+      max-width: 320px;
+      overflow: hidden;
+      text-align: center;
+    ">
+      <div style="padding: 30px 20px;">
+        <div style="font-size: 64px; margin-bottom: 20px;">💻</div>
+        <h3 style="margin: 0 0 15px 0; font-size: 20px; color: #000;">
+          Install TaskMaster Pro
+        </h3>
+        <p style="color: #666; line-height: 1.6; margin: 20px 0;">
+          Look for an <strong>install button</strong> or <strong>app icon</strong> in your browser's address bar or menu.
+        </p>
+        <p style="font-size: 14px; color: #999; margin: 20px 0 0 0;">
+          Installation options vary by browser and device.
+        </p>
+      </div>
+      <button onclick="this.parentElement.parentElement.remove()" style="
+        width: 100%;
+        padding: 15px;
+        border: none;
+        background: #4f46e5;
+        color: white;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+      ">Got it!</button>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Close on backdrop click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+}
 // === END PWA INSTALL BUTTON LOGIC ===
 
 // === ONESIGNAL INITIALIZATION ===
