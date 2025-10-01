@@ -94,6 +94,12 @@ function initializeOptionsPage() {
   
   // Setup voice functionality for the options page
   setupVoiceFunctionality();
+  
+  // Force voice loading with a small delay to ensure DOM is ready
+  setTimeout(() => {
+    console.log('Force-loading voices after page initialization');
+    loadVoices();
+  }, 500);
 }
 
 function initializeHomePage() {
@@ -454,12 +460,16 @@ function setupVoiceFunctionality() {
     return;
   }
   
-  console.log('Setting up voice functionality');
+  console.log('✅ Setting up voice functionality - voiceSelect element found');
   
   // Load voices when they're ready
-  window.speechSynthesis.onvoiceschanged = loadVoices;
+  window.speechSynthesis.onvoiceschanged = () => {
+    console.log('🔄 speechSynthesis.onvoiceschanged event fired');
+    loadVoices();
+  };
   
   // Also try loading immediately (for some browsers)
+  console.log('🔄 Attempting immediate voice loading');
   loadVoices();
   
   // Setup voice select event listener
@@ -509,6 +519,12 @@ function loadSavedVoicePreferences() {
 // === VOICE LOADING ===
 function loadVoices() {
   const voiceSelect = document.getElementById("voiceSelect");
+  
+  if (!voiceSelect) {
+    console.log('voiceSelect element not found, skipping voice loading');
+    return;
+  }
+  
   voiceSelect.innerHTML = "";
   
   const voices = speechSynthesis.getVoices();
@@ -516,9 +532,12 @@ function loadVoices() {
   
   if (voices.length === 0) {
     // Retry loading voices after a short delay
+    console.log('No voices found, retrying...');
     setTimeout(loadVoices, 100);
     return;
   }
+  
+  console.log('Loading', voices.length, 'voices into dropdown');
   
   // Filter for English voices or all voices if no English found
   let filteredVoices = voices.filter(v => v.lang.startsWith("en"));
@@ -549,13 +568,16 @@ function loadVoices() {
     // Use first available voice as default (like before)
     if (filteredVoices.length > 0) {
       defaultVoice = filteredVoices[0];
+      console.log('Using first available voice as default:', defaultVoice.name);
     }
   }
   
   if (defaultVoice) {
     window.selectedVoice = defaultVoice.name;
     voiceSelect.value = defaultVoice.name;
-    console.log('Selected voice:', defaultVoice.name);
+    console.log('✅ Voice loading complete. Selected voice:', defaultVoice.name);
+  } else {
+    console.error('❌ No voice could be selected');
   }
 }
 
