@@ -276,25 +276,49 @@
               } else {
                 console.log('⚠️ OneSignal not enabled, attempting to subscribe...');
                 
-                // Try to register for push notifications
+                // Force OneSignal registration to resolve "pending setup"
                 window.OneSignal.registerForPushNotifications().then(function() {
                   console.log('✅ OneSignal registration successful');
-                  alert('✅ OneSignal registration successful! Please try the test again.');
+                  
+                  // Wait a moment for the subscription to be active, then try sending again
+                  setTimeout(() => {
+                    window.OneSignal.isPushNotificationsEnabled(function(isNowEnabled) {
+                      if (isNowEnabled) {
+                        console.log('✅ OneSignal now enabled, sending test notification...');
+                        window.OneSignal.sendSelfNotification(
+                          "🧪 TaskMaster Pro Test",
+                          "OneSignal iOS notification is now working! ✅",
+                          window.location.href,
+                          "/favicon.ico"
+                        ).then(function() {
+                          alert('✅ OneSignal setup complete! Test notification sent!');
+                        }).catch(function(error) {
+                          console.error('❌ Test after registration failed:', error);
+                          alert('✅ OneSignal registration successful! Please try the test button again.');
+                        });
+                      } else {
+                        alert('✅ OneSignal registration successful! Please try the test button again.');
+                      }
+                    });
+                  }, 2000);
+                  
                 }).catch(function(error) {
                   console.error('❌ OneSignal registration failed:', error);
                   
-                  // Show detailed troubleshooting
-                  const troubleshooting = `❌ OneSignal registration failed: ${error.message}
-
-🔧 Troubleshooting steps:
-1. Make sure you're using Safari on iOS
-2. Enable notifications: iOS Settings → Safari → Notifications
-3. Allow notifications when prompted
-4. Make sure the website is loaded over HTTPS
-5. Try refreshing the page and testing again
-
-Current status: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'}
-Browser: ${isSafari ? 'Safari ✅' : 'Not Safari ❌'}`;
+                  // Show detailed troubleshooting based on the specific error
+                  let troubleshooting = `❌ OneSignal registration failed: ${error.message}\n\n`;
+                  
+                  if (error.message.includes('not supported')) {
+                    troubleshooting += `🔧 Browser not supported:\n• Try using Safari on iOS\n• Ensure iOS 12+ for OneSignal support`;
+                  } else if (error.message.includes('permission')) {
+                    troubleshooting += `🔧 Permission issue:\n• iOS Settings → Safari → Notifications → Allow\n• Refresh page and try again`;
+                  } else if (error.message.includes('https')) {
+                    troubleshooting += `🔧 HTTPS required:\n• OneSignal requires secure connection\n• Try on deployed site instead of localhost`;
+                  } else {
+                    troubleshooting += `🔧 General troubleshooting:\n1. Make sure you're using Safari on iOS\n2. Enable: iOS Settings → Safari → Notifications\n3. Allow notifications when prompted\n4. Ensure HTTPS connection\n5. Try refreshing the page completely`;
+                  }
+                  
+                  troubleshooting += `\n\nCurrent: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari ✅' : 'Not Safari ❌'}`;
                   
                   alert(troubleshooting);
                 });

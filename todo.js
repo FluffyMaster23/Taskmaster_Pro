@@ -619,6 +619,16 @@ function initializeOneSignal() {
     }).then(function() {
       console.log('✅ OneSignal initialized successfully');
       
+      // Automatically try to register for push notifications on iOS
+      setTimeout(() => {
+        console.log('🔄 Auto-registering for OneSignal notifications...');
+        OneSignal.registerForPushNotifications().then(function() {
+          console.log('✅ OneSignal auto-registration successful');
+        }).catch(function(error) {
+          console.log('⚠️ OneSignal auto-registration failed (user may need to manually allow):', error.message);
+        });
+      }, 1000);
+      
       // Check subscription status after initialization
       OneSignal.isPushNotificationsEnabled(function(isEnabled) {
         console.log('OneSignal subscription status:', isEnabled);
@@ -633,6 +643,11 @@ function initializeOneSignal() {
           });
         } else {
           console.log('⚠️ OneSignal not enabled yet - will request permission when appropriate');
+          
+          // Try to get permission status
+          OneSignal.getNotificationPermission(function(permission) {
+            console.log('🔔 OneSignal permission status:', permission);
+          });
         }
       });
       
@@ -1408,7 +1423,7 @@ function setupAppleNotifications() {
 }
 
 async function requestIOSNotificationsAutomatically() {
-  console.log('Automatically requesting iOS task reminder notifications');
+  console.log('🍎 Automatically setting up iOS task reminder notifications');
   
   if (!window.OneSignal) {
     console.log('OneSignal not available for iOS, trying native notifications');
@@ -1430,31 +1445,33 @@ async function requestIOSNotificationsAutomatically() {
   localStorage.setItem('notificationAsked', 'true');
   
   try {
-    // Check if already subscribed
+    // Check if already subscribed and force setup if needed
     window.OneSignal.push(function() {
       window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
         if (isEnabled) {
-          console.log('iOS notifications already granted, sending test notification');
+          console.log('✅ OneSignal already enabled');
           window.oneSignalEnabled = true;
           setTimeout(() => {
             sendTaskReminderTestNotification();
           }, 500);
         } else {
-          // Request task reminder permission explicitly
-          console.log('Requesting iOS task reminder permission');
+          console.log('🔄 OneSignal not enabled - forcing setup to prevent "pending setup"');
           
-          // Try to trigger the prompt manually
-          window.OneSignal.showSlidedownPrompt().then(function() {
-            console.log('OneSignal prompt shown successfully');
+          // Force registration to prevent "pending setup" status
+          window.OneSignal.registerForPushNotifications().then(function() {
+            console.log('✅ OneSignal auto-setup successful - no more "pending setup"');
+            window.oneSignalEnabled = true;
           }).catch(function(error) {
-            console.error('Error showing OneSignal prompt:', error);
-            // Fallback to registerForPushNotifications
-            window.OneSignal.registerForPushNotifications().then(function() {
-              console.log('OneSignal registration successful');
-              window.oneSignalEnabled = true;
-            }).catch(function(registerError) {
-              console.error('OneSignal registration failed:', registerError);
-            });
+            console.log('⚠️ OneSignal auto-setup failed (user may need to manually allow):', error.message);
+            window.oneSignalEnabled = false;
+            
+            // Still try to set up OneSignal for later use
+            setTimeout(() => {
+              console.log('🔄 Retrying OneSignal setup in background...');
+              window.OneSignal.registerForPushNotifications().catch(() => {
+                console.log('🔄 Background OneSignal setup also failed - user needs manual permission');
+              });
+            }, 5000);
           });
         }
       });
