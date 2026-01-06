@@ -121,6 +121,18 @@
   <h1>TaskMaster Pro Options</h1>
   
   <div class="options-section">
+    <h2>🔒 User & Privacy Info</h2>
+    <p><strong>Your User ID:</strong> <span id="currentUserId" style="font-family: monospace; color: #4f46e5; background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">Loading...</span></p>
+    <p style="font-size: 0.9em; color: #6b7280; margin-top: 5px;">
+      This unique ID identifies your browser/device. Your custom lists and tasks are stored locally and only visible to this user ID. 
+      Other users on different devices will have their own separate lists.
+    </p>
+    <p style="font-size: 0.9em; color: #059669; margin-top: 10px;">
+      <strong>🛡️ Privacy:</strong> All data is stored locally on your device only. No data is sent to external servers.
+    </p>
+  </div>
+  
+  <div class="options-section">
     <h2>Voice & Speech Settings</h2>
     
     <label for="voiceSelect">Choose Voice:</label>
@@ -654,7 +666,28 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       
       // Setup notification checkbox handler
       setupNotificationCheckbox();
+      
+      // Display current user ID
+      displayUserId();
     });
+    
+    // Display user ID function
+    function displayUserId() {
+      // Get user ID (same logic as in todo.js and list.html)
+      function getUserId() {
+        let userId = localStorage.getItem('taskmaster_user_id');
+        if (!userId) {
+          userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+          localStorage.setItem('taskmaster_user_id', userId);
+        }
+        return userId;
+      }
+      
+      const userIdElement = document.getElementById('currentUserId');
+      if (userIdElement) {
+        userIdElement.textContent = getUserId();
+      }
+    }
     
     // Handle notification checkbox
     function setupNotificationCheckbox() {

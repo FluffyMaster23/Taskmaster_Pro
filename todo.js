@@ -1,5 +1,28 @@
 // === CONFIG ===
-const SECTIONS = ["Blogging", "YouTube", "UCLA Simulation", "School", "Admin", "Miscellaneous"];
+const DEFAULT_SECTIONS = ["Blogging", "YouTube", "UCLA Simulation", "School", "Admin", "Miscellaneous"];
+
+// Generate or get unique user ID for this browser/device
+function getUserId() {
+  let userId = localStorage.getItem('taskmaster_user_id');
+  if (!userId) {
+    // Generate unique user ID: timestamp + random string
+    userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('taskmaster_user_id', userId);
+    console.log('🆔 New user ID generated:', userId);
+  }
+  return userId;
+}
+
+// Function to get all sections (default + user's custom lists)
+function getAllSections() {
+  const userId = getUserId();
+  const userCustomListsKey = `taskmaster_custom_section_names_${userId}`;
+  const customListNames = JSON.parse(localStorage.getItem(userCustomListsKey) || '[]');
+  return [...DEFAULT_SECTIONS, ...customListNames];
+}
+
+// Dynamic SECTIONS array that includes custom lists
+const SECTIONS = getAllSections();
 
 window._clearMessageSpoken = false;
 window._spokenTaskIds = new Set();
@@ -33,6 +56,24 @@ window.addEventListener('DOMContentLoaded', function() {
 
   // Page-specific initialization
   initializeCurrentPage();
+  
+  // Refresh sections when page becomes visible (to pick up new custom lists)
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && window.location.pathname.includes('taskmaster.html')) {
+      // Check if custom lists have been updated
+      const currentSections = getAllSections();
+      const displayedSections = Array.from(document.querySelectorAll('[id^="summary-"]')).map(el => 
+        el.textContent.trim()
+      );
+      
+      // If sections have changed, recreate them
+      if (currentSections.length !== displayedSections.length || 
+          !currentSections.every(section => displayedSections.includes(section))) {
+        console.log('Custom lists updated, refreshing sections...');
+        createSections();
+      }
+    }
+  });
 });
 
 // === PAGE-SPECIFIC INITIALIZATION ===
@@ -66,6 +107,19 @@ function initializeTaskMasterPage() {
   
   // Create task sections
   createSections();
+  
+  // Check if we should focus on a specific list (from list.html)
+  const focusList = sessionStorage.getItem('focusList');
+  if (focusList) {
+    sessionStorage.removeItem('focusList');
+    setTimeout(() => {
+      const listElement = document.getElementById(`summary-${focusList}`);
+      if (listElement) {
+        listElement.scrollIntoView({ behavior: 'smooth' });
+        listElement.click(); // Open the details
+      }
+    }, 100);
+  }
   
   // Setup upcoming tasks checker
   const checkUpcomingBtn = document.getElementById('checkUpcoming');
@@ -170,7 +224,7 @@ function initializeHomePage() {
 
 // === TAB FUNCTIONALITY ===
 
-// === ONESIGNAL INITIALIZATION ===
+// === ONESIGNAL INITI  ALIZATION ===
 function initializeOneSignal() {
   // Only initialize OneSignal on iOS devices
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
@@ -1354,7 +1408,13 @@ function createSections() {
     return;
   }
   
-  SECTIONS.forEach(section => {
+  // Get fresh sections list (including any newly created custom lists)
+  const allSections = getAllSections();
+  
+  // Clear existing sections
+  sectionsDiv.innerHTML = '';
+  
+  allSections.forEach(section => {
   const details = document.createElement("details");
   details.className = "task-section";
 
