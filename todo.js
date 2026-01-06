@@ -1,5 +1,5 @@
 // === CONFIG ===
-const DEFAULT_SECTIONS = ["Blogging", "YouTube", "UCLA Simulation", "School", "Admin", "Miscellaneous"];
+const DEFAULT_SECTIONS = [];
 
 // Generate or get unique user ID for this browser/device
 function getUserId() {
