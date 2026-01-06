@@ -197,6 +197,17 @@
     <p style="font-size: 0.8em; color: #6b7280; margin-top: 5px;">View detailed notification status and troubleshooting info.</p>
   </div>
 
+  <!-- Delete Account Section -->
+  <div class="options-section" style="border: 2px solid #ef4444; background: #fef2f2;">
+    <h2 style="color: #dc2626;">Delete Account</h2>
+    <p style="color: #7f1d1d;">
+      <strong>Warning:</strong> This will permanently delete your account and all associated data including tasks, lists, and settings. This action cannot be undone.
+    </p>
+    <button onclick="deleteAccount()" style="margin-top: 15px; background: #dc2626; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+      Delete My Account
+    </button>
+  </div>
+
   <script src="todo.js"></script>
   <script>
     // Enhanced test notification function for iOS debugging
@@ -925,6 +936,56 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
         alert('Signed out successfully!');
         window.location.href = 'index.html';
       });
+    }
+
+    // Delete account function
+    async function deleteAccount() {
+      const user = auth.currentUser;
+      
+      if (!user) {
+        alert('You must be logged in to delete your account.');
+        return;
+      }
+      
+      const confirmation = prompt('This will permanently delete your account and all data. Type "DELETE" to confirm:');
+      
+      if (confirmation !== 'DELETE') {
+        alert('Account deletion cancelled.');
+        return;
+      }
+      
+      try {
+        const userId = user.uid;
+        
+        // Delete all user data from Firestore
+        console.log('Deleting user data from Firestore...');
+        
+        // Delete tasks
+        await db.collection('users').doc(userId).collection('tasks').doc('data').delete();
+        
+        // Delete lists
+        await db.collection('users').doc(userId).collection('lists').doc('data').delete();
+        
+        // Delete user document
+        await db.collection('users').doc(userId).delete();
+        
+        console.log('Firestore data deleted successfully');
+        
+        // Delete authentication account
+        await user.delete();
+        
+        alert('Your account and all data have been permanently deleted.');
+        window.location.href = 'index.html';
+        
+      } catch (error) {
+        console.error('Error deleting account:', error);
+        
+        if (error.code === 'auth/requires-recent-login') {
+          alert('For security reasons, you need to sign in again before deleting your account. Please sign out and sign back in, then try again.');
+        } else {
+          alert('Error deleting account: ' + error.message);
+        }
+      }
     }
   </script>
 
