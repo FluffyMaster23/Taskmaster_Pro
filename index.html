@@ -23,42 +23,41 @@
   <!-- OneSignal for iOS notifications -->
   <script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" async=""></script>
   
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  
   <!-- Favicon and App Icons -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K" />
   <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPHJlY3Qgd2lkdGg9IjE5MiIgaGVpZ2h0PSIxOTIiIHJ4PSI0OCIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik03MiA5NmwxNiAxNmwzMi0zMiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=" />
 </head>
 <body>
+  <!-- Welcome Message (shown when logged in) -->
+  <div id="welcome-message" style="display: none; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px 20px; text-align: center; font-weight: 600; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+    Welcome, <span id="username"></span>! 🎉
+    <button onclick="signOut()" style="margin-left: 20px; background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Sign Out</button>
+  </div>
+  
+  <!-- Guest Mode Notice (shown when not logged in) -->
+  <div id="guest-notice" style="display: none; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 12px 20px; text-align: center; font-size: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+    ⚠️ Guest Mode: Your data will be deleted after 2 hours. <a href="account.html" style="color: white; text-decoration: underline; font-weight: 600;">Create an account</a> to save forever!
+  </div>
+  
   <!-- Hero Section -->
   <div class="hero">
     <h1>TaskMaster Pro</h1>
     <p>Master your tasks, dominate your day with advanced reminders and notifications</p>
-  </div>
-
-  <!-- Main Navigation -->
-  <nav class="main-nav">
-    <ul class="nav-list">
-      <li class="nav-item">
-        <a href="taskmaster.html" class="nav-link">
-          <div class="icon">TASKS</div>
-          <h2>Your Lists</h2>
-        </a>
-      </li>
-      
-      <li class="nav-item">
-        <a href="list.html" class="nav-link">
-          <div class="icon">CREATE</div>
-          <h2>Create List</h2>
-        </a>
-      </li>
-      
-      <li class="nav-item">
-        <a href="options.html" class="nav-link">
-          <div class="icon">CONFIG</div>
-          <h2>Options</h2>
-        </a>
-      </li>
+    
+    <!-- Main Navigation -->
+    <ul>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="options.html">Options</a></li>
+      <li><a href="taskmaster.html">Your Lists</a></li>
+      <li><a href="list.html">Create List</a></li>
+      <li id="account-link"><a href="account.html">Account</a></li>
     </ul>
-  </nav>
+  </div>
 
   <!-- Features Section -->
   <div class="features">
@@ -103,5 +102,115 @@
   </div>
 
   <script src="todo.js"></script>
+  
+  <script>
+    // Firebase config - TODO: Replace with your actual config
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // Check authentication state
+    auth.onAuthStateChanged((user) => {
+      const welcomeMsg = document.getElementById('welcome-message');
+      const guestNotice = document.getElementById('guest-notice');
+      const usernameEl = document.getElementById('username');
+      const accountLink = document.getElementById('account-link');
+      
+      if (user) {
+        // User is signed in
+        const displayName = user.displayName || user.email.split('@')[0];
+        usernameEl.textContent = displayName;
+        welcomeMsg.style.display = 'block';
+        guestNotice.style.display = 'none';
+        accountLink.style.display = 'none'; // Hide account link when logged in
+        
+        // Store user info globally
+        window.currentUser = user;
+        window.isGuestMode = false;
+        
+        console.log('User signed in:', displayName);
+      } else {
+        // User is not signed in (guest mode)
+        welcomeMsg.style.display = 'none';
+        guestNotice.style.display = 'block';
+        accountLink.style.display = 'list-item';
+        
+        window.currentUser = null;
+        window.isGuestMode = true;
+        
+        // Set up guest mode - data expires in 2 hours
+        setupGuestMode();
+        
+        console.log('Guest mode active');
+      }
+    });
+
+    // Sign out function
+    function signOut() {
+      auth.signOut().then(() => {
+        alert('You have been signed out successfully!');
+        window.location.reload();
+      }).catch((error) => {
+        console.error('Sign out error:', error);
+        alert('Error signing out: ' + error.message);
+      });
+    }
+
+    // Guest mode setup - auto-delete data after 2 hours
+    function setupGuestMode() {
+      const guestStartTime = localStorage.getItem('guestModeStartTime');
+      const now = Date.now();
+      const twoHours = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+      
+      if (!guestStartTime) {
+        // First time in guest mode, set start time
+        localStorage.setItem('guestModeStartTime', now.toString());
+      } else {
+        // Check if 2 hours have passed
+        const elapsed = now - parseInt(guestStartTime);
+        if (elapsed >= twoHours) {
+          // Clear all guest data
+          console.log('Guest mode expired - clearing data');
+          clearGuestData();
+          localStorage.setItem('guestModeStartTime', now.toString());
+        }
+      }
+      
+      // Set up periodic check every minute
+      setInterval(() => {
+        const startTime = parseInt(localStorage.getItem('guestModeStartTime'));
+        const currentTime = Date.now();
+        if (currentTime - startTime >= twoHours) {
+          clearGuestData();
+          localStorage.setItem('guestModeStartTime', currentTime.toString());
+          alert('Your guest session expired. Your data has been cleared.');
+          window.location.reload();
+        }
+      }, 60000); // Check every minute
+    }
+
+    // Clear guest data
+    function clearGuestData() {
+      // Keep only essential settings, clear tasks and lists
+      const keysToKeep = ['voiceEnabled', 'selectedVoice', 'voiceSpeed', 'notificationsEnabled', 'guestModeStartTime'];
+      const allKeys = Object.keys(localStorage);
+      
+      allKeys.forEach(key => {
+        if (!keysToKeep.includes(key)) {
+          localStorage.removeItem(key);
+        }
+      });
+    }
+  </script>
 </body>
 </html>

@@ -20,6 +20,11 @@
   <!-- OneSignal for iOS notifications -->
   <script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" async=""></script>
   
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  
   <!-- Favicon and App Icons -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K" />
   <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPHJlY3Qgd2lkdGg9IjE5MiIgaGVpZ2h0PSIxOTIiIHJ4PSI0OCIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik03MiA5NmwxNiAxNmwzMi0zMiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=" />
@@ -60,6 +65,17 @@
   </style>
 </head>
 <body>
+  <!-- Welcome Message (shown when logged in) -->
+  <div id="welcome-message" style="display: none; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px 20px; text-align: center; font-weight: 600; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: -20px -20px 20px -20px;">
+    Welcome, <span id="username"></span>! 🎉
+    <button onclick="signOut()" style="margin-left: 20px; background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Sign Out</button>
+  </div>
+  
+  <!-- Guest Mode Notice (shown when not logged in) -->
+  <div id="guest-notice" style="display: none; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 12px 20px; text-align: center; font-size: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: -20px -20px 20px -20px;">
+    ⚠️ Guest Mode: Your data will be deleted after 2 hours. <a href="account.html" style="color: white; text-decoration: underline; font-weight: 600;">Create an account</a> to save forever!
+  </div>
+  
   <!-- Navigation Bar -->
   <nav class="navbar">
     <a href="index.html">TaskMaster Home</a>
@@ -80,6 +96,54 @@
   <button id="checkUpcoming">Check Upcoming Todos</button>
 
   <script src="todo.js"></script>
+  
+  <script>
+    // Firebase config - TODO: Replace with your actual config
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    // Initialize Firebase
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // Check authentication state
+    auth.onAuthStateChanged((user) => {
+      const welcomeMsg = document.getElementById('welcome-message');
+      const guestNotice = document.getElementById('guest-notice');
+      const usernameEl = document.getElementById('username');
+      
+      if (user) {
+        const displayName = user.displayName || user.email.split('@')[0];
+        usernameEl.textContent = displayName;
+        welcomeMsg.style.display = 'block';
+        guestNotice.style.display = 'none';
+        window.currentUser = user;
+        window.isGuestMode = false;
+      } else {
+        welcomeMsg.style.display = 'none';
+        guestNotice.style.display = 'block';
+        window.currentUser = null;
+        window.isGuestMode = true;
+      }
+    });
+
+    // Sign out function
+    function signOut() {
+      auth.signOut().then(() => {
+        alert('Signed out successfully!');
+        window.location.reload();
+      });
+    }
+  </script>
 
 </body>
 </html>
