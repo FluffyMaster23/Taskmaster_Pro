@@ -296,13 +296,13 @@
 <body>
   <!-- Welcome Message (shown when logged in) -->
   <div id="welcome-message" style="display: none; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px 20px; text-align: center; font-weight: 600; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: -20px -20px 20px -20px;">
-    Welcome, <span id="username"></span>! 🎉
+    Welcome, <span id="username"></span>!
     <button onclick="signOut()" style="margin-left: 20px; background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Sign Out</button>
   </div>
   
   <!-- Guest Mode Notice (shown when not logged in) -->
   <div id="guest-notice" style="display: none; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 12px 20px; text-align: center; font-size: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: -20px -20px 20px -20px;">
-    ⚠️ Guest Mode: Your data will be deleted after 2 hours. <a href="account.html" style="color: white; text-decoration: underline; font-weight: 600;">Create an account</a> to save forever!
+    Guest Mode: Your data will be deleted after 2 hours. <a href="account.html" style="color: white; text-decoration: underline; font-weight: 600;">Create an account</a> to save forever!
   </div>
   
   <!-- Navigation Bar -->
@@ -313,11 +313,11 @@
   </nav>
 
   <div class="container">
-    <h1>📝 Create New List</h1>
+    <h1>Create New List</h1>
     
     <!-- User Privacy Information -->
     <div class="privacy-info" style="background: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 12px; padding: 15px; margin-bottom: 20px; font-size: 14px;">
-      <strong>🔒 Privacy Notice:</strong> Your custom lists are stored locally on this device only. Each browser/device gets its own unique user ID. 
+      <strong>Privacy Notice:</strong> Your custom lists are stored locally on this device only. Each browser/device gets its own unique user ID. 
       Your lists will not be visible to other users or on other devices. 
       <span id="userIdDisplay" style="color: #0369a1; font-family: monospace;"></span>
     </div>
@@ -465,7 +465,7 @@
       // Update the sections array in the main app
       updateMainAppSections();
       
-      showMessage(`List "${name}" created successfully! 🎉`);
+      showMessage(`List "${name}" created successfully!`);
       displayCustomLists();
       return true;
     }
@@ -532,7 +532,7 @@
       if (lists.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
-            <div class="icon">📝</div>
+            <div class="icon">LISTS</div>
             <h3>No custom lists yet</h3>
             <p>Create your first custom list above to get started!</p>
           </div>
@@ -548,13 +548,13 @@
           
           <div class="list-actions">
             <button class="btn-small btn-view" onclick="viewList('${list.id}')">
-              📋 View Tasks
+              View Tasks
             </button>
             <button class="btn-small btn-edit" onclick="editCustomList('${list.id}')">
-              ✏️ Edit
+              Edit
             </button>
             <button class="btn-small btn-delete" onclick="deleteCustomList('${list.id}')">
-              🗑️ Delete
+              Delete
             </button>
           </div>
         </div>
