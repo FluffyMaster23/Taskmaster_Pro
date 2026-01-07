@@ -97,7 +97,6 @@
   </div>
   
   <div id="sections" role="region" aria-label="Todo Lists"></div>
-  <button id="checkUpcoming">Check Upcoming Todos</button>
 
   <script src="todo.js"></script>
   
@@ -119,6 +118,7 @@
     }
     const auth = firebase.auth();
     const db = firebase.firestore();
+    window.db = db; // Make db globally accessible
 
     // Set auth persistence to LOCAL
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((error) => {

@@ -56,54 +56,13 @@
     <!-- Main Navigation -->
     <ul>
       <li><a href="index.html">Home</a></li>
+      <li><a href="help.html">Help & Features</a></li>
       <li><a href="options.html">Options</a></li>
       <li><a href="taskmaster.html">Your Lists</a></li>
       <li><a href="list.html">Create List</a></li>
       <li id="account-link"><a href="account.html">Create Account</a></li>
       <li id="admin-link" style="display: none;"><a href="admin.html" style="color: #f59e0b; font-weight: 700;">Admin Dashboard</a></li>
     </ul>
-  </div>
-
-  <!-- Features Section -->
-  <div class="features">
-    <h2>Why Choose TaskMaster Pro?</h2>
-    <div class="feature-grid">
-      <div class="feature">
-        <div class="icon">NOTIFY</div>
-        <h3>Smart Notifications</h3>
-        <p>Cross-platform notifications that work on iOS, Android, and desktop. Never miss a deadline again.</p>
-      </div>
-      
-      <div class="feature">
-        <div class="icon">VOICE</div>
-        <h3>Voice Feedback</h3>
-        <p>Customizable voice announcements with multiple voices and speeds. Perfect for accessibility and multitasking.</p>
-      </div>
-      
-      <div class="feature">
-        <div class="icon">PWA</div>
-        <h3>Progressive Web App</h3>
-        <p>Install on your device like a native app. Works offline and provides a seamless experience across platforms.</p>
-      </div>
-      
-      <div class="feature">
-        <div class="icon">REMIND</div>
-        <h3>Flexible Reminders</h3>
-        <p>Set custom reminder times from minutes to years in advance. Get notified exactly when you need it.</p>
-      </div>
-      
-      <div class="feature">
-        <div class="icon">ORGANIZE</div>
-        <h3>Smart Categories</h3>
-        <p>Organize tasks into categories like Blogging, YouTube, School, and more. Stay focused on what matters.</p>
-      </div>
-      
-      <div class="feature">
-        <div class="icon">SECURE</div>
-        <h3>Auto-Save</h3>
-        <p>Your tasks are automatically saved locally. No account required, your data stays private and secure.</p>
-      </div>
-    </div>
   </div>
 
   <script src="todo.js"></script>
@@ -126,6 +85,7 @@
     }
     const auth = firebase.auth();
     const db = firebase.firestore();
+    window.db = db; // Make db globally accessible
 
     // Set auth persistence to LOCAL (persists even when browser is closed)
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((error) => {
