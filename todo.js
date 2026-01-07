@@ -14,15 +14,27 @@ function getUserId() {
 }
 
 // Function to get all sections (default + user's custom lists)
-function getAllSections() {
+async function getAllSections() {
+  // Try to load from Firebase first if user is logged in
+  if (window.currentUser && !window.isGuestMode && typeof loadCustomLists === 'function') {
+    try {
+      const customLists = await loadCustomLists();
+      const customListNames = customLists.map(list => list.name);
+      return [...DEFAULT_SECTIONS, ...customListNames];
+    } catch (error) {
+      console.error('Error loading custom lists from Firebase:', error);
+    }
+  }
+  
+  // Fallback to localStorage
   const userId = getUserId();
   const userCustomListsKey = `taskmaster_custom_section_names_${userId}`;
   const customListNames = JSON.parse(localStorage.getItem(userCustomListsKey) || '[]');
   return [...DEFAULT_SECTIONS, ...customListNames];
 }
 
-// Dynamic SECTIONS array that includes custom lists
-const SECTIONS = getAllSections();
+// Dynamic SECTIONS array that includes custom lists (will be updated async)
+let SECTIONS = [];
 
 window._clearMessageSpoken = false;
 window._spokenTaskIds = new Set();
@@ -58,10 +70,10 @@ window.addEventListener('DOMContentLoaded', function() {
   initializeCurrentPage();
   
   // Refresh sections when page becomes visible (to pick up new custom lists)
-  document.addEventListener('visibilitychange', function() {
+  document.addEventListener('visibilitychange', async function() {
     if (!document.hidden && window.location.pathname.includes('taskmaster.html')) {
-      // Check if custom lists have been updated
-      const currentSections = getAllSections();
+      // Check if custom lists have been updated (now async)
+      const currentSections = await getAllSections();
       const displayedSections = Array.from(document.querySelectorAll('[id^="summary-"]')).map(el => 
         el.textContent.trim()
       );
@@ -70,7 +82,7 @@ window.addEventListener('DOMContentLoaded', function() {
       if (currentSections.length !== displayedSections.length || 
           !currentSections.every(section => displayedSections.includes(section))) {
         console.log('Custom lists updated, refreshing sections...');
-        createSections();
+        await createSections();
       }
     }
   });
@@ -105,7 +117,7 @@ function initializeTaskMasterPage() {
   // Setup notification system
   setupAppleNotifications();
   
-  // Create task sections
+  // Create task sections (now async)
   createSections();
   
   // Check if we should focus on a specific list (from list.html)
@@ -1401,15 +1413,18 @@ function showNotification(task, isReminder = false) {
 }
 
 // === DOM BUILD ===
-function createSections() {
+async function createSections() {
   const sectionsDiv = document.getElementById("sections");
   if (!sectionsDiv) {
     console.log('Sections div not found, skipping section creation');
     return;
   }
   
-  // Get fresh sections list (including any newly created custom lists)
-  const allSections = getAllSections();
+  // Get fresh sections list (including any newly created custom lists) - now async
+  const allSections = await getAllSections();
+  
+  // Update global SECTIONS for other functions
+  SECTIONS = allSections;
   
   // Clear existing sections
   sectionsDiv.innerHTML = '';
