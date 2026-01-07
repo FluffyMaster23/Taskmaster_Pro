@@ -916,7 +916,6 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
 
     // Check authentication state
     auth.onAuthStateChanged((user) => {
-      console.log('Auth state changed on options.html:', user ? user.email : 'No user');
       const welcomeMsg = document.getElementById('welcome-message');
       const guestNotice = document.getElementById('guest-notice');
       const usernameEl = document.getElementById('username');

@@ -630,7 +630,6 @@
 
     // Check authentication state
     auth.onAuthStateChanged((user) => {
-      console.log('Auth state changed on list.html:', user ? user.email : 'No user');
       const welcomeMsg = document.getElementById('welcome-message');
       const guestNotice = document.getElementById('guest-notice');
       const usernameEl = document.getElementById('username');

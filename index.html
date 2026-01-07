@@ -123,16 +123,12 @@
     const db = firebase.firestore();
 
     // Set auth persistence to LOCAL (persists even when browser is closed)
-    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(() => {
-      console.log('Firebase auth persistence set to LOCAL');
-    }).catch((error) => {
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((error) => {
       console.error('Error setting auth persistence:', error);
     });
 
     // Check authentication state
     auth.onAuthStateChanged((user) => {
-      console.log('Auth state changed on index.html:', user ? user.email : 'No user');
-      
       const welcomeMsg = document.getElementById('welcome-message');
       const guestNotice = document.getElementById('guest-notice');
       const usernameEl = document.getElementById('username');
@@ -141,26 +137,16 @@
       if (user) {
         // User is signed in
         const displayName = user.displayName || user.email.split('@')[0];
-        console.log('Setting username to:', displayName);
         if (usernameEl) usernameEl.textContent = displayName;
-        if (welcomeMsg) {
-          welcomeMsg.style.display = 'block';
-          console.log('Showing welcome message');
-        }
-        if (guestNotice) {
-          guestNotice.style.display = 'none';
-          console.log('Hiding guest notice');
-        }
+        if (welcomeMsg) welcomeMsg.style.display = 'block';
+        if (guestNotice) guestNotice.style.display = 'none';
         if (accountLink) accountLink.style.display = 'none';
         
         // Store user info globally
         window.currentUser = user;
         window.isGuestMode = false;
-        
-        console.log('User signed in:', displayName);
       } else {
         // User is not signed in (guest mode)
-        console.log('No user - guest mode');
         if (welcomeMsg) welcomeMsg.style.display = 'none';
         if (guestNotice) guestNotice.style.display = 'block';
         if (accountLink) accountLink.style.display = 'list-item';
@@ -170,8 +156,6 @@
         
         // Set up guest mode - data expires in 2 hours
         setupGuestMode();
-        
-        console.log('Guest mode active');
       }
     });
 
@@ -200,7 +184,6 @@
         const elapsed = now - parseInt(guestStartTime);
         if (elapsed >= twoHours) {
           // Clear all guest data
-          console.log('Guest mode expired - clearing data');
           clearGuestData();
           localStorage.setItem('guestModeStartTime', now.toString());
         }
