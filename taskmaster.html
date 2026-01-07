@@ -82,6 +82,7 @@
     <a href="taskmaster.html" class="active">Your Lists</a>
     <a href="list.html">Create List</a>
     <a href="options.html">Options</a>
+    <a id="admin-link" href="admin.html" style="display: none; color: #f59e0b; font-weight: 700;">Admin Dashboard</a>
   </nav>
 
   <h1>Your Task Lists</h1>
@@ -126,6 +127,7 @@
       const welcomeMsg = document.getElementById('welcome-message');
       const guestNotice = document.getElementById('guest-notice');
       const usernameEl = document.getElementById('username');
+      const adminLink = document.getElementById('admin-link');
       
       if (user) {
         const displayName = user.displayName || user.email.split('@')[0];
@@ -134,6 +136,11 @@
         guestNotice.style.display = 'none';
         window.currentUser = user;
         window.isGuestMode = false;
+        
+        // Show admin link if user is admin
+        if (user.email === 'fluffyfighter23@gmx.de' && adminLink) {
+          adminLink.style.display = 'inline-block';
+        }
       } else {
         welcomeMsg.style.display = 'none';
         guestNotice.style.display = 'block';
