@@ -355,7 +355,7 @@
           }).join('');
         }, (error) => {
           console.error('Error loading online users:', error);
-          loadingOnline.innerHTML = '<p style="color: #ef4444;">Error loading online users</p>';
+          loadingOnline.innerHTML = `<p style="color: #ef4444;">Error: ${error.message}<br><small>Check Firestore security rules</small></p>`;
         });
     }
 
@@ -412,7 +412,7 @@
           });
         }, (error) => {
           console.error('Error loading registered users:', error);
-          loadingRegistered.innerHTML = '<p style="color: #ef4444;">Error loading registered users</p>';
+          loadingRegistered.innerHTML = `<p style="color: #ef4444;">Error: ${error.message}<br><small>Check Firestore security rules</small></p>`;
         });
     }
 
