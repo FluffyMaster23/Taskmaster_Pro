@@ -6,11 +6,11 @@
 
 // Save tasks to Firestore or localStorage
 async function saveTasks(tasks) {
-  if (window.currentUser && !window.isGuestMode && window.db) {
+  if (window.currentUser && !window.isGuestMode) {
     // Logged in user - save to Firestore
     try {
       const userId = window.currentUser.uid;
-      await window.db.collection('users').doc(userId).collection('tasks').doc('data').set({
+      await db.collection('users').doc(userId).collection('tasks').doc('data').set({
         tasks: tasks,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
@@ -28,11 +28,11 @@ async function saveTasks(tasks) {
 
 // Load tasks from Firestore or localStorage
 async function loadTasks() {
-  if (window.currentUser && !window.isGuestMode && window.db) {
+  if (window.currentUser && !window.isGuestMode) {
     // Logged in user - load from Firestore
     try {
       const userId = window.currentUser.uid;
-      const doc = await window.db.collection('users').doc(userId).collection('tasks').doc('data').get();
+      const doc = await db.collection('users').doc(userId).collection('tasks').doc('data').get();
       
       if (doc.exists) {
         console.log('Tasks loaded from Firestore');
@@ -64,10 +64,10 @@ async function loadTasks() {
 
 // Save custom lists to Firestore or localStorage
 async function saveCustomLists(lists) {
-  if (window.currentUser && !window.isGuestMode && window.db) {
+  if (window.currentUser && !window.isGuestMode) {
     try {
       const userId = window.currentUser.uid;
-      await window.db.collection('users').doc(userId).collection('lists').doc('data').set({
+      await db.collection('users').doc(userId).collection('lists').doc('data').set({
         lists: lists,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
@@ -83,10 +83,10 @@ async function saveCustomLists(lists) {
 
 // Load custom lists from Firestore or localStorage
 async function loadCustomLists() {
-  if (window.currentUser && !window.isGuestMode && window.db) {
+  if (window.currentUser && !window.isGuestMode) {
     try {
       const userId = window.currentUser.uid;
-      const doc = await window.db.collection('users').doc(userId).collection('lists').doc('data').get();
+      const doc = await db.collection('users').doc(userId).collection('lists').doc('data').get();
       
       if (doc.exists) {
         console.log('Custom lists loaded from Firestore');
@@ -140,10 +140,10 @@ async function addTask(task) {
 
 // Save user settings to Firestore or localStorage
 async function saveSettings(settings) {
-  if (window.currentUser && !window.isGuestMode && window.db) {
+  if (window.currentUser && !window.isGuestMode) {
     try {
       const userId = window.currentUser.uid;
-      await window.db.collection('users').doc(userId).set({
+      await db.collection('users').doc(userId).set({
         settings: settings,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
@@ -165,10 +165,10 @@ async function saveSettings(settings) {
 
 // Load user settings from Firestore or localStorage
 async function loadSettings(keys) {
-  if (window.currentUser && !window.isGuestMode && window.db) {
+  if (window.currentUser && !window.isGuestMode) {
     try {
       const userId = window.currentUser.uid;
-      const doc = await window.db.collection('users').doc(userId).get();
+      const doc = await db.collection('users').doc(userId).get();
       
       if (doc.exists && doc.data().settings) {
         console.log('Settings loaded from Firestore');

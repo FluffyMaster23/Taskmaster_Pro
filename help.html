@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="styles.css" />
   
   <!-- PWA Meta Tags -->
-  <meta name="description" content="Learn about TaskMaster Pro features and capabilities" />
+  <meta name="description" content="TaskMaster Pro - Learn about features and how to use the app" />
   <meta name="theme-color" content="#4f46e5" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -18,21 +18,17 @@
   <!-- PWA Manifest -->
   <link rel="manifest" href="./manifest.json" />
   
-  <!-- Favicon and App Icons -->
+  <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K" />
   <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPHJlY3Qgd2lkdGg9IjE5MiIgaGVpZ2h0PSIxOTIiIHJ4PSI0OCIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik03MiA5NmwxNiAxNmwzMi0zMiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=" />
 </head>
 <body>
   <!-- Hero Section -->
   <div class="hero">
-    <h1>Help & Features</h1>
-    <p>Learn about TaskMaster Pro's powerful features</p>
-    
-    <!-- Navigation back to home -->
+    <h1>TaskMaster Pro Features</h1>
+    <p>Everything you need to master your tasks and dominate your day</p>
     <ul>
       <li><a href="index.html">← Back to Home</a></li>
-      <li><a href="taskmaster.html">Your Lists</a></li>
-      <li><a href="list.html">Create List</a></li>
     </ul>
   </div>
 
@@ -76,74 +72,78 @@
         <p>Your tasks are automatically saved locally. No account required, your data stays private and secure.</p>
       </div>
     </div>
+  </div>
 
-    <!-- Additional Help Section -->
-    <div style="background: white; border-radius: 12px; padding: 30px; margin-top: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-      <h2 style="color: #4f46e5; margin-top: 0;">Getting Started</h2>
+  <!-- How to Use Section -->
+  <div class="features">
+    <h2>How to Use TaskMaster Pro</h2>
+    <div class="feature-grid">
+      <div class="feature">
+        <div class="icon">1</div>
+        <h3>Create Custom Lists</h3>
+        <p>Go to "Create List" to make custom categories for your tasks. Lists sync across all your devices when logged in.</p>
+      </div>
       
-      <h3>📝 Creating Your First List</h3>
-      <ol style="line-height: 1.8;">
-        <li>Click on <strong>"Create List"</strong> in the navigation menu</li>
-        <li>Enter a name for your list (e.g., "Work Tasks", "Shopping", "Goals")</li>
-        <li>Add an optional description and choose a color</li>
-        <li>Click "Create List" to save it</li>
-      </ol>
-
-      <h3>✅ Adding Tasks</h3>
-      <ol style="line-height: 1.8;">
-        <li>Go to <strong>"Your Lists"</strong></li>
-        <li>Click on the list where you want to add a task</li>
-        <li>Fill in the task title and optional reminder message</li>
-        <li>Set the due date and time</li>
-        <li>Choose when to be reminded (at due time, or minutes/days/weeks before)</li>
-        <li>Click "Add Task"</li>
-      </ol>
-
-      <h3>🔔 Enabling Notifications</h3>
-      <p style="line-height: 1.8;">
-        On iOS and Android, the app will automatically ask for notification permission when you first visit. 
-        Click "Allow" to receive task reminders even when the app is closed.
-      </p>
-      <p style="line-height: 1.8;">
-        <strong>iOS users:</strong> For best experience, add the app to your Home Screen by tapping the Share button and selecting "Add to Home Screen".
-      </p>
-
-      <h3>☁️ Syncing Across Devices</h3>
-      <p style="line-height: 1.8;">
-        <strong>Create an account</strong> to sync your lists and tasks across all your devices. 
-        Without an account, your data is saved locally on this device only.
-      </p>
-      <ul style="line-height: 1.8;">
-        <li><strong>With account:</strong> All data syncs to the cloud automatically</li>
-        <li><strong>Guest mode:</strong> Data stored locally, temporary (2 hour limit)</li>
-      </ul>
-
-      <h3>🎤 Voice Features</h3>
-      <p style="line-height: 1.8;">
-        Go to <strong>"Options"</strong> to customize voice feedback:
-      </p>
-      <ul style="line-height: 1.8;">
-        <li>Choose from multiple voice options</li>
-        <li>Adjust speech speed (slower or faster)</li>
-        <li>Hear task announcements when they're due</li>
-      </ul>
-
-      <h3>💡 Tips & Tricks</h3>
-      <ul style="line-height: 1.8;">
-        <li><strong>Long-term reminders:</strong> Set reminders months or years in advance for important life events</li>
-        <li><strong>Multiple lists:</strong> Create separate lists for different areas of your life</li>
-        <li><strong>Custom colors:</strong> Use colors to quickly identify different list categories</li>
-        <li><strong>Offline access:</strong> The app works even without internet after first visit</li>
-      </ul>
-
-      <div style="background: #f0f9ff; border-left: 4px solid #4f46e5; padding: 20px; margin-top: 30px; border-radius: 8px;">
-        <h3 style="margin-top: 0; color: #4f46e5;">Need More Help?</h3>
-        <p style="margin-bottom: 0;">
-          If you're experiencing issues or have questions, check your browser console (F12) for any error messages, 
-          or make sure you're using a modern browser with JavaScript enabled.
-        </p>
+      <div class="feature">
+        <div class="icon">2</div>
+        <h3>Add Tasks</h3>
+        <p>Click on any list in "Your Lists" to add tasks with due dates and reminder times. Set reminders from minutes to years in advance.</p>
+      </div>
+      
+      <div class="feature">
+        <div class="icon">3</div>
+        <h3>Enable Notifications</h3>
+        <p>Allow notifications when prompted to get reminders for your tasks. Works on iOS 16.4+, Android, and desktop browsers.</p>
+      </div>
+      
+      <div class="feature">
+        <div class="icon">4</div>
+        <h3>Create an Account</h3>
+        <p>Sign up to sync your lists and tasks across all devices. Your data is securely stored in the cloud.</p>
+      </div>
+      
+      <div class="feature">
+        <div class="icon">5</div>
+        <h3>Customize Voice</h3>
+        <p>Visit "Options" to choose your preferred voice and speech rate for voice announcements.</p>
+      </div>
+      
+      <div class="feature">
+        <div class="icon">6</div>
+        <h3>Install as App</h3>
+        <p>On mobile: Add to Home Screen. On desktop: Install from browser menu. Works like a native app!</p>
       </div>
     </div>
+  </div>
+
+  <!-- Tips Section -->
+  <div class="features">
+    <h2>Pro Tips</h2>
+    <div class="feature-grid">
+      <div class="feature">
+        <h3>📱 iOS Users</h3>
+        <p>For best experience, add TaskMaster Pro to your Home Screen. This enables full notification support and offline mode.</p>
+      </div>
+      
+      <div class="feature">
+        <h3>☁️ Cloud Sync</h3>
+        <p>Create an account to sync your lists across devices. Lists you create on your computer will appear on your phone automatically!</p>
+      </div>
+      
+      <div class="feature">
+        <h3>🔔 Reminders</h3>
+        <p>You can set reminder times long in advance - perfect for birthdays, anniversaries, or long-term projects.</p>
+      </div>
+      
+      <div class="feature">
+        <h3>🎯 Guest Mode</h3>
+        <p>Don't want an account? Use Guest Mode! Your data saves locally but will be cleared after 2 hours of inactivity.</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align: center; padding: 40px 20px;">
+    <a href="index.html" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 32px; text-decoration: none; border-radius: 8px; font-weight: 600;">Get Started Now</a>
   </div>
 </body>
 </html>

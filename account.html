@@ -331,7 +331,6 @@
     }
     const auth = firebase.auth();
     const db = firebase.firestore();
-    window.db = db; // Make db globally accessible
 
     // Set auth persistence to LOCAL
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((error) => {
