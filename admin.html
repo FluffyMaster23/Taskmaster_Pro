@@ -329,8 +329,12 @@
           unauthorizedMsg.style.display = 'none';
           adminContent.style.display = 'block';
           
-          // Set admin as online
-          setUserPresence(user, true);
+          // Set admin as online and wait for it to complete
+          setUserPresence(user, true).then(() => {
+            // Load admin dashboard data after presence is set
+            loadOnlineUsers();
+            loadRegisteredUsers();
+          });
           
           // Set up heartbeat to update lastSeen every 30 seconds
           heartbeatInterval = setInterval(() => {
@@ -338,10 +342,6 @@
               lastSeen: firebase.firestore.FieldValue.serverTimestamp()
             }).catch(error => console.error('Heartbeat error:', error));
           }, 30000);
-          
-          // Load admin dashboard data
-          loadOnlineUsers();
-          loadRegisteredUsers();
         } else {
           welcomeMsg.style.display = 'none';
           unauthorizedMsg.style.display = 'block';
