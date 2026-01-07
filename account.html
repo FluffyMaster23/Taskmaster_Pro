@@ -415,8 +415,16 @@
       const provider = new firebase.auth.GoogleAuthProvider();
       
       try {
-        const result = await auth.signInWithPopup(provider);
-        
+        // Use redirect instead of popup for better compatibility
+        await auth.signInWithRedirect(provider);
+      } catch (error) {
+        showMessage(error.message, 'error');
+      }
+    }
+    
+    // Handle redirect result
+    auth.getRedirectResult().then(async (result) => {
+      if (result.user) {
         // Check if user document exists, create if not
         const userDoc = await db.collection('users').doc(result.user.uid).get();
         if (!userDoc.exists) {
@@ -429,10 +437,12 @@
         
         showMessage('Sign in successful! Redirecting...', 'success');
         setTimeout(() => window.location.href = 'index.html', 1500);
-      } catch (error) {
+      }
+    }).catch((error) => {
+      if (error.code !== 'auth/popup-closed-by-user') {
         showMessage(error.message, 'error');
       }
-    }
+    });
 
     // Check if already signed in
     auth.onAuthStateChanged((user) => {
