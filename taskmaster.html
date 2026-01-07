@@ -126,7 +126,7 @@
     });
 
     // Check authentication state
-    auth.onAuthStateChanged((user) => {
+    auth.onAuthStateChanged(async (user) => {
       const welcomeMsg = document.getElementById('welcome-message');
       const guestNotice = document.getElementById('guest-notice');
       const usernameEl = document.getElementById('username');
@@ -141,7 +141,13 @@
         window.isGuestMode = false;
         
         // Set user presence to online
-        setUserPresence(user, true);
+        await setUserPresence(user, true);
+        
+        // Reload sections from Firebase after authentication
+        console.log('User authenticated, loading lists from Firebase...');
+        if (typeof createSections === 'function') {
+          await createSections();
+        }
         
         // Show admin link if user is admin
         if (adminLink) {
@@ -156,6 +162,12 @@
         guestNotice.style.display = 'block';
         window.currentUser = null;
         window.isGuestMode = true;
+        
+        // Reload sections for guest mode
+        console.log('Guest mode, loading local lists...');
+        if (typeof createSections === 'function') {
+          await createSections();
+        }
       }
     });
 

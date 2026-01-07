@@ -601,7 +601,8 @@
     
     // Initialize page
     document.addEventListener('DOMContentLoaded', function() {
-      displayCustomLists();
+      // Lists will be loaded after authentication completes via onAuthStateChanged
+      console.log('Page loaded, waiting for authentication...');
     });
   </script>
   
@@ -630,7 +631,7 @@
     });
 
     // Check authentication state
-    auth.onAuthStateChanged((user) => {
+    auth.onAuthStateChanged(async (user) => {
       const welcomeMsg = document.getElementById('welcome-message');
       const guestNotice = document.getElementById('guest-notice');
       const usernameEl = document.getElementById('username');
@@ -644,12 +645,20 @@
         window.isGuestMode = false;
         
         // Set user presence to online
-        setUserPresence(user, true);
+        await setUserPresence(user, true);
+        
+        // Load lists from Firebase after authentication
+        console.log('User authenticated, loading lists from Firebase...');
+        await displayCustomLists();
       } else {
         welcomeMsg.style.display = 'none';
         guestNotice.style.display = 'block';
         window.currentUser = null;
         window.isGuestMode = true;
+        
+        // Load local lists for guest
+        console.log('Guest mode, loading local lists...');
+        await displayCustomLists();
       }
     });
 
