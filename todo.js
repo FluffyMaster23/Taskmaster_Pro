@@ -1076,7 +1076,7 @@ function renderTask(task, ul) {
 
 // Universal notification system for all browsers with OneSignal for iOS
 function setupAppleNotifications() {
-  console.log('Setting up hybrid notifications: OneSignal for iOS, native for desktop');
+  console.log('Setting up native notifications for iOS and desktop');
   
   // Detect browser and platform
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
@@ -1086,13 +1086,13 @@ function setupAppleNotifications() {
   console.log('Notification support:', 'Notification' in window);
   
   if (isIOS) {
-    console.log('iOS detected - automatically enabling OneSignal notifications');
-    // Auto-enable notifications on iOS without button
+    console.log('🍎 iOS detected - requesting native notifications like native iOS app');
+    // Auto-request notifications on iOS like native apps
     setTimeout(() => {
       requestIOSNotificationsAutomatically();
-    }, 2000);
+    }, 1500); // Small delay for better UX
   } else {
-    console.log('Desktop detected - setting up native notifications');
+    console.log('💻 Desktop detected - setting up native notifications');
     console.log('Notification permission:', Notification.permission);
     
     // For desktop browsers, request notification permission
@@ -1119,43 +1119,76 @@ function setupAppleNotifications() {
 }
 
 async function requestIOSNotificationsAutomatically() {
-  console.log('🍎 Setting up iOS task reminder notifications');
+  console.log('🍎 Requesting iOS notifications like native app');
   
-  if (!window.OneSignal) {
-    console.log('OneSignal not available for iOS, trying native notifications');
-    // Fallback to native notifications if OneSignal not available
+  // Check if notifications are supported
+  if (!('Notification' in window)) {
+    console.log('❌ Notifications not supported on this iOS version (requires iOS 16.4+)');
+    return false;
+  }
+  
+  // Check if already have permission
+  if (Notification.permission === 'granted') {
+    console.log('✅ iOS notifications already enabled');
+    // Register service worker for background notifications
+    if ('serviceWorker' in navigator) {
+      try {
+        await navigator.serviceWorker.register('sw.js');
+        console.log('✅ Service Worker registered for iOS notifications');
+      } catch (error) {
+        console.log('Service Worker registration failed:', error);
+      }
+    }
+    return true;
+  }
+  
+  // If permission hasn't been asked yet, request it automatically
+  if (Notification.permission === 'default') {
+    console.log('🔔 Requesting notification permission on iOS...');
     try {
       const permission = await Notification.requestPermission();
-      console.log('Native notification permission:', permission);
+      console.log('🍎 iOS notification permission result:', permission);
+      
       if (permission === 'granted') {
-        console.log('✅ Native iOS notifications enabled');
+        console.log('✅ iOS notifications enabled successfully!');
+        
+        // Register service worker for background notifications
+        if ('serviceWorker' in navigator) {
+          try {
+            await navigator.serviceWorker.register('sw.js');
+            console.log('✅ Service Worker registered for background notifications');
+          } catch (error) {
+            console.log('Service Worker registration failed:', error);
+          }
+        }
+        
+        // Show a welcome notification
+        setTimeout(() => {
+          try {
+            new Notification('🎉 TaskMaster Pro', {
+              body: 'Notifications enabled! You\'ll get reminders for your tasks.',
+              icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K',
+              badge: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K'
+            });
+          } catch (error) {
+            console.log('Could not show welcome notification:', error);
+          }
+        }, 500);
+        
         return true;
+      } else {
+        console.log('❌ iOS notifications denied by user');
+        return false;
       }
     } catch (error) {
-      console.error('Error requesting native notifications:', error);
+      console.error('❌ Error requesting iOS notifications:', error);
+      return false;
     }
-    return false;
   }
   
-  try {
-    // Check if already subscribed first
-    window.OneSignal.push(function() {
-      window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
-        if (isEnabled) {
-          console.log('✅ OneSignal already enabled');
-          window.oneSignalEnabled = true;
-        } else {
-          console.log('🔔 OneSignal not enabled - will show slidedown prompt when requested');
-          window.oneSignalEnabled = false;
-        }
-      });
-    });
-    
-    return true;
-  } catch (error) {
-    console.error('Error requesting iOS automatic notifications:', error);
-    return false;
-  }
+  // Permission was denied
+  console.log('❌ iOS notification permission was previously denied');
+  return false;
 }
 
 async function requestUniversalNotificationPermission() {
