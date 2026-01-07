@@ -437,10 +437,20 @@
           
           const users = [];
           snapshot.forEach((doc) => {
-            users.push({ id: doc.id, ...doc.data() });
+            const userData = { id: doc.id, ...doc.data() };
+            // Exclude admin from registered users list
+            if (userData.email !== ADMIN_EMAIL) {
+              users.push(userData);
+            }
           });
           
+          // Show count excluding admin
           registeredCount.textContent = users.length;
+          
+          if (users.length === 0) {
+            registeredList.innerHTML = '<li class="empty-state">No registered users</li>';
+            return;
+          }
           
           // Check online status
           db.collection('presence').get().then((presenceSnapshot) => {
@@ -452,14 +462,12 @@
             });
             
             registeredList.innerHTML = users.map(user => {
-              const isAdmin = user.email === ADMIN_EMAIL;
               const isOnline = onlineUserIds.has(user.id);
               
               return `
-                <li class="user-item ${isOnline ? 'online' : 'offline'} ${isAdmin ? 'admin-user' : ''}">
+                <li class="user-item ${isOnline ? 'online' : 'offline'}">
                   <div>
                     <span class="user-name">${user.username || user.email}</span>
-                    ${isAdmin ? '<span class="user-badge admin-badge-small">Admin</span>' : ''}
                     <span class="user-email">${user.email}</span>
                   </div>
                   <span class="user-badge ${isOnline ? 'online-badge' : 'offline-badge'}">
