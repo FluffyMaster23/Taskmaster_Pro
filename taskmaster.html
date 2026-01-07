@@ -155,10 +155,27 @@
 
     // Sign out function
     function signOut() {
+      const user = auth.currentUser;
+      if (user) {
+        setUserPresence(user, false);
+      }
+      
       auth.signOut().then(() => {
         alert('Signed out successfully!');
         window.location.reload();
       });
+    }
+    
+    // Set user online/offline presence
+    function setUserPresence(user, online) {
+      if (!user) return;
+      
+      db.collection('presence').doc(user.uid).set({
+        online: online,
+        username: user.displayName || user.email.split('@')[0],
+        email: user.email,
+        lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true }).catch(error => console.error('Error updating presence:', error));
     }
   </script>
 

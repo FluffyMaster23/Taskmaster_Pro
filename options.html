@@ -937,10 +937,27 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
 
     // Sign out function
     function signOut() {
+      const user = auth.currentUser;
+      if (user) {
+        setUserPresence(user, false);
+      }
+      
       auth.signOut().then(() => {
         alert('Signed out successfully!');
         window.location.href = 'index.html';
       });
+    }
+    
+    // Set user online/offline presence
+    function setUserPresence(user, online) {
+      if (!user) return;
+      
+      db.collection('presence').doc(user.uid).set({
+        online: online,
+        username: user.displayName || user.email.split('@')[0],
+        email: user.email,
+        lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true }).catch(error => console.error('Error updating presence:', error));
     }
 
     // Delete account function
@@ -952,9 +969,9 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
         return;
       }
       
-      const confirmation = prompt('This will permanently delete your account and all data. Type "DELETE" to confirm:');
+      const confirmation = prompt('This will permanently delete your account and all data. Type "DELETE" in all caps to confirm:');
       
-      if (confirmation !== 'DELETE') {
+      if (!confirmation || confirmation.trim().toUpperCase() !== 'DELETE') {
         alert('Account deletion cancelled.');
         return;
       }
@@ -964,6 +981,9 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
         
         // Delete all user data from Firestore
         console.log('Deleting user data from Firestore...');
+        
+        // Delete presence data
+        await db.collection('presence').doc(userId).delete();
         
         // Delete tasks
         await db.collection('users').doc(userId).collection('tasks').doc('data').delete();
