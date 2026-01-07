@@ -628,6 +628,9 @@
         guestNotice.style.display = 'none';
         window.currentUser = user;
         window.isGuestMode = false;
+        
+        // Set user presence to online
+        setUserPresence(user, true);
       } else {
         welcomeMsg.style.display = 'none';
         guestNotice.style.display = 'block';
@@ -660,6 +663,14 @@
         lastSeen: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true }).catch(error => console.error('Error updating presence:', error));
     }
+    
+    // Mark user offline when closing tab/browser
+    window.addEventListener('beforeunload', () => {
+      const user = auth.currentUser;
+      if (user) {
+        setUserPresence(user, false);
+      }
+    });
   </script>
 </body>
 </html>
