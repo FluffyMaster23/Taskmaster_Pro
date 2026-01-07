@@ -145,8 +145,14 @@
         if (accountLink) accountLink.style.display = 'none';
         
         // Show admin link if user is admin
-        if (user.email === 'fluffyfighter23@gmx.de' && adminLink) {
-          adminLink.style.display = 'list-item';
+        if (adminLink) {
+          const userEmail = user.email ? user.email.toLowerCase().trim() : '';
+          const adminEmail = 'fluffyfighter23@gmx.de';
+          console.log('User email:', userEmail, 'Admin email:', adminEmail, 'Match:', userEmail === adminEmail);
+          if (userEmail === adminEmail) {
+            adminLink.style.display = 'list-item';
+            console.log('Admin link shown');
+          }
         }
         
         // Store user info globally
