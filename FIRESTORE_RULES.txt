@@ -1,0 +1,75 @@
+================================================================================
+FIRESTORE SECURITY RULES FOR TASKMASTER PRO
+================================================================================
+
+INSTRUCTIONS:
+1. Go to https://console.firebase.google.com
+2. Select your project: taskmaster-pro-bf98a
+3. Click "Firestore Database" in the left sidebar
+4. Click the "Rules" tab at the top
+5. **IMPORTANT: Click inside the editor and press Ctrl+A to select ALL**
+6. **Press Delete to remove everything**
+7. Make sure the editor is completely empty (no text at all)
+8. NOW copy the rules below (from "rules_version" to the last closing brace)
+9. Paste them into the EMPTY Firebase rules editor
+10. Click "Publish" button
+11. Wait for confirmation message
+12. Refresh your admin dashboard page
+
+================================================================================
+COPY THESE RULES BELOW:
+================================================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users collection - readable by all authenticated users, writable by owner
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+      
+      // Sub-collections under users (tasks, lists, etc.)
+      match /{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // Presence collection - readable by authenticated users, writable by owner
+    match /presence/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+
+================================================================================
+END OF RULES
+================================================================================
+
+WHAT THESE RULES DO:
+
+1. users collection:
+   - Any logged-in user can READ all users (needed for admin dashboard)
+   - Users can only WRITE to their own user document
+
+2. users/{userId}/tasks and users/{userId}/lists:
+   - Only the owner can read and write their own tasks and lists
+
+3. presence collection:
+   - Any logged-in user can READ presence status (needed for admin dashboard)
+   - Users can only WRITE their own presence status
+
+TROUBLESHOOTING:
+- If you get an error after publishing, double-check you copied ALL the rules
+- Make sure you included the opening "rules_version" line
+- Make sure all curly braces { } match
+- The rules are case-sensitive
+
+After publishing, your admin dashboard will show:
+- All registered users
+- Who is currently online
+- Your admin badge next to your name
+
+================================================================================

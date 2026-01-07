@@ -285,6 +285,39 @@
     let onlineUsersListener = null;
     let registeredUsersListener = null;
 
+    // Set user presence
+    function setUserPresence(user, online) {
+      if (!user) return;
+      
+      const presenceRef = db.collection('presence').doc(user.uid);
+      
+      if (online) {
+        presenceRef.set({
+          online: true,
+          username: user.displayName || user.email.split('@')[0],
+          email: user.email,
+          lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+        }).catch(error => console.error('Error setting presence:', error));
+        
+        window.addEventListener('beforeunload', () => {
+          presenceRef.update({ online: false, lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
+        });
+        
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) {
+            presenceRef.update({ online: false, lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
+          } else {
+            presenceRef.update({ online: true, lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
+          }
+        });
+      } else {
+        presenceRef.update({
+          online: false,
+          lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+        }).catch(error => console.error('Error updating presence:', error));
+      }
+    }
+
     // Check authentication and admin status
     auth.onAuthStateChanged((user) => {
       const welcomeMsg = document.getElementById('welcome-message');
@@ -301,6 +334,9 @@
           welcomeMsg.style.display = 'block';
           unauthorizedMsg.style.display = 'none';
           adminContent.style.display = 'block';
+          
+          // Set admin as online
+          setUserPresence(user, true);
           
           // Load admin dashboard data
           loadOnlineUsers();
@@ -421,6 +457,11 @@
       // Clean up listeners
       if (onlineUsersListener) onlineUsersListener();
       if (registeredUsersListener) registeredUsersListener();
+      
+      const user = auth.currentUser;
+      if (user) {
+        setUserPresence(user, false);
+      }
       
       auth.signOut().then(() => {
         window.location.href = 'index.html';
