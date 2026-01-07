@@ -56,6 +56,7 @@
       <li><a href="taskmaster.html">Your Lists</a></li>
       <li><a href="list.html">Create List</a></li>
       <li id="account-link"><a href="account.html">Create Account</a></li>
+      <li id="admin-link" style="display: none;"><a href="admin.html" style="color: #f59e0b; font-weight: 700;">Admin Dashboard</a></li>
     </ul>
   </div>
 
@@ -133,6 +134,7 @@
       const guestNotice = document.getElementById('guest-notice');
       const usernameEl = document.getElementById('username');
       const accountLink = document.getElementById('account-link');
+      const adminLink = document.getElementById('admin-link');
       
       if (user) {
         // User is signed in
@@ -142,9 +144,17 @@
         if (guestNotice) guestNotice.style.display = 'none';
         if (accountLink) accountLink.style.display = 'none';
         
+        // Show admin link if user is admin
+        if (user.email === 'fluffyfighter23@gmx.de' && adminLink) {
+          adminLink.style.display = 'list-item';
+        }
+        
         // Store user info globally
         window.currentUser = user;
         window.isGuestMode = false;
+        
+        // Set user presence to online
+        setUserPresence(user, true);
       } else {
         // User is not signed in (guest mode)
         if (welcomeMsg) welcomeMsg.style.display = 'none';
@@ -159,8 +169,41 @@
       }
     });
 
+    // Set user presence
+    function setUserPresence(user, online) {
+      if (!user) return;
+      
+      const presenceRef = db.collection('presence').doc(user.uid);
+      
+      if (online) {
+        // Set user as online
+        presenceRef.set({
+          online: true,
+          username: user.displayName || user.email.split('@')[0],
+          email: user.email,
+          lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+        }).catch(error => console.error('Error setting presence:', error));
+        
+        // Set up offline detection
+        window.addEventListener('beforeunload', () => {
+          presenceRef.update({ online: false, lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
+        });
+      } else {
+        // Set user as offline
+        presenceRef.update({
+          online: false,
+          lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+        }).catch(error => console.error('Error updating presence:', error));
+      }
+    }
+
     // Sign out function
     function signOut() {
+      const user = auth.currentUser;
+      if (user) {
+        setUserPresence(user, false);
+      }
+      
       auth.signOut().then(() => {
         alert('You have been signed out successfully!');
         window.location.reload();

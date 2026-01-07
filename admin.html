@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard - TaskMaster Pro</title>
+  
+  <link rel="stylesheet" href="styles.css" />
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  
+  <style>
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      margin: 0;
+    }
+    
+    .navbar {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      padding: 15px 0;
+      margin: -20px -20px 30px -20px;
+      text-align: center;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+    }
+    
+    .navbar a {
+      color: #4f46e5;
+      text-decoration: none;
+      margin: 0 20px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+      font-weight: 500;
+    }
+    
+    .navbar a:hover {
+      background: rgba(79, 70, 229, 0.1);
+      transform: translateY(-1px);
+    }
+    
+    .navbar a.active {
+      background: #4f46e5;
+      color: white;
+      font-weight: 600;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    }
+    
+    h1 {
+      color: #4f46e5;
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 2.5em;
+    }
+    
+    .admin-badge {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: white;
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 0.9em;
+      font-weight: 600;
+      display: inline-block;
+      margin-left: 10px;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 30px;
+      margin-top: 30px;
+    }
+    
+    .stat-card {
+      background: #f8f9ff;
+      border-radius: 16px;
+      padding: 25px;
+      border: 2px solid #e0e7ff;
+    }
+    
+    .stat-card h2 {
+      color: #374151;
+      margin: 0 0 20px 0;
+      font-size: 1.3em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .count-badge {
+      background: #4f46e5;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.9em;
+      font-weight: 600;
+    }
+    
+    .user-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .user-item {
+      background: white;
+      padding: 12px 15px;
+      margin-bottom: 10px;
+      border-radius: 8px;
+      border-left: 4px solid #10b981;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .user-item.admin-user {
+      border-left-color: #f59e0b;
+      background: #fffbeb;
+    }
+    
+    .user-item.online {
+      border-left-color: #10b981;
+    }
+    
+    .user-item.offline {
+      border-left-color: #6b7280;
+      opacity: 0.7;
+    }
+    
+    .user-name {
+      font-weight: 600;
+      color: #1f2937;
+    }
+    
+    .user-email {
+      color: #6b7280;
+      font-size: 0.85em;
+      display: block;
+    }
+    
+    .user-badge {
+      font-size: 0.75em;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+    
+    .admin-badge-small {
+      background: #f59e0b;
+      color: white;
+    }
+    
+    .online-badge {
+      background: #10b981;
+      color: white;
+    }
+    
+    .offline-badge {
+      background: #6b7280;
+      color: white;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 30px;
+      color: #6b7280;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #6b7280;
+    }
+    
+    .unauthorized {
+      text-align: center;
+      padding: 60px 20px;
+    }
+    
+    .unauthorized h2 {
+      color: #ef4444;
+      margin-bottom: 15px;
+    }
+    
+    .unauthorized p {
+      color: #6b7280;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Welcome Message -->
+  <div id="welcome-message" style="display: none; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px 20px; text-align: center; font-weight: 600; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: -20px -20px 20px -20px;">
+    Welcome, <span id="username"></span>!<span class="admin-badge">ADMIN</span>
+    <button onclick="signOut()" style="margin-left: 20px; background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Sign Out</button>
+  </div>
+  
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <a href="index.html">TaskMaster Home</a>
+    <a href="taskmaster.html">Your Lists</a>
+    <a href="list.html">Create List</a>
+    <a href="options.html">Options</a>
+    <a href="admin.html" class="active">Admin Dashboard</a>
+  </nav>
+
+  <div class="container">
+    <div id="unauthorized-message" style="display: none;">
+      <div class="unauthorized">
+        <h2>🚫 Access Denied</h2>
+        <p>You do not have permission to view this page.</p>
+        <p>Only administrators can access the Admin Dashboard.</p>
+        <a href="index.html" style="color: #4f46e5; text-decoration: none; font-weight: 600;">← Back to Home</a>
+      </div>
+    </div>
+    
+    <div id="admin-content" style="display: none;">
+      <h1>Admin Dashboard</h1>
+      
+      <div class="stats-grid">
+        <!-- Users Online -->
+        <div class="stat-card">
+          <h2>
+            👥 Users Online
+            <span class="count-badge" id="online-count">0</span>
+          </h2>
+          <div id="loading-online" class="loading">Loading...</div>
+          <ul class="user-list" id="online-users"></ul>
+        </div>
+        
+        <!-- Registered Users -->
+        <div class="stat-card">
+          <h2>
+            📋 Registered Users
+            <span class="count-badge" id="registered-count">0</span>
+          </h2>
+          <div id="loading-registered" class="loading">Loading...</div>
+          <ul class="user-list" id="registered-users"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ADMIN_EMAIL = 'fluffyfighter23@gmx.de';
+    
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyC1S6U4E_IIAw5csnapl8ZoIyBS_Lv5k2A",
+      authDomain: "taskmaster-pro-bf98a.firebaseapp.com",
+      projectId: "taskmaster-pro-bf98a",
+      storageBucket: "taskmaster-pro-bf98a.firebasestorage.app",
+      messagingSenderId: "47778628154",
+      appId: "1:47778628154:web:eddd6a64147d917fcb6b03",
+      measurementId: "G-JERNL4E72Z"
+    };
+
+    // Initialize Firebase
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // Set auth persistence to LOCAL
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((error) => {
+      console.error('Error setting auth persistence:', error);
+    });
+
+    let onlineUsersListener = null;
+    let registeredUsersListener = null;
+
+    // Check authentication and admin status
+    auth.onAuthStateChanged((user) => {
+      const welcomeMsg = document.getElementById('welcome-message');
+      const usernameEl = document.getElementById('username');
+      const unauthorizedMsg = document.getElementById('unauthorized-message');
+      const adminContent = document.getElementById('admin-content');
+      
+      if (user) {
+        const displayName = user.displayName || user.email.split('@')[0];
+        if (usernameEl) usernameEl.textContent = displayName;
+        
+        // Check if user is admin
+        if (user.email === ADMIN_EMAIL) {
+          welcomeMsg.style.display = 'block';
+          unauthorizedMsg.style.display = 'none';
+          adminContent.style.display = 'block';
+          
+          // Load admin dashboard data
+          loadOnlineUsers();
+          loadRegisteredUsers();
+        } else {
+          welcomeMsg.style.display = 'none';
+          unauthorizedMsg.style.display = 'block';
+          adminContent.style.display = 'none';
+        }
+      } else {
+        // Not logged in, redirect to account page
+        window.location.href = 'account.html';
+      }
+    });
+
+    // Load online users (real-time)
+    function loadOnlineUsers() {
+      const onlineList = document.getElementById('online-users');
+      const onlineCount = document.getElementById('online-count');
+      const loadingOnline = document.getElementById('loading-online');
+      
+      onlineUsersListener = db.collection('presence')
+        .where('online', '==', true)
+        .onSnapshot((snapshot) => {
+          loadingOnline.style.display = 'none';
+          
+          if (snapshot.empty) {
+            onlineList.innerHTML = '<li class="empty-state">No users online</li>';
+            onlineCount.textContent = '0';
+            return;
+          }
+          
+          const users = [];
+          snapshot.forEach((doc) => {
+            users.push({ id: doc.id, ...doc.data() });
+          });
+          
+          onlineCount.textContent = users.length;
+          
+          onlineList.innerHTML = users.map(user => {
+            const isAdmin = user.email === ADMIN_EMAIL;
+            return `
+              <li class="user-item online ${isAdmin ? 'admin-user' : ''}">
+                <div>
+                  <span class="user-name">${user.username || user.email}</span>
+                  ${isAdmin ? '<span class="user-badge admin-badge-small">Admin</span>' : ''}
+                  <span class="user-email">${user.email}</span>
+                </div>
+                <span class="user-badge online-badge">Online</span>
+              </li>
+            `;
+          }).join('');
+        }, (error) => {
+          console.error('Error loading online users:', error);
+          loadingOnline.innerHTML = '<p style="color: #ef4444;">Error loading online users</p>';
+        });
+    }
+
+    // Load all registered users (real-time)
+    function loadRegisteredUsers() {
+      const registeredList = document.getElementById('registered-users');
+      const registeredCount = document.getElementById('registered-count');
+      const loadingRegistered = document.getElementById('loading-registered');
+      
+      registeredUsersListener = db.collection('users')
+        .orderBy('createdAt', 'desc')
+        .onSnapshot((snapshot) => {
+          loadingRegistered.style.display = 'none';
+          
+          if (snapshot.empty) {
+            registeredList.innerHTML = '<li class="empty-state">No registered users</li>';
+            registeredCount.textContent = '0';
+            return;
+          }
+          
+          const users = [];
+          snapshot.forEach((doc) => {
+            users.push({ id: doc.id, ...doc.data() });
+          });
+          
+          registeredCount.textContent = users.length;
+          
+          // Check online status
+          db.collection('presence').get().then((presenceSnapshot) => {
+            const onlineUserIds = new Set();
+            presenceSnapshot.forEach((doc) => {
+              if (doc.data().online) {
+                onlineUserIds.add(doc.id);
+              }
+            });
+            
+            registeredList.innerHTML = users.map(user => {
+              const isAdmin = user.email === ADMIN_EMAIL;
+              const isOnline = onlineUserIds.has(user.id);
+              
+              return `
+                <li class="user-item ${isOnline ? 'online' : 'offline'} ${isAdmin ? 'admin-user' : ''}">
+                  <div>
+                    <span class="user-name">${user.username || user.email}</span>
+                    ${isAdmin ? '<span class="user-badge admin-badge-small">Admin</span>' : ''}
+                    <span class="user-email">${user.email}</span>
+                  </div>
+                  <span class="user-badge ${isOnline ? 'online-badge' : 'offline-badge'}">
+                    ${isOnline ? 'Online' : 'Offline'}
+                  </span>
+                </li>
+              `;
+            }).join('');
+          });
+        }, (error) => {
+          console.error('Error loading registered users:', error);
+          loadingRegistered.innerHTML = '<p style="color: #ef4444;">Error loading registered users</p>';
+        });
+    }
+
+    // Sign out function
+    function signOut() {
+      // Clean up listeners
+      if (onlineUsersListener) onlineUsersListener();
+      if (registeredUsersListener) registeredUsersListener();
+      
+      auth.signOut().then(() => {
+        window.location.href = 'index.html';
+      });
+    }
+    
+    // Clean up listeners when page unloads
+    window.addEventListener('beforeunload', () => {
+      if (onlineUsersListener) onlineUsersListener();
+      if (registeredUsersListener) registeredUsersListener();
+    });
+  </script>
+</body>
+</html>
