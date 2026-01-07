@@ -406,6 +406,9 @@
           displayName: username
         });
         
+        // Send email verification
+        await userCredential.user.sendEmailVerification();
+        
         // Create user document in Firestore
         await db.collection('users').doc(userCredential.user.uid).set({
           username: username,
@@ -413,8 +416,8 @@
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         
-        showMessage('Account created successfully! Redirecting...', 'success');
-        setTimeout(() => window.location.href = 'index.html', 1500);
+        showMessage('Account created successfully! Please check your email to verify your account. Redirecting...', 'success');
+        setTimeout(() => window.location.href = 'index.html', 2500);
       } catch (error) {
         showMessage(error.message, 'error');
       }
