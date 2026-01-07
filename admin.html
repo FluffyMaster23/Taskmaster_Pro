@@ -287,36 +287,27 @@
 
     // Set user presence
     function setUserPresence(user, online) {
-      if (!user) return;
+      if (!user) return Promise.resolve();
       
       const presenceRef = db.collection('presence').doc(user.uid);
       
       if (online) {
-        presenceRef.set({
+        return presenceRef.set({
           online: true,
           username: user.displayName || user.email.split('@')[0],
           email: user.email,
           lastSeen: firebase.firestore.FieldValue.serverTimestamp()
         }).catch(error => console.error('Error setting presence:', error));
-        
-        window.addEventListener('beforeunload', () => {
-          presenceRef.update({ online: false, lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
-        });
-        
-        document.addEventListener('visibilitychange', () => {
-          if (document.hidden) {
-            presenceRef.update({ online: false, lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
-          } else {
-            presenceRef.update({ online: true, lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
-          }
-        });
       } else {
-        presenceRef.update({
+        return presenceRef.update({
           online: false,
           lastSeen: firebase.firestore.FieldValue.serverTimestamp()
         }).catch(error => console.error('Error updating presence:', error));
       }
     }
+    
+    // Heartbeat: Update lastSeen every 30 seconds
+    let heartbeatInterval;
 
     // Check authentication and admin status
     auth.onAuthStateChanged((user) => {
@@ -324,6 +315,9 @@
       const usernameEl = document.getElementById('username');
       const unauthorizedMsg = document.getElementById('unauthorized-message');
       const adminContent = document.getElementById('admin-content');
+      
+      // Clear any existing heartbeat
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
       
       if (user) {
         const displayName = user.displayName || user.email.split('@')[0];
@@ -337,6 +331,13 @@
           
           // Set admin as online
           setUserPresence(user, true);
+          
+          // Set up heartbeat to update lastSeen every 30 seconds
+          heartbeatInterval = setInterval(() => {
+            db.collection('presence').doc(user.uid).update({
+              lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+            }).catch(error => console.error('Heartbeat error:', error));
+          }, 30000);
           
           // Load admin dashboard data
           loadOnlineUsers();
@@ -492,6 +493,15 @@
     window.addEventListener('beforeunload', () => {
       if (onlineUsersListener) onlineUsersListener();
       if (registeredUsersListener) registeredUsersListener();
+      
+      // Mark user offline
+      const user = auth.currentUser;
+      if (user) {
+        db.collection('presence').doc(user.uid).update({
+          online: false,
+          lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
     });
   </script>
 </body>
