@@ -376,10 +376,13 @@
           
           snapshot.forEach((doc) => {
             const userData = doc.data();
-            const lastSeen = userData.lastSeen?.toMillis() || 0;
-            const isStale = (now - lastSeen) > OFFLINE_THRESHOLD;
+            const lastSeen = userData.lastSeen?.toMillis();
             
-            // Only show users who are truly online (recent lastSeen)
+            // If lastSeen is null/undefined (serverTimestamp not resolved yet), treat as online
+            // If lastSeen exists, check if it's recent
+            const isStale = lastSeen && (now - lastSeen) > OFFLINE_THRESHOLD;
+            
+            // Only show users who are truly online (recent lastSeen or just signed in)
             if (!isStale) {
               users.push({ id: doc.id, ...userData });
             } else {
