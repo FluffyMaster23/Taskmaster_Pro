@@ -133,7 +133,7 @@
         usernameEl.textContent = displayName;
         welcomeMsg.style.display = 'block';
         guestNotice.style.display = 'none';
-        accountLink.style.display = 'none'; // Hide account link when logged in
+        if (accountLink) accountLink.style.display = 'none'; // Hide account link when logged in
         
         // Store user info globally
         window.currentUser = user;
@@ -144,7 +144,7 @@
         // User is not signed in (guest mode)
         welcomeMsg.style.display = 'none';
         guestNotice.style.display = 'block';
-        accountLink.style.display = 'list-item';
+        if (accountLink) accountLink.style.display = 'list-item';
         
         window.currentUser = null;
         window.isGuestMode = true;

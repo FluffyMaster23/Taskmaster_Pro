@@ -162,79 +162,74 @@
       font-weight: 600;
     }
     
+    .lists-container {
+      background: #f8f9ff;
+      border-radius: 12px;
+      padding: 25px;
+      border: 2px solid #e0e7ff;
+    }
+    
+    .lists-ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    
     .list-item {
       background: white;
-      border: 2px solid #e5e7eb;
-      border-radius: 12px;
-      padding: 20px;
+      border-radius: 8px;
+      padding: 15px;
       margin-bottom: 15px;
+      border-left: 4px solid;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       transition: all 0.3s ease;
-      position: relative;
     }
     
     .list-item:hover {
-      border-color: #4f46e5;
-      transform: translateY(-2px);
-      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      transform: translateX(5px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .list-info {
+      flex: 1;
     }
     
     .list-item h3 {
-      color: #4f46e5;
-      margin: 0 0 8px 0;
-      font-size: 1.2em;
+      color: #1f2937;
+      margin: 0 0 5px 0;
+      font-size: 1.1em;
       font-weight: 600;
     }
     
     .list-item p {
       color: #6b7280;
-      margin: 0 0 15px 0;
-      line-height: 1.5;
+      margin: 0;
+      line-height: 1.4;
+      font-size: 0.9em;
     }
     
-    .list-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 15px;
-    }
-    
-    .btn-small {
-      padding: 8px 16px;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-    
-    .btn-edit {
-      background: #10b981;
-      color: white;
-    }
-    
-    .btn-edit:hover {
-      background: #059669;
-      transform: translateY(-1px);
-    }
-    
-    .btn-delete {
+    .delete-btn {
       background: #ef4444;
       color: white;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      white-space: nowrap;
     }
     
-    .btn-delete:hover {
+    .delete-btn:hover {
       background: #dc2626;
-      transform: translateY(-1px);
+      transform: scale(1.05);
     }
     
-    .btn-view {
-      background: #4f46e5;
-      color: white;
-    }
-    
-    .btn-view:hover {
-      background: #4338ca;
-      transform: translateY(-1px);
+    .delete-btn:active {
+      transform: scale(0.98);
     }
     
     /* Success/Error Messages */
@@ -472,18 +467,23 @@
     
     // Delete custom list
     function deleteCustomList(listId) {
-      if (!confirm('Are you sure you want to delete this list? This action cannot be undone.')) {
+      const lists = getCustomLists();
+      const list = lists.find(l => l.id === listId);
+      
+      if (!list) return;
+      
+      // Confirmation prompt with list name
+      if (!confirm(`Are you sure you want to delete "${list.name}"?\n\nThis will permanently remove the list and cannot be undone.`)) {
         return;
       }
       
-      const lists = getCustomLists();
       const filteredLists = lists.filter(list => list.id !== listId);
       saveCustomLists(filteredLists);
       
       // Update the sections array in the main app
       updateMainAppSections();
       
-      showMessage('List deleted successfully!');
+      showMessage(`List "${list.name}" deleted successfully!`);
       displayCustomLists();
     }
     
@@ -532,7 +532,7 @@
       if (lists.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
-            <div class="icon">LISTS</div>
+            <div class="icon">📋</div>
             <h3>No custom lists yet</h3>
             <p>Create your first custom list above to get started!</p>
           </div>
@@ -540,25 +540,25 @@
         return;
       }
       
-      container.innerHTML = lists.map(list => `
-        <div class="list-item" style="border-left: 5px solid ${list.color}">
-          <h3>${list.name}</h3>
-          <p>${list.description || 'No description provided'}</p>
-          <small style="color: #9ca3af;">Created: ${new Date(list.createdAt).toLocaleDateString()}</small>
-          
-          <div class="list-actions">
-            <button class="btn-small btn-view" onclick="viewList('${list.id}')">
-              View Tasks
-            </button>
-            <button class="btn-small btn-edit" onclick="editCustomList('${list.id}')">
-              Edit
-            </button>
-            <button class="btn-small btn-delete" onclick="deleteCustomList('${list.id}')">
-              Delete
-            </button>
+      const listItems = lists.map(list => `
+        <li class="list-item" style="border-left-color: ${list.color}">
+          <div class="list-info">
+            <h3>• ${list.name}</h3>
+            <p>${list.description || 'No description'}</p>
           </div>
-        </div>
+          <button class="delete-btn" onclick="deleteCustomList('${list.id}')">
+            🗑️ Delete List
+          </button>
+        </li>
       `).join('');
+      
+      container.innerHTML = `
+        <div class="lists-container">
+          <ul class="lists-ul">
+            ${listItems}
+          </ul>
+        </div>
+      `;
     }
     
     // View list tasks (redirect to taskmaster.html with focus on this list)

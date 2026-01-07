@@ -339,10 +339,14 @@
         tabs[0].classList.add('active');
         signinForm.classList.remove('hidden');
         signupForm.classList.add('hidden');
+        // Focus on the email field
+        setTimeout(() => document.getElementById('signin-email').focus(), 100);
       } else {
         tabs[1].classList.add('active');
         signinForm.classList.add('hidden');
         signupForm.classList.remove('hidden');
+        // Focus on the username field for sign up
+        setTimeout(() => document.getElementById('signup-username').focus(), 100);
       }
       
       hideMessage();
