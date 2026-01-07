@@ -116,8 +116,14 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
+    // Set auth persistence to LOCAL
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((error) => {
+      console.error('Error setting auth persistence:', error);
+    });
+
     // Check authentication state
     auth.onAuthStateChanged((user) => {
+      console.log('Auth state changed on taskmaster.html:', user ? user.email : 'No user');
       const welcomeMsg = document.getElementById('welcome-message');
       const guestNotice = document.getElementById('guest-notice');
       const usernameEl = document.getElementById('username');

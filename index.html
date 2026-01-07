@@ -116,12 +116,23 @@
     };
 
     // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
     const auth = firebase.auth();
     const db = firebase.firestore();
 
+    // Set auth persistence to LOCAL (persists even when browser is closed)
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(() => {
+      console.log('Firebase auth persistence set to LOCAL');
+    }).catch((error) => {
+      console.error('Error setting auth persistence:', error);
+    });
+
     // Check authentication state
     auth.onAuthStateChanged((user) => {
+      console.log('Auth state changed on index.html:', user ? user.email : 'No user');
+      
       const welcomeMsg = document.getElementById('welcome-message');
       const guestNotice = document.getElementById('guest-notice');
       const usernameEl = document.getElementById('username');
@@ -130,10 +141,17 @@
       if (user) {
         // User is signed in
         const displayName = user.displayName || user.email.split('@')[0];
-        usernameEl.textContent = displayName;
-        welcomeMsg.style.display = 'block';
-        guestNotice.style.display = 'none';
-        if (accountLink) accountLink.style.display = 'none'; // Hide account link when logged in
+        console.log('Setting username to:', displayName);
+        if (usernameEl) usernameEl.textContent = displayName;
+        if (welcomeMsg) {
+          welcomeMsg.style.display = 'block';
+          console.log('Showing welcome message');
+        }
+        if (guestNotice) {
+          guestNotice.style.display = 'none';
+          console.log('Hiding guest notice');
+        }
+        if (accountLink) accountLink.style.display = 'none';
         
         // Store user info globally
         window.currentUser = user;
@@ -142,8 +160,9 @@
         console.log('User signed in:', displayName);
       } else {
         // User is not signed in (guest mode)
-        welcomeMsg.style.display = 'none';
-        guestNotice.style.display = 'block';
+        console.log('No user - guest mode');
+        if (welcomeMsg) welcomeMsg.style.display = 'none';
+        if (guestNotice) guestNotice.style.display = 'block';
         if (accountLink) accountLink.style.display = 'list-item';
         
         window.currentUser = null;

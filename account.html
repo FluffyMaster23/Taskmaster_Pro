@@ -323,9 +323,16 @@
     };
 
     // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
     const auth = firebase.auth();
     const db = firebase.firestore();
+
+    // Set auth persistence to LOCAL
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((error) => {
+      console.error('Error setting auth persistence:', error);
+    });
 
     // Tab switching
     function switchTab(tab) {
@@ -448,13 +455,7 @@
       }
     });
 
-    // Check if already signed in
-    auth.onAuthStateChanged((user) => {
-      if (user) {
-        showMessage('You are already signed in. Redirecting...', 'info');
-        setTimeout(() => window.location.href = 'index.html', 2000);
-      }
-    });
+    // Check if already signed in - removed auto-redirect to allow sign out
   </script>
 </body>
 </html>
