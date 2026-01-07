@@ -202,10 +202,11 @@
     }
 
     // Sign out function
-    function signOut() {
+    async function signOut() {
       const user = auth.currentUser;
       if (user) {
-        setUserPresence(user, false);
+        // Wait for presence to be updated before signing out
+        await setUserPresence(user, false);
       }
       
       auth.signOut().then(() => {

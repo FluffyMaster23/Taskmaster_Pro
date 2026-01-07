@@ -453,14 +453,15 @@
     }
 
     // Sign out function
-    function signOut() {
+    async function signOut() {
       // Clean up listeners
       if (onlineUsersListener) onlineUsersListener();
       if (registeredUsersListener) registeredUsersListener();
       
       const user = auth.currentUser;
       if (user) {
-        setUserPresence(user, false);
+        // Wait for presence to be updated before signing out
+        await setUserPresence(user, false);
       }
       
       auth.signOut().then(() => {

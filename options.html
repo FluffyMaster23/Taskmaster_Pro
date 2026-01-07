@@ -939,10 +939,11 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
     });
 
     // Sign out function
-    function signOut() {
+    async function signOut() {
       const user = auth.currentUser;
       if (user) {
-        setUserPresence(user, false);
+        // Wait for presence to be updated before signing out
+        await setUserPresence(user, false);
       }
       
       auth.signOut().then(() => {
@@ -953,9 +954,9 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
     
     // Set user online/offline presence
     function setUserPresence(user, online) {
-      if (!user) return;
+      if (!user) return Promise.resolve();
       
-      db.collection('presence').doc(user.uid).set({
+      return db.collection('presence').doc(user.uid).set({
         online: online,
         username: user.displayName || user.email.split('@')[0],
         email: user.email,
