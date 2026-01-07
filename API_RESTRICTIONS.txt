@@ -1,0 +1,41 @@
+GOOGLE CLOUD API KEY RESTRICTIONS
+===================================
+
+Go to: https://console.cloud.google.com/apis/credentials
+Select your API key: "Browser key (auto created by Firebase)"
+
+---
+
+1. APPLICATION RESTRICTIONS
+   Select: "HTTP referrers (web sites)"
+   
+   Add these referrers:
+   
+   https://fluffymaster23.github.io/*
+   http://localhost:*
+   http://127.0.0.1:*
+
+---
+
+2. API RESTRICTIONS
+   Select: "Restrict key"
+   
+   Check ONLY these APIs:
+   
+   ✓ Identity Toolkit API
+   ✓ Cloud Firestore API
+   ✓ Token Service API
+   ✓ Firebase Installations API
+
+   Uncheck all others!
+
+---
+
+3. SAVE
+   Click "Save" button at the bottom
+
+===================================
+
+Note: These restrictions make your API key only work from your 
+GitHub Pages site and localhost (for testing). Your data is 
+still protected by Firestore Security Rules.
