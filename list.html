@@ -310,13 +310,6 @@
   <div class="container">
     <h1>Create New List</h1>
     
-    <!-- User Privacy Information -->
-    <div class="privacy-info" style="background: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 12px; padding: 15px; margin-bottom: 20px; font-size: 14px;">
-      <strong>Privacy Notice:</strong> Your custom lists are stored locally on this device only. Each browser/device gets its own unique user ID. 
-      Your lists will not be visible to other users or on other devices. 
-      <span id="userIdDisplay" style="color: #0369a1; font-family: monospace;"></span>
-    </div>
-    
     <!-- Success/Error Messages -->
     <div id="messageContainer"></div>
     
@@ -362,7 +355,7 @@
         </div>
         
         <button type="submit" class="create-btn">
-          ✨ Create List
+          Create List
         </button>
       </form>
     </div>
@@ -547,7 +540,7 @@
             <p>${list.description || 'No description'}</p>
           </div>
           <button class="delete-btn" onclick="deleteCustomList('${list.id}')">
-            🗑️ Delete List
+            Delete List
           </button>
         </li>
       `).join('');
@@ -594,12 +587,6 @@
     
     // Initialize page
     document.addEventListener('DOMContentLoaded', function() {
-      // Display user ID in privacy section
-      const userIdDisplay = document.getElementById('userIdDisplay');
-      if (userIdDisplay) {
-        userIdDisplay.textContent = `(Your User ID: ${getUserId()})`;
-      }
-      
       displayCustomLists();
     });
   </script>
