@@ -370,11 +370,30 @@
           }
           
           const users = [];
+          const now = Date.now();
+          const OFFLINE_THRESHOLD = 60000; // 60 seconds
+          
           snapshot.forEach((doc) => {
-            users.push({ id: doc.id, ...doc.data() });
+            const userData = doc.data();
+            const lastSeen = userData.lastSeen?.toMillis() || 0;
+            const isStale = (now - lastSeen) > OFFLINE_THRESHOLD;
+            
+            // Only show users who are truly online (recent lastSeen)
+            if (!isStale) {
+              users.push({ id: doc.id, ...userData });
+            } else {
+              // Automatically mark stale users as offline
+              db.collection('presence').doc(doc.id).update({ online: false })
+                .catch(err => console.error('Error updating stale presence:', err));
+            }
           });
           
           onlineCount.textContent = users.length;
+          
+          if (users.length === 0) {
+            onlineList.innerHTML = '<li class="empty-state">No users online</li>';
+            return;
+          }
           
           onlineList.innerHTML = users.map(user => {
             const isAdmin = user.email === ADMIN_EMAIL;

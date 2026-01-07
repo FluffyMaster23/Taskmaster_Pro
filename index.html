@@ -175,31 +175,55 @@
 
     // Set user presence
     function setUserPresence(user, online) {
-      if (!user) return;
+      if (!user) return Promise.resolve();
       
       const presenceRef = db.collection('presence').doc(user.uid);
       
       if (online) {
         // Set user as online
-        presenceRef.set({
+        return presenceRef.set({
           online: true,
           username: user.displayName || user.email.split('@')[0],
           email: user.email,
           lastSeen: firebase.firestore.FieldValue.serverTimestamp()
         }).catch(error => console.error('Error setting presence:', error));
-        
-        // Set up offline detection
-        window.addEventListener('beforeunload', () => {
-          presenceRef.update({ online: false, lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
-        });
       } else {
         // Set user as offline
-        presenceRef.update({
+        return presenceRef.update({
           online: false,
           lastSeen: firebase.firestore.FieldValue.serverTimestamp()
         }).catch(error => console.error('Error updating presence:', error));
       }
     }
+    
+    // Heartbeat: Update lastSeen every 30 seconds
+    let heartbeatInterval;
+    
+    // Set up heartbeat when user signs in
+    auth.onAuthStateChanged((user) => {
+      // Clear any existing heartbeat
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      
+      if (user) {
+        // Set up heartbeat to update lastSeen every 30 seconds
+        heartbeatInterval = setInterval(() => {
+          db.collection('presence').doc(user.uid).update({
+            lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+          }).catch(error => console.error('Heartbeat error:', error));
+        }, 30000);
+      }
+    });
+    
+    // Mark user offline when closing tab/browser (best effort)
+    window.addEventListener('beforeunload', () => {
+      const user = auth.currentUser;
+      if (user) {
+        db.collection('presence').doc(user.uid).update({
+          online: false,
+          lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+    });
 
     // Sign out function
     async function signOut() {
