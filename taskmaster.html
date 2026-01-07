@@ -141,10 +141,8 @@
         if (adminLink) {
           const userEmail = user.email ? user.email.toLowerCase().trim() : '';
           const adminEmail = 'fluffyfighter23@gmx.de';
-          console.log('User email:', userEmail, 'Admin email:', adminEmail, 'Match:', userEmail === adminEmail);
           if (userEmail === adminEmail) {
             adminLink.style.display = 'inline-block';
-            console.log('Admin link shown on taskmaster');
           }
         }
       } else {
