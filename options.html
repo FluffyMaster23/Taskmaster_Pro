@@ -212,7 +212,7 @@
   <script>
     // Enhanced test notification function for iOS debugging
     function testNotification() {
-      console.log('🧪 Testing notification...');
+      console.log('Testing notification...');
       
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -220,7 +220,7 @@
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       const isHTTPS = location.protocol === 'https:';
       
-      console.log('🔍 Platform detection:', { 
+      console.log('Platform detection:', { 
         isIOS, isFirefox, isSafari, isHTTPS,
         userAgent: navigator.userAgent,
         protocol: location.protocol,
@@ -228,18 +228,18 @@
       });
       
       if (isIOS) {
-        console.log('📱 iOS detected - starting comprehensive notification test...');
+        console.log('iOS detected - starting comprehensive notification test...');
         
         // Method 1: Try native Web Notifications first (iOS 16.4+ with Firefox/Chrome)
         if ('Notification' in window && !isSafari) {
-          console.log('🌐 Testing native Web Notifications on iOS...');
-          console.log('📊 Current permission:', Notification.permission);
+          console.log('Testing native Web Notifications on iOS...');
+          console.log('Current permission:', Notification.permission);
           
           if (Notification.permission === 'granted') {
-            console.log('✅ Native permission already granted, sending test notification...');
+            console.log('Native permission already granted, sending test notification...');
             try {
-              const notification = new Notification('🧪 TaskMaster Pro Test', {
-                body: 'Native iOS notification is working! ✅',
+              const notification = new Notification('TaskMaster Pro Test', {
+                body: 'Native iOS notification is working!',
                 icon: '/favicon.ico',
                 badge: '/favicon.ico',
                 tag: 'taskmaster-test',
@@ -249,7 +249,7 @@
               });
               
               notification.onclick = function() {
-                console.log('📱 Notification clicked');
+                console.log('Notification clicked');
                 window.focus();
                 notification.close();
               };
@@ -266,9 +266,9 @@
               alert('❌ Native notification failed: ' + error.message);
             }
           } else if (Notification.permission === 'default') {
-            console.log('🔔 Requesting native notification permission...');
+            console.log('Requesting native notification permission...');
             Notification.requestPermission().then(function(permission) {
-              console.log('📋 Permission result:', permission);
+              console.log('Permission result:', permission);
               if (permission === 'granted') {
                 alert('✅ Native notification permission granted! Click Test again.');
               } else {
@@ -287,15 +287,15 @@
         
         // Method 2: Try OneSignal for Safari or as fallback
         if (window.OneSignal && (isSafari || Notification.permission !== 'granted')) {
-          console.log('🔥 Testing OneSignal on iOS...');
+          console.log('Testing OneSignal on iOS...');
           
           // Wait for OneSignal to be ready
           window.OneSignal.push(function() {
-            console.log('📡 OneSignal is ready, checking status...');
+            console.log('OneSignal is ready, checking status...');
             
             // Get detailed OneSignal status
             window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
-              console.log('📊 OneSignal enabled:', isEnabled);
+              console.log('OneSignal enabled:', isEnabled);
               
               if (isEnabled) {
                 console.log('✅ OneSignal is enabled, sending test notification...');
@@ -325,7 +325,7 @@
                       if (isNowEnabled) {
                         console.log('✅ OneSignal now enabled, sending test notification...');
                         window.OneSignal.sendSelfNotification(
-                          "🧪 TaskMaster Pro Test",
+                          "TaskMaster Pro Test",
                           "OneSignal iOS notification is now working! ✅",
                           window.location.href,
                           "/favicon.ico"
@@ -348,13 +348,13 @@
                   let troubleshooting = `❌ OneSignal registration failed: ${error.message}\n\n`;
                   
                   if (error.message.includes('not supported')) {
-                    troubleshooting += `🔧 Browser not supported:\n• Try using Safari on iOS\n• Ensure iOS 12+ for OneSignal support`;
+                    troubleshooting += `Browser not supported:\n• Try using Safari on iOS\n• Ensure iOS 12+ for OneSignal support`;
                   } else if (error.message.includes('permission')) {
-                    troubleshooting += `🔧 Permission issue:\n• iOS Settings → Safari → Notifications → Allow\n• Refresh page and try again`;
+                    troubleshooting += `Permission issue:\n• iOS Settings → Safari → Notifications → Allow\n• Refresh page and try again`;
                   } else if (error.message.includes('https')) {
-                    troubleshooting += `🔧 HTTPS required:\n• OneSignal requires secure connection\n• Try on deployed site instead of localhost`;
+                    troubleshooting += `HTTPS required:\n• OneSignal requires secure connection\n• Try on deployed site instead of localhost`;
                   } else {
-                    troubleshooting += `🔧 General troubleshooting:\n1. Make sure you're using Safari on iOS\n2. Enable: iOS Settings → Safari → Notifications\n3. Allow notifications when prompted\n4. Ensure HTTPS connection\n5. Try refreshing the page completely`;
+                    troubleshooting += `General troubleshooting:\n1. Make sure you're using Safari on iOS\n2. Enable: iOS Settings → Safari → Notifications\n3. Allow notifications when prompted\n4. Ensure HTTPS connection\n5. Try refreshing the page completely`;
                   }
                   
                   troubleshooting += `\n\nCurrent: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari ✅' : 'Not Safari ❌'}`;
@@ -366,12 +366,12 @@
             
             // Also check user ID for debugging
             window.OneSignal.getUserId(function(userId) {
-              console.log('👤 OneSignal User ID:', userId);
+              console.log('OneSignal User ID:', userId);
             });
             
             // Check subscription details
             window.OneSignal.getSubscription(function(subscription) {
-              console.log('📧 OneSignal Subscription:', subscription);
+              console.log('OneSignal Subscription:', subscription);
             });
           });
         } else if (!window.OneSignal) {
@@ -382,7 +382,7 @@
         // If nothing worked, show comprehensive help
         setTimeout(() => {
           if (!window.testNotificationSent) {
-            const helpMessage = `🚨 iOS Notification Troubleshooting:
+            const helpMessage = `iOS Notification Troubleshooting:
 
 📱 For iOS 16.4+ (Firefox/Chrome):
 • Enable: iOS Settings → [Browser] → Notifications
