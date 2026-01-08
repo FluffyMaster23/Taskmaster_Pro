@@ -257,18 +257,33 @@ function initializeHomePage() {
 
 // === TAB FUNCTIONALITY ===
 
-// === FIREBASE CLOUD MESSAGING (FCM) INITIALIZATION ===
+// === HYBRID NOTIFICATION SYSTEM ===
+// Uses OneSignal for iOS Safari, FCM for Windows/Desktop
 let messaging = null;
 let fcmToken = null;
 
 async function initializeFirebaseMessaging() {
-  console.log('🔔 Initializing Firebase Cloud Messaging...');
+  // Detect iOS
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  
+  console.log('🔔 Initializing Notification System...');
+  console.log('Platform:', { isIOS, isSafari });
+  
+  // Use OneSignal for iOS Safari
+  if (isIOS && isSafari) {
+    console.log('🍎 iOS Safari detected - using OneSignal');
+    return initializeOneSignal();
+  }
+  
+  // Use FCM for everything else (Windows, desktop browsers, iOS non-Safari)
+  console.log('💻 Desktop/Windows detected - using Firebase Cloud Messaging');
   
   try {
-    // Check if messaging is supported (not supported in all browsers/environments)
+    // Check if messaging is supported
     if (!firebase.messaging.isSupported()) {
       console.log('⚠️ Firebase Messaging not supported in this browser');
-      // Fall back to native notifications
       return initializeNativeNotifications();
     }
     
@@ -358,6 +373,77 @@ async function initializeFirebaseMessaging() {
     // Fallback to native notifications
     initializeNativeNotifications();
   }
+}
+
+// === ONESIGNAL INITIALIZATION (iOS Safari only) ===
+async function initializeOneSignal() {
+  console.log('🍎 Initializing OneSignal for iOS Safari...');
+  
+  window.OneSignal = window.OneSignal || [];
+  
+  return new Promise((resolve) => {
+    OneSignal.push(function() {
+      OneSignal.init({
+        appId: "194275f5-45ac-4ac1-85ff-924bbe00f066",
+        safari_web_id: "web.onesignal.auto.194275f5-45ac-4ac1-85ff-924bbe00f066",
+        notifyButton: {
+          enable: false,
+        },
+        allowLocalhostAsSecureOrigin: true,
+        autoRegister: true,
+        autoResubscribe: true,
+        serviceWorkerParam: {
+          scope: './',
+          updateViaCache: 'none'
+        },
+        serviceWorkerPath: 'OneSignalSDKWorker.js',
+        persistNotification: true,
+        welcomeNotification: {
+          disable: true
+        }
+      }).then(function() {
+        console.log('✅ OneSignal initialized successfully');
+        
+        // Auto-register for push notifications
+        setTimeout(() => {
+          console.log('🔄 Auto-registering for OneSignal notifications...');
+          OneSignal.registerForPushNotifications().then(function() {
+            console.log('✅ OneSignal auto-registration successful');
+          }).catch(function(error) {
+            console.log('⚠️ OneSignal auto-registration failed:', error.message);
+          });
+        }, 1000);
+        
+        // Check subscription status
+        OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+          console.log('OneSignal subscription status:', isEnabled);
+          window.oneSignalEnabled = isEnabled;
+          
+          if (isEnabled) {
+            console.log('✅ OneSignal notifications already enabled');
+            
+            // Get user ID
+            OneSignal.getUserId(function(userId) {
+              console.log('👤 OneSignal User ID:', userId || 'No user ID yet');
+            });
+          } else {
+            console.log('⚠️ OneSignal not enabled yet');
+          }
+        });
+        
+        // Listen for subscription changes
+        OneSignal.on('subscriptionChange', function (isSubscribed) {
+          console.log("OneSignal subscription changed:", isSubscribed);
+          window.oneSignalEnabled = isSubscribed;
+        });
+        
+        resolve();
+      }).catch(function(error) {
+        console.error('❌ OneSignal initialization failed:', error);
+        resolve(); // Resolve anyway to not block app
+      });
+    });
+  });
 }
 
 // Fallback to native notifications if FCM isn't available
