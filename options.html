@@ -888,7 +888,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
     }
 
     // Initialize when page loads
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', async function() {
       if (speechSynthesis.onvoiceschanged !== undefined) {
         speechSynthesis.onvoiceschanged = loadVoices;
       }
@@ -901,8 +901,23 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       
-      // For iOS Safari with OneSignal, wait for it to be ready
-      if (isIOS && isSafari && typeof window.OneSignal !== 'undefined') {
+      // For iOS Safari with OneSignal, initialize it first
+      if (isIOS && isSafari && typeof initializeOneSignal === 'function') {
+        console.log('🍎 Initializing OneSignal for iOS Safari...');
+        try {
+          await initializeOneSignal();
+          console.log('✅ OneSignal initialized successfully');
+        } catch (error) {
+          console.error('❌ OneSignal initialization error:', error);
+        }
+        
+        // After initialization, check status
+        setTimeout(() => {
+          checkNotificationStatus();
+          setupNotificationCheckbox();
+        }, 500);
+      } else if (isIOS && isSafari && typeof window.OneSignal !== 'undefined') {
+        // OneSignal SDK loaded but not initialized - wait for it
         window.OneSignal.push(function() {
           // OneSignal is now ready
           checkNotificationStatus();
