@@ -931,30 +931,35 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       // Better Safari detection for iOS
       const isSafari = /Safari/i.test(navigator.userAgent) && !/Chrome|CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent);
       
-      // For iOS Safari with OneSignal, initialize it first
+      console.log('🚀 Page loaded, platform:', { isIOS, isSafari });
+      
+      // For iOS Safari, try to initialize OneSignal but don't block on it
       if (isIOS && isSafari && typeof initializeOneSignal === 'function') {
         console.log('🍎 Initializing OneSignal for iOS Safari...');
         try {
-          await initializeOneSignal();
-          console.log('✅ OneSignal initialized successfully');
+          // Don't wait forever - initialize in background
+          initializeOneSignal().then(() => {
+            console.log('✅ OneSignal initialized successfully');
+            // Update status after initialization
+            checkNotificationStatus();
+          }).catch((error) => {
+            console.error('❌ OneSignal initialization error:', error);
+            // Still show status even if init fails
+            checkNotificationStatus();
+          });
+          
+          // Show status immediately, don't wait for initialization
+          setTimeout(() => {
+            checkNotificationStatus();
+            setupNotificationCheckbox();
+          }, 100);
         } catch (error) {
-          console.error('❌ OneSignal initialization error:', error);
+          console.error('❌ Error calling initializeOneSignal:', error);
+          checkNotificationStatus();
+          setupNotificationCheckbox();
         }
-        
-        // After initialization, check status
-        setTimeout(() => {
-          checkNotificationStatus();
-          setupNotificationCheckbox();
-        }, 500);
-      } else if (isIOS && isSafari && typeof window.OneSignal !== 'undefined') {
-        // OneSignal SDK loaded but not initialized - wait for it
-        window.OneSignal.push(function() {
-          // OneSignal is now ready
-          checkNotificationStatus();
-          setupNotificationCheckbox();
-        });
       } else {
-        // For non-OneSignal platforms, check immediately with small delay for DOM
+        // For non-OneSignal platforms or if initializeOneSignal doesn't exist
         setTimeout(function() {
           checkNotificationStatus();
           setupNotificationCheckbox();
