@@ -856,19 +856,18 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
 
     // Initialize when page loads
     document.addEventListener('DOMContentLoaded', function() {
-      // Load voices first
       if (speechSynthesis.onvoiceschanged !== undefined) {
         speechSynthesis.onvoiceschanged = loadVoices;
       }
       loadVoices();
       
       loadVoiceSettings();
-      setTimeout(checkNotificationStatus, 1000); // Give time for OneSignal to load
       
-      // Setup notification checkbox handler
-      setupNotificationCheckbox();
+      setTimeout(function() {
+        checkNotificationStatus();
+        setupNotificationCheckbox();
+      }, 2000);
       
-      // Display current user ID
       displayUserId();
     });
     
@@ -900,14 +899,12 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       
-      if (isIOS && isSafari) {
-        if (window.OneSignal) {
-          OneSignal.push(function() {
-            OneSignal.isPushNotificationsEnabled(function(isEnabled) {
-              checkbox.checked = isEnabled;
-            });
+      if (isIOS && isSafari && window.OneSignal) {
+        OneSignal.push(function() {
+          OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+            checkbox.checked = isEnabled;
           });
-        }
+        });
       } else {
         checkbox.checked = Notification && Notification.permission === 'granted';
       }
@@ -921,40 +918,33 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       });
     }
     
-    // Trigger notification permission prompt
     function triggerNotificationPrompt() {
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       const statusSpan = document.getElementById('notificationStatus');
       const checkbox = document.getElementById('enableNotifications');
       
-      if (isIOS && isSafari) {
-        if (window.OneSignal) {
-          OneSignal.push(function() {
-            OneSignal.showNativePrompt().then(function() {
-              statusSpan.textContent = "Notifications enabled";
-              checkbox.checked = true;
-            }).catch(function(error) {
-              OneSignal.registerForPushNotifications().then(function() {
-                statusSpan.textContent = "Notifications enabled";
-                checkbox.checked = true;
-              }).catch(function() {
-                statusSpan.textContent = "Notifications denied";
-                checkbox.checked = false;
+      if (isIOS && isSafari && window.OneSignal) {
+        OneSignal.push(function() {
+          OneSignal.showNativePrompt().then(function() {
+            setTimeout(() => {
+              OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+                if (isEnabled) {
+                  statusSpan.textContent = "Notifications enabled";
+                  checkbox.checked = true;
+                } else {
+                  statusSpan.textContent = "Notifications denied";
+                  checkbox.checked = false;
+                }
               });
+            }, 1000);
+          }).catch(function() {
+            OneSignal.registerForPushNotifications().catch(function() {
+              statusSpan.textContent = "Notifications denied";
+              checkbox.checked = false;
             });
           });
-          
-          setTimeout(() => {
-            OneSignal.isPushNotificationsEnabled(function(isEnabled) {
-              if (isEnabled) {
-                statusSpan.textContent = "Notifications enabled";
-                checkbox.checked = true;
-              } else {
-                checkbox.checked = false;
-              }
-            });
-          }, 1500);
+        });
           
         } else {
           tryIOSNativeNotifications();
