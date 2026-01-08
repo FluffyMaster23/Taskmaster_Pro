@@ -882,11 +882,28 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       loadVoiceSettings();
       displayUserId();
       
-      // Simple initialization - just check status and setup checkbox
-      setTimeout(function() {
-        checkNotificationStatus();
-        setupNotificationCheckbox();
-      }, 500);
+      // Initialize OneSignal for iOS Safari
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isSafari = /Safari/i.test(navigator.userAgent) && !/Chrome|CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent);
+      
+      if (isIOS && isSafari && typeof initializeOneSignal === 'function') {
+        console.log('🍎 Initializing OneSignal for iOS Safari...');
+        initializeOneSignal().then(() => {
+          console.log('✅ OneSignal ready');
+          checkNotificationStatus();
+          setupNotificationCheckbox();
+        }).catch((error) => {
+          console.error('❌ OneSignal init failed:', error);
+          checkNotificationStatus();
+          setupNotificationCheckbox();
+        });
+      } else {
+        setTimeout(function() {
+          checkNotificationStatus();
+          setupNotificationCheckbox();
+        }, 500);
+      }
     });
     
     // Display user ID function
