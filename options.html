@@ -667,23 +667,49 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       
+      console.log('🔍 Checking notification status...', { isIOS, isSafari, hasOneSignal: !!window.OneSignal });
+      
       if (isIOS) {
         // For iOS Safari with OneSignal
         if (isSafari && window.OneSignal) {
+          console.log('📱 iOS Safari with OneSignal detected');
           window.OneSignal.push(function() {
             window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+              console.log('OneSignal enabled status:', isEnabled);
               if (isEnabled) {
                 statusSpan.textContent = "iOS notifications active (OneSignal)";
                 statusSpan.style.color = "#059669";
               } else {
-                statusSpan.textContent = "iOS notifications not enabled - check the box below";
+                statusSpan.textContent = "iOS Safari ready - check the box below to enable";
                 statusSpan.style.color = "#f59e0b";
               }
             });
           });
         } 
+        // For iOS Safari without OneSignal loaded yet, but Safari always supports notifications
+        else if (isSafari) {
+          console.log('📱 iOS Safari detected (OneSignal pending)');
+          // Safari on iOS supports notifications via OneSignal or native API
+          if ('Notification' in window) {
+            if (Notification.permission === 'granted') {
+              statusSpan.textContent = "iOS Safari notifications enabled";
+              statusSpan.style.color = "#059669";
+            } else if (Notification.permission === 'denied') {
+              statusSpan.textContent = "iOS notifications blocked - check iOS Settings";
+              statusSpan.style.color = "#dc2626";
+            } else {
+              statusSpan.textContent = "iOS Safari ready - check the box below to enable";
+              statusSpan.style.color = "#f59e0b";
+            }
+          } else {
+            // Safari should always have Notification API, but show waiting message if not ready
+            statusSpan.textContent = "iOS Safari - initializing notifications...";
+            statusSpan.style.color = "#3b82f6";
+          }
+        }
         // For iOS with native Web Notifications (iOS 16.4+ on Firefox/Chrome)
         else if ('Notification' in window) {
+          console.log('📱 iOS with native notifications (non-Safari)');
           if (Notification.permission === 'granted') {
             statusSpan.textContent = "iOS notifications active (Native Web Push)";
             statusSpan.style.color = "#059669";
@@ -695,13 +721,15 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
             statusSpan.style.color = "#f59e0b";
           }
         } 
-        // No notification support detected
+        // No notification support detected (rare)
         else {
-          statusSpan.textContent = "iOS notifications not available on this browser";
+          console.warn('⚠️ No notification support detected on iOS');
+          statusSpan.textContent = "iOS notifications not available on this browser version";
           statusSpan.style.color = "#6b7280";
         }
       } else {
         // Desktop notifications
+        console.log('💻 Desktop detected');
         if ('Notification' in window) {
           if (Notification.permission === 'granted') {
             statusSpan.textContent = "Desktop notifications enabled";
