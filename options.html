@@ -686,8 +686,181 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       }
     }
 
+    // Load voices into dropdown
+    function loadVoices() {
+      const voiceSelect = document.getElementById("voiceSelect");
+      
+      if (!voiceSelect) {
+        console.log('voiceSelect element not found');
+        return;
+      }
+      
+      voiceSelect.innerHTML = "";
+      
+      const voices = speechSynthesis.getVoices();
+      console.log('Available voices:', voices.length);
+      
+      if (voices.length === 0) {
+        // Retry loading voices after a short delay
+        console.log('No voices found, retrying...');
+        setTimeout(loadVoices, 100);
+        return;
+      }
+      
+      console.log('Loading', voices.length, 'voices into dropdown');
+      
+      // Detect iOS for voice filtering
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      
+      let filteredVoices;
+      
+      if (isIOS) {
+        // For iOS, only show iOS-specific voices
+        filteredVoices = voices.filter(v => 
+          v.name.includes('Siri') || 
+          v.localService === true ||
+          v.name.includes('Alex') ||
+          v.name.includes('Victoria') ||
+          v.name.includes('Daniel') ||
+          v.name.includes('Karen') ||
+          v.name.includes('Moira') ||
+          v.name.includes('Tessa') ||
+          v.name.includes('Samantha') ||
+          v.name.includes('Aaron') ||
+          v.name.includes('Fred') ||
+          v.name.includes('Nicky') ||
+          v.name.includes('Vicki') ||
+          v.name.includes('Princess') ||
+          v.name.includes('Junior') ||
+          v.name.includes('Ralph') ||
+          v.name.includes('Albert') ||
+          v.name.includes('Kathy') ||
+          v.name.includes('Cellos') ||
+          v.name.includes('Zarvox')
+        );
+        console.log(`iOS detected: Filtered to ${filteredVoices.length} iOS voices`);
+      } else {
+        // For non-iOS, filter for English voices or all voices if no English found
+        filteredVoices = voices.filter(v => v.lang.startsWith("en"));
+        if (filteredVoices.length === 0) {
+          filteredVoices = voices; // Use all voices if no English ones
+        }
+        console.log(`Desktop detected: Using ${filteredVoices.length} English voices`);
+      }
+      
+      // Sort voices by name for better organization
+      filteredVoices.sort((a, b) => a.name.localeCompare(b.name));
+      
+      // Add default "Choose voice" option
+      const defaultOption = document.createElement("option");
+      defaultOption.value = "";
+      defaultOption.textContent = "Choose voice...";
+      voiceSelect.appendChild(defaultOption);
+      
+      filteredVoices.forEach(voice => {
+        const option = document.createElement("option");
+        option.value = voice.name;
+        option.textContent = `${voice.name} (${voice.lang})`;
+        // Store the original voice index from the full voices array
+        option.dataset.originalIndex = voices.indexOf(voice);
+        voiceSelect.appendChild(option);
+      });
+
+      // Set default to "Choose voice" (will be overridden by saved preferences)
+      voiceSelect.selectedIndex = 0;
+      console.log('Set default to "Choose voice" option');
+
+      // Load saved voice preferences after voices are populated
+      loadSavedVoicePreferences();
+      
+      console.log('✅ Voice loading complete');
+    }
+    
+    // Load saved voice preferences
+    function loadSavedVoicePreferences() {
+      // Load saved speech rate
+      const savedRate = localStorage.getItem("speechRate");
+      if (savedRate) {
+        window.speechRate = parseFloat(savedRate);
+        const speechRateSelect = document.getElementById("speechRateSelect");
+        if (speechRateSelect) {
+          speechRateSelect.value = savedRate;
+          console.log('✅ Restored speech rate:', savedRate);
+        }
+      }
+      
+      // Load saved voice index (preferred method)
+      const savedVoiceIndex = localStorage.getItem("selectedVoiceIndex");
+      const voices = window.speechSynthesis.getVoices();
+      
+      if (savedVoiceIndex && savedVoiceIndex !== "null" && voices.length > 0) {
+        const index = parseInt(savedVoiceIndex);
+        const voiceSelect = document.getElementById("voiceSelect");
+        
+        if (voiceSelect && index < voices.length) {
+          // Find the option with the matching originalIndex
+          const options = voiceSelect.options;
+          for (let i = 1; i < options.length; i++) { // Start from 1 to skip "Choose voice"
+            if (parseInt(options[i].dataset.originalIndex) === index) {
+              voiceSelect.selectedIndex = i;
+              window.selectedVoice = voices[index];
+              
+              console.log('✅ Restored voice by index:', {
+                originalIndex: index,
+                dropdownIndex: i,
+                name: voices[index].name,
+                lang: voices[index].lang,
+                voiceObject: voices[index]
+              });
+              return; // Successfully loaded
+            }
+          }
+        }
+      }
+      
+      // Fallback: try to find voice by name
+      const savedVoiceName = localStorage.getItem("selectedVoiceName");
+      if (savedVoiceName && voices.length > 0) {
+        const voiceSelect = document.getElementById("voiceSelect");
+        if (voiceSelect) {
+          // Find the voice by name in the dropdown options
+          const options = voiceSelect.options;
+          for (let i = 1; i < options.length; i++) { // Start from 1 to skip "Choose voice"
+            if (options[i].value === savedVoiceName) {
+              const originalIndex = parseInt(options[i].dataset.originalIndex);
+              voiceSelect.selectedIndex = i;
+              window.selectedVoice = voices[originalIndex];
+              
+              console.log('✅ Restored voice by name:', {
+                name: savedVoiceName,
+                originalIndex: originalIndex,
+                dropdownIndex: i,
+                voiceObject: voices[originalIndex]
+              });
+              return;
+            }
+          }
+        }
+      }
+      
+      // No saved voice found - leave on "Choose voice" option
+      const voiceSelect = document.getElementById("voiceSelect");
+      if (voiceSelect) {
+        voiceSelect.selectedIndex = 0; // "Choose voice" option
+        window.selectedVoice = null; // No voice selected
+        console.log('✅ No saved voice - defaulting to "Choose voice" option');
+      }
+    }
+
     // Initialize when page loads
     document.addEventListener('DOMContentLoaded', function() {
+      // Load voices first
+      if (speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = loadVoices;
+      }
+      loadVoices();
+      
       loadVoiceSettings();
       setTimeout(checkNotificationStatus, 1000); // Give time for OneSignal to load
       

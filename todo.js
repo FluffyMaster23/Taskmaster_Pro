@@ -196,50 +196,63 @@ function initializeHomePage() {
   // Start notification checker even on home page for background notifications
   startNotificationChecker();
   
-  // Voice greeting - only on home page
-  const now = new Date();
-  const hour = now.getHours();
-  let greeting;
+  // Voice greeting - only if user has explicitly selected a voice
+  // Check if user has a saved voice preference
+  const savedVoiceIndex = localStorage.getItem("selectedVoiceIndex");
+  const savedVoiceName = localStorage.getItem("selectedVoiceName");
+  
+  // Only greet if user has chosen a voice (not default/none)
+  // Exception: if user ID contains "admin", always greet
+  const userId = localStorage.getItem('taskmaster_user_id') || '';
+  const isAdmin = userId.toLowerCase().includes('admin');
+  
+  if ((savedVoiceIndex && savedVoiceIndex !== "null") || (savedVoiceName && savedVoiceName !== "null") || isAdmin) {
+    const now = new Date();
+    const hour = now.getHours();
+    let greeting;
 
-  if (hour >= 5 && hour < 12) {
-    greeting = "Morning, G. Let's get the day rolling.";
-  } else if (hour >= 12 && hour < 18) {
-    greeting = "Afternoon, boss. Time to knock some things out.";
-  } else {
-    greeting = "Evening, player. Still grinding?";
-  }
-
-  // Prevent multiple greetings per page load
-  if (!window._greetingSpoken) {
-    window._greetingSpoken = true;
-    
-    // Check if we're on mobile for speech handling
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    if (isMobile) {
-      // On mobile, speech might be blocked - add user interaction trigger
-      console.log('Mobile detected - speech will play after first user interaction');
-      
-      // Add click listener to enable speech after first user interaction
-      const enableMobileSpeech = () => {
-        console.log('First user interaction - enabling speech');
-        speak(greeting);
-        document.removeEventListener('click', enableMobileSpeech);
-        document.removeEventListener('touchstart', enableMobileSpeech);
-      };
-      
-      // Try to speak immediately, but also add fallback
-      try {
-        speak(greeting);
-      } catch (e) {
-        console.log('Speech blocked, waiting for user interaction');
-        document.addEventListener('click', enableMobileSpeech, { once: true });
-        document.addEventListener('touchstart', enableMobileSpeech, { once: true });
-      }
+    if (hour >= 5 && hour < 12) {
+      greeting = "Morning, G. Let's get the day rolling.";
+    } else if (hour >= 12 && hour < 18) {
+      greeting = "Afternoon, boss. Time to knock some things out.";
     } else {
-      // Desktop - just speak directly
-      speak(greeting);
+      greeting = "Evening, player. Still grinding?";
     }
+
+    // Prevent multiple greetings per page load
+    if (!window._greetingSpoken) {
+      window._greetingSpoken = true;
+      
+      // Check if we're on mobile for speech handling
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // On mobile, speech might be blocked - add user interaction trigger
+        console.log('Mobile detected - speech will play after first user interaction');
+        
+        // Add click listener to enable speech after first user interaction
+        const enableMobileSpeech = () => {
+          console.log('First user interaction - enabling speech');
+          speak(greeting);
+          document.removeEventListener('click', enableMobileSpeech);
+          document.removeEventListener('touchstart', enableMobileSpeech);
+        };
+        
+        // Try to speak immediately, but also add fallback
+        try {
+          speak(greeting);
+        } catch (e) {
+          console.log('Speech blocked, waiting for user interaction');
+          document.addEventListener('click', enableMobileSpeech, { once: true });
+          document.addEventListener('touchstart', enableMobileSpeech, { once: true });
+        }
+      } else {
+        // Desktop - just speak directly
+        speak(greeting);
+      }
+    }
+  } else {
+    console.log('No voice selected - skipping greeting for new user');
   }
 }
 
@@ -930,13 +943,16 @@ function warmUpVoices() {
   }
 
   voicesReady = true;
+  console.log('✅ Voices ready, count:', voices.length);
 
-  // Optional: Warm-up call (quiet and fast)
-  const dummy = new SpeechSynthesisUtterance("Initializing voice system.");
-  dummy.volume = 0.001; // Silent
-  dummy.rate = 1;
-  dummy.voice = voices.find(v => v.name === window.selectedVoice) || voices[0];
-  speechSynthesis.speak(dummy);
+  // Optional: Warm-up call (quiet and fast) - only if a voice is selected
+  if (window.selectedVoice) {
+    const dummy = new SpeechSynthesisUtterance("Initializing voice system.");
+    dummy.volume = 0.001; // Silent
+    dummy.rate = 1;
+    dummy.voice = window.selectedVoice;
+    speechSynthesis.speak(dummy);
+  }
 }
 
 warmUpVoices();
