@@ -665,7 +665,8 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       const statusSpan = document.getElementById('notificationStatus');
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      // Better Safari detection for iOS
+      const isSafari = /Safari/i.test(navigator.userAgent) && !/Chrome|CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent);
       
       console.log('🔍 Checking notification status...', { isIOS, isSafari, hasOneSignal: !!window.OneSignal });
       
@@ -927,7 +928,8 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       // Check notification status with proper OneSignal initialization wait
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      // Better Safari detection for iOS
+      const isSafari = /Safari/i.test(navigator.userAgent) && !/Chrome|CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent);
       
       // For iOS Safari with OneSignal, initialize it first
       if (isIOS && isSafari && typeof initializeOneSignal === 'function') {
@@ -989,7 +991,8 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      // Better Safari detection for iOS
+      const isSafari = /Safari/i.test(navigator.userAgent) && !/Chrome|CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent);
       
       // Set initial checkbox state based on current notification permission
       if (isIOS && isSafari && window.OneSignal) {
@@ -1018,12 +1021,21 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
     function triggerNotificationPrompt() {
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      // Better Safari detection for iOS
+      const isSafari = /Safari/i.test(navigator.userAgent) && !/Chrome|CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent);
       const statusSpan = document.getElementById('notificationStatus');
       const checkbox = document.getElementById('enableNotifications');
       
+      console.log('🔔 triggerNotificationPrompt called', { 
+        isIOS, 
+        isSafari, 
+        hasOneSignal: !!window.OneSignal,
+        userAgent: navigator.userAgent 
+      });
+      
       // iOS Safari with OneSignal
       if (isIOS && isSafari && window.OneSignal) {
+        console.log('✅ Using iOS Safari with OneSignal path');
         statusSpan.textContent = "Requesting iOS notification permission...";
         statusSpan.style.color = "#3b82f6";
         
@@ -1071,8 +1083,48 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
           });
         });
       } 
+      // iOS Safari without OneSignal loaded yet - wait and retry
+      else if (isIOS && isSafari) {
+        console.log('⏳ iOS Safari detected but OneSignal not ready, attempting to initialize...');
+        statusSpan.textContent = "Initializing iOS notifications...";
+        statusSpan.style.color = "#3b82f6";
+        
+        // Check if initializeOneSignal exists and call it
+        if (typeof initializeOneSignal === 'function') {
+          initializeOneSignal().then(() => {
+            console.log('✅ OneSignal initialized, retrying prompt...');
+            setTimeout(() => {
+              // Retry the prompt now that OneSignal is ready
+              triggerNotificationPrompt();
+            }, 500);
+          }).catch((error) => {
+            console.error('❌ OneSignal initialization failed:', error);
+            statusSpan.textContent = "iOS notification setup failed - requires HTTPS";
+            statusSpan.style.color = "#dc2626";
+            checkbox.checked = false;
+          });
+        } else {
+          // Wait for OneSignal to load
+          let retries = 0;
+          const checkOneSignal = setInterval(() => {
+            retries++;
+            if (window.OneSignal) {
+              clearInterval(checkOneSignal);
+              console.log('✅ OneSignal loaded, retrying prompt...');
+              triggerNotificationPrompt();
+            } else if (retries > 10) {
+              clearInterval(checkOneSignal);
+              console.error('❌ OneSignal failed to load after 5 seconds');
+              statusSpan.textContent = "iOS notification setup failed - OneSignal not loaded";
+              statusSpan.style.color = "#dc2626";
+              checkbox.checked = false;
+            }
+          }, 500);
+        }
+      }
       // iOS with native notifications (non-Safari browsers)
       else if (isIOS && 'Notification' in window) {
+        console.log('✅ Using iOS native notifications path');
         tryIOSNativeNotifications();
       } 
       // Desktop notifications
