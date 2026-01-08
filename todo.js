@@ -263,74 +263,43 @@ let messaging = null;
 let fcmToken = null;
 
 async function initializeFirebaseMessaging() {
-  // Detect iOS
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
   
-  console.log('🔔 Initializing Notification System...');
-  console.log('Platform:', { isIOS, isSafari });
-  
-  // Use OneSignal for iOS Safari
   if (isIOS && isSafari) {
-    console.log('🍎 iOS Safari detected - using OneSignal');
     return initializeOneSignal();
   }
   
-  // Use FCM for everything else (Windows, desktop browsers, iOS non-Safari)
-  console.log('💻 Desktop/Windows detected - using Firebase Cloud Messaging');
-  
   try {
-    // Check if messaging is supported
     if (!firebase.messaging.isSupported()) {
-      console.log('⚠️ Firebase Messaging not supported in this browser');
       return initializeNativeNotifications();
     }
     
-    // Get messaging instance
     messaging = firebase.messaging();
     
-    // Request notification permission
     const permission = await Notification.requestPermission();
-    console.log('Notification permission:', permission);
     
     if (permission === 'granted') {
-      console.log('✅ Notification permission granted');
-      
-      // Register service worker for FCM
       if ('serviceWorker' in navigator) {
         try {
           const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-          console.log('✅ FCM Service Worker registered:', registration);
           
-          // Get FCM token
           fcmToken = await messaging.getToken({
             vapidKey: 'BCS6sik162IJiqA7odT7O6wGCaffPepZvCHeUWuHReHQrSkQOybm1XWOLZY6ChJP9cYJ25ytTVdwgMK-tJL19ag',
             serviceWorkerRegistration: registration
           });
           
           if (fcmToken) {
-            console.log('✅ FCM Token:', fcmToken);
-            // Store token for sending notifications
             localStorage.setItem('fcm_token', fcmToken);
             window.fcmEnabled = true;
-            
-            // Optional: Send token to your server to send notifications from backend
-            // await saveTokenToServer(fcmToken);
-          } else {
-            console.log('⚠️ No FCM token available');
           }
         } catch (swError) {
-          console.error('❌ Service Worker registration failed:', swError);
           initializeNativeNotifications();
         }
       }
       
-      // Listen for foreground messages (when app is open)
       messaging.onMessage((payload) => {
-        console.log('📨 Foreground message received:', payload);
-        
-        // Show notification manually for foreground messages
         const notificationTitle = payload.notification?.title || 'TaskMaster Pro';
         const notificationOptions = {
           body: payload.notification?.body || payload.data?.body,
@@ -346,39 +315,23 @@ async function initializeFirebaseMessaging() {
         }
       });
       
-      // Listen for token refresh
       messaging.onTokenRefresh(async () => {
         try {
           const newToken = await messaging.getToken();
-          console.log('🔄 Token refreshed:', newToken);
           localStorage.setItem('fcm_token', newToken);
           fcmToken = newToken;
-          // Optional: Update token on your server
-          // await saveTokenToServer(newToken);
-        } catch (error) {
-          console.error('❌ Unable to refresh token:', error);
-        }
+        } catch (error) {}
       });
       
-    } else if (permission === 'denied') {
-      console.log('❌ Notification permission denied');
-      window.fcmEnabled = false;
-    } else {
-      console.log('⚠️ Notification permission dismissed');
-      window.fcmEnabled = false;
     }
     
   } catch (error) {
-    console.error('❌ Firebase Messaging initialization error:', error);
-    // Fallback to native notifications
     initializeNativeNotifications();
   }
 }
 
 // === ONESIGNAL INITIALIZATION (iOS Safari only) ===
 async function initializeOneSignal() {
-  console.log('🍎 Initializing OneSignal for iOS Safari...');
-  
   window.OneSignal = window.OneSignal || [];
   
   return new Promise((resolve) => {
@@ -390,7 +343,7 @@ async function initializeOneSignal() {
           enable: false,
         },
         allowLocalhostAsSecureOrigin: true,
-        autoRegister: true,
+        autoRegister: false,
         autoResubscribe: true,
         serviceWorkerParam: {
           scope: './',
@@ -398,79 +351,61 @@ async function initializeOneSignal() {
         },
         serviceWorkerPath: 'OneSignalSDKWorker.js',
         persistNotification: true,
+        requiresUserPrivacyConsent: false,
+        promptOptions: {
+          slidedown: {
+            enabled: true,
+            autoPrompt: true,
+            timeDelay: 1,
+            pageViews: 1
+          }
+        },
         welcomeNotification: {
           disable: true
         }
       }).then(function() {
-        console.log('✅ OneSignal initialized successfully');
-        
-        // Auto-register for push notifications
         setTimeout(() => {
-          console.log('🔄 Auto-registering for OneSignal notifications...');
-          OneSignal.registerForPushNotifications().then(function() {
-            console.log('✅ OneSignal auto-registration successful');
-          }).catch(function(error) {
-            console.log('⚠️ OneSignal auto-registration failed:', error.message);
+          OneSignal.showNativePrompt().catch(() => {
+            OneSignal.registerForPushNotifications().catch(() => {});
           });
-        }, 1000);
+        }, 500);
         
-        // Check subscription status
         OneSignal.isPushNotificationsEnabled(function(isEnabled) {
-          console.log('OneSignal subscription status:', isEnabled);
           window.oneSignalEnabled = isEnabled;
-          
-          if (isEnabled) {
-            console.log('✅ OneSignal notifications already enabled');
-            
-            // Get user ID
-            OneSignal.getUserId(function(userId) {
-              console.log('👤 OneSignal User ID:', userId || 'No user ID yet');
-            });
-          } else {
-            console.log('⚠️ OneSignal not enabled yet');
-          }
         });
         
-        // Listen for subscription changes
         OneSignal.on('subscriptionChange', function (isSubscribed) {
-          console.log("OneSignal subscription changed:", isSubscribed);
           window.oneSignalEnabled = isSubscribed;
         });
         
         resolve();
       }).catch(function(error) {
-        console.error('❌ OneSignal initialization failed:', error);
-        resolve(); // Resolve anyway to not block app
+        if (Notification.permission !== 'granted') {
+          Notification.requestPermission();
+        }
+        resolve();
       });
     });
   });
 }
 
-// Fallback to native notifications if FCM isn't available
 function initializeNativeNotifications() {
-  console.log('📱 Initializing native notifications (non-FCM fallback)');
-  
   if (!('Notification' in window)) {
-    console.log('❌ This browser does not support notifications');
     return;
   }
   
   if (Notification.permission === 'default') {
     Notification.requestPermission().then(function(permission) {
-      console.log('Native notification permission:', permission);
       window.nativeNotificationsEnabled = (permission === 'granted');
     });
   } else {
     window.nativeNotificationsEnabled = (Notification.permission === 'granted');
-    console.log('Native notifications status:', window.nativeNotificationsEnabled);
   }
 }
 
-// === SERVICE WORKER COMMUNICATION ===
 async function sendTasksToServiceWorker() {
   if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
     const tasks = getTasks();
-    console.log('[Main] Sending tasks to service worker:', tasks.length);
     
     navigator.serviceWorker.controller.postMessage({
       type: 'UPDATE_TASKS',
@@ -479,48 +414,38 @@ async function sendTasksToServiceWorker() {
   }
 }
 
-// Listen for messages from service worker
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'GET_TASKS') {
-      // Service worker is requesting tasks
       const tasks = getTasks();
       event.ports[0].postMessage({ tasks: tasks });
     }
   });
 }
 
-// === TASK NOTIFICATION SCHEDULING ===
-// Simplified task reminder function for FCM
 function scheduleTaskNotification(task) {
-  console.log('Scheduling task notification for:', task.task);
-  
   const dueTime = new Date(task.time);
   const reminderMinutes = task.reminderMinutes || 0;
   const reminderTime = new Date(dueTime.getTime() - (reminderMinutes * 60 * 1000));
   const now = new Date();
   
-  // Schedule reminder notification if time is reasonable (less than 24 hours)
   const timeUntilReminder = reminderTime.getTime() - now.getTime();
   if (timeUntilReminder > 0 && timeUntilReminder <= 24 * 60 * 60 * 1000) {
     setTimeout(() => {
-      sendLocalNotification(task, true); // isReminder = true
+      sendLocalNotification(task, true);
     }, timeUntilReminder);
   }
   
-  // Schedule due notification if time is reasonable (less than 24 hours)
   const timeUntilDue = dueTime.getTime() - now.getTime();
   if (timeUntilDue > 0 && timeUntilDue <= 24 * 60 * 60 * 1000) {
     setTimeout(() => {
-      sendLocalNotification(task, false); // isReminder = false
+      sendLocalNotification(task, false);
     }, timeUntilDue);
   }
 }
 
 function sendLocalNotification(task, isReminder = false) {
   if (Notification.permission !== 'granted') return;
-  
-  console.log('Sending local notification for:', task.task);
   
   const title = isReminder ? `⏰ Reminder: ${task.task}` : `🔔 Task Due: ${task.task}`;
   const body = isReminder 
@@ -1285,24 +1210,15 @@ function showWelcomeNotification() {
 }
 
 function showNotification(task, isReminder = false) {
-  console.log(`🔔 showNotification called for: "${task.task}" | isReminder: ${isReminder}`);
-  console.log(`📱 Notification support: ${"Notification" in window} | Permission: ${Notification.permission}`);
-  
   if (!("Notification" in window)) {
-    console.log("❌ Notifications not supported in this browser");
     return;
   }
   
   if (Notification.permission !== "granted") {
-    console.log("❌ Notification permission not granted. Current permission:", Notification.permission);
-    
-    // Try to request permission if not denied
     if (Notification.permission === "default") {
-      console.log("🔔 Requesting notification permission...");
       Notification.requestPermission().then(permission => {
-        console.log("🔔 Permission result:", permission);
         if (permission === "granted") {
-          showNotification(task, isReminder); // Retry
+          showNotification(task, isReminder);
         }
       });
     }
@@ -1485,60 +1401,40 @@ renderExistingTasks();
 
 // === NOTIFICATION CHECKER ===
 function startNotificationChecker() {
-  console.log('🔔 Starting notification checker...');
-  console.log('Current notification permission:', Notification.permission);
-  
-  // Initialize tracking sets if not already done
   if (!window._notifiedTaskIds) window._notifiedTaskIds = new Set();
   if (!window._reminderTaskIds) window._reminderTaskIds = new Set();
   if (!window._spokenTaskIds) window._spokenTaskIds = new Set();
   
-  // Send tasks to service worker for background checking
   sendTasksToServiceWorker();
   
-  // === REMINDER CHECKER
 setInterval(() => {
   const now = new Date();
   const all = getTasks();
   
-  // Also send tasks to service worker each interval
   sendTasksToServiceWorker();
-  
-  console.log(`⏰ Notification check: ${all.length} tasks found at ${now.toLocaleTimeString()}`);
 
   all.forEach(task => {
     const due = new Date(task.time);
     const timeDiff = due - now;
     const reminderMinutes = task.reminderMinutes || 0;
-    const reminderTime = reminderMinutes * 60 * 1000; // Convert to milliseconds
+    const reminderTime = reminderMinutes * 60 * 1000;
     
-    // Debug logging for each task
-    console.log(`📋 Task: "${task.task}" | Due: ${due.toLocaleString()} | Time diff: ${Math.round(timeDiff/1000/60)} mins | Reminder: ${reminderMinutes} mins`);
-    
-    // Check for advance reminder (if not already sent)
     if (reminderMinutes > 0 && timeDiff <= reminderTime && timeDiff > reminderTime - 60000 && !window._reminderTaskIds.has(task.id)) {
-      console.log(`🔔 Sending advance reminder for: ${task.task}`);
       window._reminderTaskIds.add(task.id);
       showNotification(task, true);
     }
     
-    // Check for final due notification (if not already sent)
     if (timeDiff <= 60000 && timeDiff >= -60000 && !window._notifiedTaskIds.has(task.id)) {
-      console.log(`🚨 Sending due notification for: ${task.task}`);
       window._notifiedTaskIds.add(task.id);
       showNotification(task, false);
     }
 
-    // Original voice reminder logic (at due time)
     if (timeDiff <= 60000 && timeDiff >= -60000 && !window._spokenTaskIds.has(task.id)) {
-      console.log(`🗣️ Speaking task due now: ${task.task}`);
       window._spokenTaskIds.add(task.id);
       const reminderMessage = task.msg && task.msg.trim() ? task.msg : `Task: ${task.task}`;
       setTimeout(() => speakDavid(reminderMessage), 500);
     }
   });
-
-  // Removed automatic clear message - only trigger manually via "Check Upcoming Todos"
 }, 60000);
 }
 
