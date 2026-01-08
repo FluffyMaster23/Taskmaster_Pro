@@ -897,28 +897,26 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       
       if (!checkbox) return;
       
-      // Check initial state based on current permissions
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       
-      if (isIOS) {
-        // For iOS, check if OneSignal is enabled and subscribed
+      if (isIOS && isSafari) {
         if (window.OneSignal) {
-          OneSignal.getSubscription().then(function(subscription) {
-            checkbox.checked = !!subscription;
+          OneSignal.push(function() {
+            OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+              checkbox.checked = isEnabled;
+            });
           });
         }
       } else {
-        // For desktop, check native notification permission
         checkbox.checked = Notification && Notification.permission === 'granted';
       }
       
-      // Handle checkbox change
       checkbox.addEventListener('change', function() {
         if (this.checked) {
           triggerNotificationPrompt();
         } else {
-          // If unchecked, just update status (can't really disable notifications once granted)
-          statusSpan.textContent = "Notifications disabled by user";
+          statusSpan.textContent = "Notifications disabled";
         }
       });
     }
@@ -926,74 +924,49 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
     // Trigger notification permission prompt
     function triggerNotificationPrompt() {
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       const statusSpan = document.getElementById('notificationStatus');
       const checkbox = document.getElementById('enableNotifications');
       
-      if (isIOS) {
-        // For iOS, try OneSignal first, fallback to native
+      if (isIOS && isSafari) {
         if (window.OneSignal) {
-          console.log('Triggering OneSignal permission prompt...');
-          
-          // Check if we're on HTTPS or localhost
-          const isSecure = window.location.protocol === 'https:' || 
-                          window.location.hostname === 'localhost' || 
-                          window.location.hostname === '127.0.0.1';
-          
-          if (!isSecure) {
-            statusSpan.textContent = "Notifications require HTTPS on iOS";
-            checkbox.checked = false;
-            return;
-          }
-          
-          // Force OneSignal to show permission prompt
-          OneSignal.showSlidedownPrompt().then(function() {
-            console.log('OneSignal slidedown prompt shown');
-          }).catch(function(error) {
-            console.log('OneSignal slidedown prompt error:', error);
-            
-            // Fallback: try direct notification prompt
+          OneSignal.push(function() {
             OneSignal.showNativePrompt().then(function() {
-              console.log('OneSignal native prompt shown');
-            }).catch(function(nativeError) {
-              console.log('OneSignal native prompt error:', nativeError);
-              // Final fallback: try iOS native notifications
-              tryIOSNativeNotifications();
+              statusSpan.textContent = "Notifications enabled";
+              checkbox.checked = true;
+            }).catch(function(error) {
+              OneSignal.registerForPushNotifications().then(function() {
+                statusSpan.textContent = "Notifications enabled";
+                checkbox.checked = true;
+              }).catch(function() {
+                statusSpan.textContent = "Notifications denied";
+                checkbox.checked = false;
+              });
             });
           });
           
-          // Check subscription status after prompt
           setTimeout(() => {
-            OneSignal.getSubscription().then(function(subscription) {
-              if (subscription) {
-                statusSpan.textContent = "iOS notifications enabled (OneSignal)";
+            OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+              if (isEnabled) {
+                statusSpan.textContent = "Notifications enabled";
                 checkbox.checked = true;
               } else {
-                statusSpan.textContent = "iOS notifications denied or cancelled";
                 checkbox.checked = false;
-                // Try iOS native as fallback
-                tryIOSNativeNotifications();
               }
             });
-          }, 2000);
+          }, 1500);
           
         } else {
-          // OneSignal not available, try iOS native notifications
           tryIOSNativeNotifications();
         }
       } else {
-        // For desktop, use native notifications
         if (Notification) {
-          console.log('Current permission:', Notification.permission);
-          
           if (Notification.permission === 'default') {
-            console.log('Requesting desktop notification permission...');
             Notification.requestPermission().then(function(permission) {
-              console.log('Permission result:', permission);
               if (permission === 'granted') {
-                statusSpan.textContent = "Desktop notifications enabled";
+                statusSpan.textContent = "Notifications enabled";
                 checkbox.checked = true;
                 
-                // Show test notification
                 setTimeout(() => {
                   new Notification('TaskMaster Pro', {
                     body: 'Notifications enabled! You\'ll get reminders when tasks are due.',
@@ -1001,19 +974,19 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
                   });
                 }, 500);
               } else {
-                statusSpan.textContent = "Desktop notifications denied";
+                statusSpan.textContent = "Notifications denied";
                 checkbox.checked = false;
               }
             });
           } else if (Notification.permission === 'granted') {
-            statusSpan.textContent = "Desktop notifications already enabled";
+            statusSpan.textContent = "Notifications already enabled";
             checkbox.checked = true;
           } else {
             statusSpan.textContent = "Notifications denied - check browser settings";
             checkbox.checked = false;
           }
         } else {
-          statusSpan.textContent = "Notifications not supported in this browser";
+          statusSpan.textContent = "Notifications not supported";
           checkbox.checked = false;
         }
       }
