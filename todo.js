@@ -72,8 +72,8 @@ window.addEventListener('DOMContentLoaded', function() {
     alert('All data cleared! Refresh the page to start fresh and see notification prompts.');
   };
   
-  // Initialize OneSignal for iOS
-  initializeOneSignal();
+  // Initialize Firebase Cloud Messaging for notifications
+  initializeFirebaseMessaging();
 
   // Page-specific initialization
   initializeCurrentPage();
@@ -123,8 +123,8 @@ function initializeTaskMasterPage() {
   // Setup voice functionality
   setupVoiceFunctionality();
   
-  // Setup notification system
-  setupAppleNotifications();
+  // Setup Firebase Cloud Messaging for notifications
+  initializeFirebaseMessaging();
   
   // Create task sections (now async)
   createSections();
@@ -189,9 +189,8 @@ function initializeOptionsPage() {
 function initializeHomePage() {
   console.log('Initializing Home page');
   
-  // Initialize OneSignal and notifications on home page too
-  // This ensures the auto-prompt shows on first visit
-  setupAppleNotifications();
+  // Initialize Firebase Cloud Messaging for notifications
+  initializeFirebaseMessaging();
   
   // Start notification checker even on home page for background notifications
   startNotificationChecker();
@@ -258,254 +257,184 @@ function initializeHomePage() {
 
 // === TAB FUNCTIONALITY ===
 
-// === ONESIGNAL INITI  ALIZATION ===
-function initializeOneSignal() {
-  // Only initialize OneSignal on iOS devices
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+// === FIREBASE CLOUD MESSAGING (FCM) INITIALIZATION ===
+let messaging = null;
+let fcmToken = null;
+
+async function initializeFirebaseMessaging() {
+  console.log('🔔 Initializing Firebase Cloud Messaging...');
   
-  if (!isIOS) {
-    console.log('Not iOS - using native notifications');
-    return;
-  }
-  
-  console.log('iOS detected - initializing OneSignal with native fallback');
-  
-  // iOS fallback: Check for native Web Push API support (iOS 16.4+)
-  const supportsWebPush = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-  
-  if (supportsWebPush && (location.protocol === 'http:' || location.hostname === 'localhost')) {
-    console.log('🍎 iOS localhost detected - using native Web Push API instead of OneSignal');
-    initializeIOSNativeNotifications();
-    return;
-  }
-  
-  window.OneSignal = window.OneSignal || [];
-  OneSignal.push(function() {
-    OneSignal.init({
-      appId: "194275f5-45ac-4ac1-85ff-924bbe00f066", // Your real OneSignal App ID
-      safari_web_id: "web.onesignal.auto.194275f5-45ac-4ac1-85ff-924bbe00f066", // Auto-generated Safari Web ID
-      notifyButton: {
-        enable: false, // We'll use our own button
-      },
-      allowLocalhostAsSecureOrigin: true,
-      autoRegister: true, // Enable auto registration for better iOS support
-      autoResubscribe: true,
-      serviceWorkerParam: {
-        scope: './',
-        // Enhanced service worker config for background notifications
-        updateViaCache: 'none'
-      },
-      serviceWorkerPath: 'OneSignalSDKWorker.js',
-      // Enhanced iOS background notification settings
-      persistNotification: true, // Keep notifications visible
-      showCreatedAt: true, // Show timestamp
-      requiresUserPrivacyConsent: false, // Don't block notifications with privacy consent
-      allowLocalhostAsSecureOrigin: true, // Allow localhost testing
-      welcomeNotification: {
-        disable: true // Don't show welcome notification
-      }
-    }).then(function() {
-      console.log('✅ OneSignal initialized successfully');
+  try {
+    // Check if messaging is supported (not supported in all browsers/environments)
+    if (!firebase.messaging.isSupported()) {
+      console.log('⚠️ Firebase Messaging not supported in this browser');
+      // Fall back to native notifications
+      return initializeNativeNotifications();
+    }
+    
+    // Get messaging instance
+    messaging = firebase.messaging();
+    
+    // Request notification permission
+    const permission = await Notification.requestPermission();
+    console.log('Notification permission:', permission);
+    
+    if (permission === 'granted') {
+      console.log('✅ Notification permission granted');
       
-      // Automatically try to register for push notifications on iOS
-      setTimeout(() => {
-        console.log('🔄 Auto-registering for OneSignal notifications...');
-        OneSignal.registerForPushNotifications().then(function() {
-          console.log('✅ OneSignal auto-registration successful');
-        }).catch(function(error) {
-          console.log('⚠️ OneSignal auto-registration failed (user may need to manually allow):', error.message);
-        });
-      }, 1000);
-      
-      // Check subscription status after initialization
-      OneSignal.isPushNotificationsEnabled(function(isEnabled) {
-        console.log('OneSignal subscription status:', isEnabled);
-        window.oneSignalEnabled = isEnabled;
-        
-        if (isEnabled) {
-          console.log('✅ OneSignal notifications already enabled');
+      // Register service worker for FCM
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+          console.log('✅ FCM Service Worker registered:', registration);
           
-          // Get user ID for debugging
-          OneSignal.getUserId(function(userId) {
-            console.log('👤 OneSignal User ID:', userId || 'No user ID yet');
+          // Get FCM token
+          fcmToken = await messaging.getToken({
+            vapidKey: 'BCS6sik162IJiqA7odT7O6wGCaffPepZvCHeUWuHReHQrSkQOybm1XWOLZY6ChJP9cYJ25ytTVdwgMK-tJL19ag',
+            serviceWorkerRegistration: registration
           });
-        } else {
-          console.log('⚠️ OneSignal not enabled yet - will request permission when appropriate');
           
-          // Try to get permission status
-          OneSignal.getNotificationPermission(function(permission) {
-            console.log('🔔 OneSignal permission status:', permission);
-          });
+          if (fcmToken) {
+            console.log('✅ FCM Token:', fcmToken);
+            // Store token for sending notifications
+            localStorage.setItem('fcm_token', fcmToken);
+            window.fcmEnabled = true;
+            
+            // Optional: Send token to your server to send notifications from backend
+            // await saveTokenToServer(fcmToken);
+          } else {
+            console.log('⚠️ No FCM token available');
+          }
+        } catch (swError) {
+          console.error('❌ Service Worker registration failed:', swError);
+          initializeNativeNotifications();
         }
-      });
-      
-    }).catch(function(error) {
-      console.error('❌ OneSignal initialization failed:', error);
-      
-      // Fallback to native notifications on initialization failure
-      if (location.protocol === 'http:' || location.hostname === 'localhost') {
-        console.log('⚠️ OneSignal failed, falling back to native notifications');
-        initializeIOSNativeNotifications();
       }
-    });
-
-    // Listen for subscription changes
-    OneSignal.on('subscriptionChange', function (isSubscribed) {
-      console.log("OneSignal subscription changed:", isSubscribed);
-      window.oneSignalEnabled = isSubscribed;
-    });
-  });
-}
-
-// iOS Native Notification Fallback for localhost/http
-function initializeIOSNativeNotifications() {
-  console.log('🍎 Initializing iOS native notifications for localhost');
-  
-  // Check if Web Push API is supported
-  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
-    console.log('❌ Web Push API not supported on this iOS version (requires iOS 16.4+)');
-    return;
-  }
-  
-  // Mark native notifications as available
-  window.iosNativeNotificationsAvailable = true;
-  window.oneSignalEnabled = false; // Use our own system instead
-  
-  // Register service worker for background notifications
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').then(function(registration) {
-      console.log('✅ Service Worker registered for iOS notifications');
       
-      // Check if notification permission is already granted
-      if (Notification.permission === 'granted') {
-        console.log('✅ iOS native notifications already permitted');
-        window.iosNativeEnabled = true;
-      }
-    }).catch(function(error) {
-      console.log('❌ Service Worker registration failed:', error);
-    });
-  }
-}
-
-// Request permission for task deadline reminders
-function requestTaskReminderPermission() {
-  console.log('Requesting OneSignal permission for task deadline reminders');
-  
-  // Use OneSignal's built-in prompts
-  window.OneSignal.push(function() {
-    window.OneSignal.showSlidedownPrompt().then(function() {
-      console.log('Task reminder prompt shown');
-      
-      // Listen for the user's response
-      window.OneSignal.on('subscriptionChange', function (isSubscribed) {
-        if (isSubscribed) {
-          console.log('✅ User enabled task reminder notifications!');
-          window.oneSignalEnabled = true;
-          
-          // Send a test notification to confirm it's working
-          setTimeout(() => {
-            sendTaskReminderTestNotification();
-          }, 1000);
-        }
-      });
-    }).catch(function(error) {
-      console.error('Error showing task reminder prompt:', error);
-    });
-  });
-}
-
-// Send test notification for task reminders
-function sendTaskReminderTestNotification() {
-  window.OneSignal.push(function() {
-    window.OneSignal.sendSelfNotification(
-      "🎉 Task Reminders Active!",
-      "Perfect! You'll now get notified when your tasks are due, even when the app is closed.",
-      window.location.href,
-      "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K"
-    ).then(function() {
-      console.log('Task reminder test notification sent successfully');
-    }).catch(function(error) {
-      console.error('Failed to send task reminder test notification:', error);
-    });
-  });
-}
-
-function requestOneSignalPermission() {
-  console.log('Requesting OneSignal permission');
-  OneSignal.push(function() {
-    OneSignal.registerForPushNotifications().then(function() {
-      console.log('OneSignal registration successful');
-    }).catch(function(e) {
-      console.error('OneSignal registration failed:', e);
-    });
-  });
-}
-
-function scheduleOneSignalTaskReminder(task) {
-  if (!window.oneSignalEnabled) return;
-  
-  console.log('Scheduling OneSignal task reminder for:', task.task);
-  
-  // Get user's OneSignal Player ID for server-side scheduling
-  OneSignal.push(function() {
-    OneSignal.getUserId().then(function(userId) {
-      if (userId) {
-        console.log('OneSignal User ID:', userId);
+      // Listen for foreground messages (when app is open)
+      messaging.onMessage((payload) => {
+        console.log('📨 Foreground message received:', payload);
         
-        // Calculate reminder time
-        const dueTime = new Date(task.time);
-        const reminderMinutes = task.reminderMinutes || 0;
-        const reminderTime = new Date(dueTime.getTime() - (reminderMinutes * 60 * 1000));
-        
-        // Store task data for background notifications
-        const taskData = {
-          id: task.id,
-          title: task.task,
-          message: task.msg,
-          dueTime: dueTime.toISOString(),
-          reminderTime: reminderTime.toISOString(),
-          reminderMinutes: reminderMinutes,
-          userId: userId
+        // Show notification manually for foreground messages
+        const notificationTitle = payload.notification?.title || 'TaskMaster Pro';
+        const notificationOptions = {
+          body: payload.notification?.body || payload.data?.body,
+          icon: '/favicon.ico',
+          badge: '/favicon.ico',
+          tag: payload.data?.tag || 'taskmaster',
+          requireInteraction: false,
+          data: payload.data
         };
         
-        // Store in localStorage for background processing
-        let scheduledTasks = JSON.parse(localStorage.getItem('scheduledOneSignalTasks') || '[]');
-        // Remove any existing task with same ID
-        scheduledTasks = scheduledTasks.filter(t => t.id !== task.id);
-        // Add new task
-        scheduledTasks.push(taskData);
-        localStorage.setItem('scheduledOneSignalTasks', JSON.stringify(scheduledTasks));
-        
-        console.log('Task scheduled for OneSignal background notifications');
-        
-        // Also set up client-side fallback for immediate notifications
-        const now = new Date();
-        const timeUntilReminder = reminderTime.getTime() - now.getTime();
-        const timeUntilDue = dueTime.getTime() - now.getTime();
-        
-        // Schedule reminder notification if time is reasonable (less than 24 hours)
-        if (timeUntilReminder > 0 && timeUntilReminder <= 24 * 60 * 60 * 1000) {
-          setTimeout(() => {
-            sendOneSignalBackgroundNotification(task, true); // isReminder = true
-          }, timeUntilReminder);
+        if (Notification.permission === 'granted') {
+          new Notification(notificationTitle, notificationOptions);
         }
-        
-        // Schedule due notification if time is reasonable (less than 24 hours)
-        if (timeUntilDue > 0 && timeUntilDue <= 24 * 60 * 60 * 1000) {
-          setTimeout(() => {
-            sendOneSignalBackgroundNotification(task, false); // isReminder = false
-          }, timeUntilDue);
+      });
+      
+      // Listen for token refresh
+      messaging.onTokenRefresh(async () => {
+        try {
+          const newToken = await messaging.getToken();
+          console.log('🔄 Token refreshed:', newToken);
+          localStorage.setItem('fcm_token', newToken);
+          fcmToken = newToken;
+          // Optional: Update token on your server
+          // await saveTokenToServer(newToken);
+        } catch (error) {
+          console.error('❌ Unable to refresh token:', error);
         }
-      }
-    });
-  });
+      });
+      
+    } else if (permission === 'denied') {
+      console.log('❌ Notification permission denied');
+      window.fcmEnabled = false;
+    } else {
+      console.log('⚠️ Notification permission dismissed');
+      window.fcmEnabled = false;
+    }
+    
+  } catch (error) {
+    console.error('❌ Firebase Messaging initialization error:', error);
+    // Fallback to native notifications
+    initializeNativeNotifications();
+  }
 }
 
-function sendOneSignalBackgroundNotification(task, isReminder = false) {
-  if (!window.oneSignalEnabled) return;
+// Fallback to native notifications if FCM isn't available
+function initializeNativeNotifications() {
+  console.log('📱 Initializing native notifications (non-FCM fallback)');
   
-  console.log('Sending OneSignal background notification for:', task.task);
+  if (!('Notification' in window)) {
+    console.log('❌ This browser does not support notifications');
+    return;
+  }
+  
+  if (Notification.permission === 'default') {
+    Notification.requestPermission().then(function(permission) {
+      console.log('Native notification permission:', permission);
+      window.nativeNotificationsEnabled = (permission === 'granted');
+    });
+  } else {
+    window.nativeNotificationsEnabled = (Notification.permission === 'granted');
+    console.log('Native notifications status:', window.nativeNotificationsEnabled);
+  }
+}
+
+// === TASK NOTIFICATION SCHEDULING ===
+// Simplified task reminder function for FCM
+function scheduleTaskNotification(task) {
+  console.log('Scheduling task notification for:', task.task);
+  
+  const dueTime = new Date(task.time);
+  const reminderMinutes = task.reminderMinutes || 0;
+  const reminderTime = new Date(dueTime.getTime() - (reminderMinutes * 60 * 1000));
+  const now = new Date();
+  
+  // Schedule reminder notification if time is reasonable (less than 24 hours)
+  const timeUntilReminder = reminderTime.getTime() - now.getTime();
+  if (timeUntilReminder > 0 && timeUntilReminder <= 24 * 60 * 60 * 1000) {
+    setTimeout(() => {
+      sendLocalNotification(task, true); // isReminder = true
+    }, timeUntilReminder);
+  }
+  
+  // Schedule due notification if time is reasonable (less than 24 hours)
+  const timeUntilDue = dueTime.getTime() - now.getTime();
+  if (timeUntilDue > 0 && timeUntilDue <= 24 * 60 * 60 * 1000) {
+    setTimeout(() => {
+      sendLocalNotification(task, false); // isReminder = false
+    }, timeUntilDue);
+  }
+}
+
+function sendLocalNotification(task, isReminder = false) {
+  if (Notification.permission !== 'granted') return;
+  
+  console.log('Sending local notification for:', task.task);
+  
+  const title = isReminder ? `⏰ Reminder: ${task.task}` : `🔔 Task Due: ${task.task}`;
+  const body = isReminder 
+    ? `Due in ${task.reminderMinutes} minutes` 
+    : `This task is due now!`;
+  
+  const notification = new Notification(title, {
+    body: body,
+    icon: '/favicon.ico',
+    badge: '/favicon.ico',
+    tag: `task-${task.id}`,
+    requireInteraction: !isReminder,
+    data: { taskId: task.id, task: task }
+  });
+  
+  notification.onclick = function() {
+    window.focus();
+    notification.close();
+    // Navigate to task list if not already there
+    if (!window.location.pathname.includes('taskmaster.html')) {
+      window.location.href = 'taskmaster.html';
+    }
+  };
+}
   
   OneSignal.push(function() {
     OneSignal.getUserId().then(function(userId) {
@@ -1099,163 +1028,8 @@ function renderTask(task, ul) {
   ul.appendChild(li);
 }
 
-// Universal notification system for all browsers with OneSignal for iOS
-function setupAppleNotifications() {
-  console.log('Setting up native notifications for iOS and desktop');
-  
-  // Detect browser and platform
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  
-  console.log('Platform - iOS:', isIOS);
-  console.log('Notification support:', 'Notification' in window);
-  
-  if (isIOS) {
-    console.log('🍎 iOS detected - requesting native notifications like native iOS app');
-    // Auto-request notifications on iOS like native apps
-    setTimeout(() => {
-      requestIOSNotificationsAutomatically();
-    }, 1500); // Small delay for better UX
-  } else {
-    console.log('💻 Desktop detected - setting up native notifications');
-    console.log('Notification permission:', Notification.permission);
-    
-    // For desktop browsers, request notification permission
-    if ('Notification' in window) {
-      if (Notification.permission === 'default') {
-        console.log('🔔 Requesting notification permission for desktop...');
-        Notification.requestPermission().then(permission => {
-          console.log('🔔 Desktop notification permission result:', permission);
-          if (permission === 'granted') {
-            console.log('✅ Desktop notifications enabled');
-          } else {
-            console.log('❌ Desktop notifications denied');
-          }
-        });
-      } else if (Notification.permission === 'granted') {
-        console.log('✅ Desktop notifications already granted');
-      } else {
-        console.log('❌ Desktop notifications denied');
-      }
-    } else {
-      console.log('❌ Notifications not supported in this browser');
-    }
-  }
-}
-
-async function requestIOSNotificationsAutomatically() {
-  console.log('🍎 Requesting iOS notifications like native app');
-  
-  // Check if notifications are supported
-  if (!('Notification' in window)) {
-    console.log('❌ Notifications not supported on this iOS version (requires iOS 16.4+)');
-    return false;
-  }
-  
-  // Check if already have permission
-  if (Notification.permission === 'granted') {
-    console.log('✅ iOS notifications already enabled');
-    // Register service worker for background notifications
-    if ('serviceWorker' in navigator) {
-      try {
-        await navigator.serviceWorker.register('sw.js');
-        console.log('✅ Service Worker registered for iOS notifications');
-      } catch (error) {
-        console.log('Service Worker registration failed:', error);
-      }
-    }
-    return true;
-  }
-  
-  // If permission hasn't been asked yet, request it automatically
-  if (Notification.permission === 'default') {
-    console.log('🔔 Requesting notification permission on iOS...');
-    try {
-      const permission = await Notification.requestPermission();
-      console.log('🍎 iOS notification permission result:', permission);
-      
-      if (permission === 'granted') {
-        console.log('✅ iOS notifications enabled successfully!');
-        
-        // Register service worker for background notifications
-        if ('serviceWorker' in navigator) {
-          try {
-            await navigator.serviceWorker.register('sw.js');
-            console.log('✅ Service Worker registered for background notifications');
-          } catch (error) {
-            console.log('Service Worker registration failed:', error);
-          }
-        }
-        
-        // Show a welcome notification
-        setTimeout(() => {
-          try {
-            new Notification('🎉 TaskMaster Pro', {
-              body: 'Notifications enabled! You\'ll get reminders for your tasks.',
-              icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K',
-              badge: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K'
-            });
-          } catch (error) {
-            console.log('Could not show welcome notification:', error);
-          }
-        }, 500);
-        
-        return true;
-      } else {
-        console.log('❌ iOS notifications denied by user');
-        return false;
-      }
-    } catch (error) {
-      console.error('❌ Error requesting iOS notifications:', error);
-      return false;
-    }
-  }
-  
-  // Permission was denied
-  console.log('❌ iOS notification permission was previously denied');
-  return false;
-}
-
-async function requestUniversalNotificationPermission() {
-  console.log('Requesting notification permission for all browsers');
-  
-  if (!('Notification' in window)) {
-    console.log('Notifications not supported in this browser');
-    alert('Notifications are not supported in this browser. Please try a modern browser like Chrome, Firefox, Safari, or Edge.');
-    return false;
-  }
-  
-  try {
-    // Request permission using standard Web API
-    const permission = await Notification.requestPermission();
-    console.log('Permission result:', permission);
-    
-    if (permission === 'granted') {
-      console.log('✅ Notifications granted!');
-      
-      // Update UI (no test notification)
-      updateNotificationControls();
-      return true;
-    } else if (permission === 'denied') {
-      console.log('❌ Notifications denied');
-      updateNotificationControls();
-      return false;
-    } else {
-      console.log('⚠️ Notification permission was dismissed');
-      updateNotificationControls();
-      return false;
-    }
-  } catch (error) {
-    console.error('Error requesting notification permission:', error);
-    alert('There was an error requesting notification permission. Please check your browser settings.');
-    return false;
-  }
-}
-
-// Check first visit and request notifications like Windows
-async function checkFirstVisitAndRequestNotifications() {
-  if (!("Notification" in window)) {
-    console.log("Notifications not supported");
+// === NOTIFICATION CHECKER ===
+// Notification checker function (checks for upcoming tasks and sends notifications)
     return;
   }
 
