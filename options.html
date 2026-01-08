@@ -665,24 +665,57 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       const statusSpan = document.getElementById('notificationStatus');
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       
       if (isIOS) {
-        if (window.oneSignalEnabled) {
-          statusSpan.textContent = "iOS notifications active (OneSignal)";
-        } else if (window.iosNativeNotificationsAvailable && Notification.permission === 'granted') {
-          statusSpan.textContent = "iOS notifications active (Native Web Push)";
-        } else if (window.iosNativeNotificationsAvailable) {
-          statusSpan.textContent = "iOS native notifications available - permission needed";
-        } else {
-          statusSpan.textContent = "iOS notifications pending setup";
+        // For iOS Safari with OneSignal
+        if (isSafari && window.OneSignal) {
+          window.OneSignal.push(function() {
+            window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+              if (isEnabled) {
+                statusSpan.textContent = "iOS notifications active (OneSignal)";
+                statusSpan.style.color = "#059669";
+              } else {
+                statusSpan.textContent = "iOS notifications not enabled - check the box below";
+                statusSpan.style.color = "#f59e0b";
+              }
+            });
+          });
+        } 
+        // For iOS with native Web Notifications (iOS 16.4+ on Firefox/Chrome)
+        else if ('Notification' in window) {
+          if (Notification.permission === 'granted') {
+            statusSpan.textContent = "iOS notifications active (Native Web Push)";
+            statusSpan.style.color = "#059669";
+          } else if (Notification.permission === 'denied') {
+            statusSpan.textContent = "iOS notifications blocked - check iOS Settings";
+            statusSpan.style.color = "#dc2626";
+          } else {
+            statusSpan.textContent = "iOS notifications available - check the box below";
+            statusSpan.style.color = "#f59e0b";
+          }
+        } 
+        // No notification support detected
+        else {
+          statusSpan.textContent = "iOS notifications not available on this browser";
+          statusSpan.style.color = "#6b7280";
         }
       } else {
-        if (Notification && Notification.permission === 'granted') {
-          statusSpan.textContent = "Desktop notifications enabled";
-        } else if (Notification && Notification.permission === 'denied') {
-          statusSpan.textContent = "Desktop notifications blocked";
+        // Desktop notifications
+        if ('Notification' in window) {
+          if (Notification.permission === 'granted') {
+            statusSpan.textContent = "Desktop notifications enabled";
+            statusSpan.style.color = "#059669";
+          } else if (Notification.permission === 'denied') {
+            statusSpan.textContent = "Desktop notifications blocked - check browser settings";
+            statusSpan.style.color = "#dc2626";
+          } else {
+            statusSpan.textContent = "Desktop notifications not configured - check the box below";
+            statusSpan.style.color = "#f59e0b";
+          }
         } else {
-          statusSpan.textContent = "Desktop notifications not configured";
+          statusSpan.textContent = "Notifications not supported in this browser";
+          statusSpan.style.color = "#6b7280";
         }
       }
     }
@@ -863,10 +896,25 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       
       loadVoiceSettings();
       
-      setTimeout(function() {
-        checkNotificationStatus();
-        setupNotificationCheckbox();
-      }, 2000);
+      // Check notification status with proper OneSignal initialization wait
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      
+      // For iOS Safari with OneSignal, wait for it to be ready
+      if (isIOS && isSafari && typeof window.OneSignal !== 'undefined') {
+        window.OneSignal.push(function() {
+          // OneSignal is now ready
+          checkNotificationStatus();
+          setupNotificationCheckbox();
+        });
+      } else {
+        // For non-OneSignal platforms, check immediately with small delay for DOM
+        setTimeout(function() {
+          checkNotificationStatus();
+          setupNotificationCheckbox();
+        }, 100);
+      }
       
       displayUserId();
     });
@@ -896,67 +944,108 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       
       if (!checkbox) return;
       
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       
+      // Set initial checkbox state based on current notification permission
       if (isIOS && isSafari && window.OneSignal) {
-        OneSignal.push(function() {
-          OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+        window.OneSignal.push(function() {
+          window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
             checkbox.checked = isEnabled;
           });
         });
+      } else if ('Notification' in window) {
+        checkbox.checked = Notification.permission === 'granted';
       } else {
-        checkbox.checked = Notification && Notification.permission === 'granted';
+        checkbox.checked = false;
       }
       
+      // Handle checkbox change event
       checkbox.addEventListener('change', function() {
         if (this.checked) {
           triggerNotificationPrompt();
         } else {
           statusSpan.textContent = "Notifications disabled";
+          statusSpan.style.color = "#6b7280";
         }
       });
     }
     
     function triggerNotificationPrompt() {
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       const statusSpan = document.getElementById('notificationStatus');
       const checkbox = document.getElementById('enableNotifications');
       
+      // iOS Safari with OneSignal
       if (isIOS && isSafari && window.OneSignal) {
-        OneSignal.push(function() {
-          OneSignal.showNativePrompt().then(function() {
+        statusSpan.textContent = "Requesting iOS notification permission...";
+        statusSpan.style.color = "#3b82f6";
+        
+        window.OneSignal.push(function() {
+          // Try to show native prompt first
+          window.OneSignal.showNativePrompt().then(function() {
+            // Wait for user response
             setTimeout(() => {
-              OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+              window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
                 if (isEnabled) {
-                  statusSpan.textContent = "Notifications enabled";
+                  statusSpan.textContent = "iOS notifications enabled (OneSignal)";
+                  statusSpan.style.color = "#059669";
                   checkbox.checked = true;
                 } else {
-                  statusSpan.textContent = "Notifications denied";
+                  statusSpan.textContent = "iOS notifications not enabled - permission denied";
+                  statusSpan.style.color = "#dc2626";
                   checkbox.checked = false;
                 }
               });
             }, 1000);
-          }).catch(function() {
-            OneSignal.registerForPushNotifications().catch(function() {
-              statusSpan.textContent = "Notifications denied";
+          }).catch(function(error) {
+            console.log('showNativePrompt failed, trying registerForPushNotifications:', error);
+            
+            // Fallback to registerForPushNotifications
+            window.OneSignal.registerForPushNotifications().then(function() {
+              setTimeout(() => {
+                window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+                  if (isEnabled) {
+                    statusSpan.textContent = "iOS notifications enabled (OneSignal)";
+                    statusSpan.style.color = "#059669";
+                    checkbox.checked = true;
+                  } else {
+                    statusSpan.textContent = "iOS notifications not enabled - permission needed";
+                    statusSpan.style.color = "#f59e0b";
+                    checkbox.checked = false;
+                  }
+                });
+              }, 1000);
+            }).catch(function(error) {
+              console.error('OneSignal registration failed:', error);
+              statusSpan.textContent = "iOS notifications setup failed - check HTTPS and settings";
+              statusSpan.style.color = "#dc2626";
               checkbox.checked = false;
             });
           });
         });
-          
-        } else {
-          tryIOSNativeNotifications();
-        }
-      } else {
-        if (Notification) {
+      } 
+      // iOS with native notifications (non-Safari browsers)
+      else if (isIOS && 'Notification' in window) {
+        tryIOSNativeNotifications();
+      } 
+      // Desktop notifications
+      else {
+        if ('Notification' in window) {
           if (Notification.permission === 'default') {
+            statusSpan.textContent = "Requesting notification permission...";
+            statusSpan.style.color = "#3b82f6";
+            
             Notification.requestPermission().then(function(permission) {
               if (permission === 'granted') {
-                statusSpan.textContent = "Notifications enabled";
+                statusSpan.textContent = "Desktop notifications enabled";
+                statusSpan.style.color = "#059669";
                 checkbox.checked = true;
                 
+                // Show welcome notification
                 setTimeout(() => {
                   new Notification('TaskMaster Pro', {
                     body: 'Notifications enabled! You\'ll get reminders when tasks are due.',
@@ -964,19 +1053,23 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
                   });
                 }, 500);
               } else {
-                statusSpan.textContent = "Notifications denied";
+                statusSpan.textContent = "Desktop notifications denied";
+                statusSpan.style.color = "#dc2626";
                 checkbox.checked = false;
               }
             });
           } else if (Notification.permission === 'granted') {
-            statusSpan.textContent = "Notifications already enabled";
+            statusSpan.textContent = "Desktop notifications already enabled";
+            statusSpan.style.color = "#059669";
             checkbox.checked = true;
           } else {
-            statusSpan.textContent = "Notifications denied - check browser settings";
+            statusSpan.textContent = "Desktop notifications blocked - check browser settings";
+            statusSpan.style.color = "#dc2626";
             checkbox.checked = false;
           }
         } else {
-          statusSpan.textContent = "Notifications not supported";
+          statusSpan.textContent = "Notifications not supported in this browser";
+          statusSpan.style.color = "#6b7280";
           checkbox.checked = false;
         }
       }
