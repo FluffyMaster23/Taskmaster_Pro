@@ -380,6 +380,30 @@ function initializeNativeNotifications() {
   }
 }
 
+// === SERVICE WORKER COMMUNICATION ===
+async function sendTasksToServiceWorker() {
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    const tasks = getTasks();
+    console.log('[Main] Sending tasks to service worker:', tasks.length);
+    
+    navigator.serviceWorker.controller.postMessage({
+      type: 'UPDATE_TASKS',
+      tasks: tasks
+    });
+  }
+}
+
+// Listen for messages from service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'GET_TASKS') {
+      // Service worker is requesting tasks
+      const tasks = getTasks();
+      event.ports[0].postMessage({ tasks: tasks });
+    }
+  });
+}
+
 // === TASK NOTIFICATION SCHEDULING ===
 // Simplified task reminder function for FCM
 function scheduleTaskNotification(task) {
@@ -1383,10 +1407,16 @@ function startNotificationChecker() {
   if (!window._reminderTaskIds) window._reminderTaskIds = new Set();
   if (!window._spokenTaskIds) window._spokenTaskIds = new Set();
   
+  // Send tasks to service worker for background checking
+  sendTasksToServiceWorker();
+  
   // === REMINDER CHECKER
 setInterval(() => {
   const now = new Date();
   const all = getTasks();
+  
+  // Also send tasks to service worker each interval
+  sendTasksToServiceWorker();
   
   console.log(`⏰ Notification check: ${all.length} tasks found at ${now.toLocaleTimeString()}`);
 

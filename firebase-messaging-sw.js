@@ -76,3 +76,109 @@ self.addEventListener('notificationclick', (event) => {
       })
   );
 });
+
+// === BACKGROUND TASK CHECKING ===
+// Store tasks in memory (sent from main app)
+let cachedTasks = [];
+
+// Listen for task updates from the main app
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'UPDATE_TASKS') {
+    cachedTasks = event.data.tasks || [];
+    console.log('[SW] Tasks updated:', cachedTasks.length);
+    // Immediately check for due tasks
+    checkTasksAndNotify();
+  } else if (event.data && event.data.type === 'CHECK_TASKS') {
+    checkTasksAndNotify();
+  }
+});
+
+// Check tasks periodically (every minute when SW wakes up)
+self.addEventListener('periodicsync', (event) => {
+  if (event.tag === 'check-tasks') {
+    event.waitUntil(checkTasksAndNotify());
+  }
+});
+
+// Check on service worker activation
+self.addEventListener('activate', (event) => {
+  console.log('[firebase-messaging-sw.js] Service Worker activated');
+  event.waitUntil(
+    self.clients.claim().then(() => {
+      console.log('[SW] Service Worker now controls all pages');
+    })
+  );
+});
+
+// Set up periodic task checking (runs every minute in background)
+setInterval(() => {
+  checkTasksAndNotify();
+}, 60000); // Check every minute
+
+// Track notified tasks to avoid duplicates
+const notifiedTaskIds = new Set();
+const reminderTaskIds = new Set();
+
+async function checkTasksAndNotify() {
+  console.log('[SW] Checking for due tasks...', cachedTasks.length, 'tasks');
+  
+  try {
+    const now = new Date();
+    
+    cachedTasks.forEach(task => {
+      const due = new Date(task.time);
+      const timeDiff = due - now;
+      const reminderMinutes = task.reminderMinutes || 0;
+      const reminderTime = reminderMinutes * 60 * 1000;
+      
+      console.log(`[SW] Task "${task.task}" - Due: ${due.toLocaleString()}, Diff: ${Math.round(timeDiff/1000/60)}min`);
+      
+      // Check if task is due now (within 1 minute window)
+      if (timeDiff <= 60000 && timeDiff >= -60000 && !notifiedTaskIds.has(task.id)) {
+        console.log('[SW] 🔔 Task due now:', task.task);
+        notifiedTaskIds.add(task.id);
+        showTaskNotification(task, false);
+      }
+      // Check if reminder should be sent
+      else if (reminderMinutes > 0 && timeDiff <= reminderTime && timeDiff > reminderTime - 60000 && !reminderTaskIds.has(task.id)) {
+        console.log('[SW] ⏰ Sending reminder:', task.task);
+        reminderTaskIds.add(task.id);
+        showTaskNotification(task, true);
+      }
+    });
+  } catch (error) {
+    console.error('[SW] Error checking tasks:', error);
+  }
+}
+
+async function getTasksFromStorage() {
+  // Return cached tasks (sent from main app)
+  return cachedTasks;
+}
+
+function showTaskNotification(task, isReminder) {
+  const title = isReminder ? `⏰ Reminder: ${task.task}` : `🔔 Task Due: ${task.task}`;
+  const body = isReminder 
+    ? `Due in ${task.reminderMinutes} minutes` 
+    : 'This task is due now!';
+  
+  self.registration.showNotification(title, {
+    body: body,
+    icon: '/favicon.ico',
+    badge: '/favicon.ico',
+    tag: `task-${task.id}`,
+    requireInteraction: !isReminder,
+    vibrate: [200, 100, 200],
+    data: { taskId: task.id, task: task },
+    actions: [
+      {
+        action: 'open',
+        title: 'Open Task'
+      },
+      {
+        action: 'dismiss',
+        title: 'Dismiss'
+      }
+    ]
+  });
+}
