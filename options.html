@@ -963,6 +963,10 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       checkbox.addEventListener('change', function() {
         if (this.checked) {
           requestNotificationPermission();
+        } else {
+          // Unchecking - just update status
+          statusSpan.textContent = "Notifications disabled";
+          statusSpan.style.color = "#6b7280";
         }
       });
     }
@@ -974,19 +978,29 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       const statusSpan = document.getElementById('notificationStatus');
       const checkbox = document.getElementById('enableNotifications');
       
+      console.log('🔔 Requesting notification permission...');
+      console.log('Platform:', { isIOS, isSafari });
+      
       if (isIOS && isSafari && window.OneSignal) {
         // iOS Safari → OneSignal
+        console.log('📱 Using OneSignal for iOS Safari');
         statusSpan.textContent = "Requesting permission...";
         statusSpan.style.color = "#3b82f6";
         
         window.OneSignal.push(function() {
+          console.log('OneSignal ready, showing native prompt...');
+          
+          // First try showNativePrompt (recommended method)
           window.OneSignal.showNativePrompt().then(function() {
+            console.log('✅ Native prompt shown successfully');
             setTimeout(() => {
               window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+                console.log('OneSignal enabled status:', isEnabled);
                 if (isEnabled) {
                   statusSpan.textContent = "iOS notifications enabled ✅";
                   statusSpan.style.color = "#059669";
                   checkbox.checked = true;
+                  alert('✅ Push notifications enabled! You\'ll now receive task reminders.');
                 } else {
                   statusSpan.textContent = "Permission denied";
                   statusSpan.style.color = "#dc2626";
@@ -994,32 +1008,85 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
                 }
               });
             }, 1000);
-          }).catch(function() {
-            window.OneSignal.registerForPushNotifications().catch(function() {
+          }).catch(function(error) {
+            console.log('⚠️ showNativePrompt failed, trying registerForPushNotifications...', error);
+            
+            // Fallback to registerForPushNotifications
+            window.OneSignal.registerForPushNotifications().then(function() {
+              console.log('✅ Registered for push notifications');
+              setTimeout(() => {
+                window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+                  if (isEnabled) {
+                    statusSpan.textContent = "iOS notifications enabled ✅";
+                    statusSpan.style.color = "#059669";
+                    checkbox.checked = true;
+                    alert('✅ Push notifications enabled! You\'ll now receive task reminders.');
+                  } else {
+                    statusSpan.textContent = "Permission pending...";
+                    statusSpan.style.color = "#f59e0b";
+                    checkbox.checked = false;
+                  }
+                });
+              }, 1000);
+            }).catch(function(err) {
+              console.error('❌ registerForPushNotifications failed:', err);
               statusSpan.textContent = "Permission denied";
               statusSpan.style.color = "#dc2626";
               checkbox.checked = false;
+              alert('❌ Failed to enable notifications. Please check iOS Settings → Safari → Notifications.');
             });
           });
         });
       } else if ('Notification' in window) {
-        // Desktop → Native/FCM
-        Notification.requestPermission().then(function(permission) {
-          if (permission === 'granted') {
-            statusSpan.textContent = "Notifications enabled ✅";
-            statusSpan.style.color = "#059669";
-            checkbox.checked = true;
-            
-            new Notification('TaskMaster Pro', {
-              body: 'Notifications enabled!',
-              icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K'
-            });
-          } else {
-            statusSpan.textContent = "Permission denied";
+        // Desktop/Other browsers → Native/FCM
+        console.log('🖥️ Using native notifications');
+        
+        if (Notification.permission === 'granted') {
+          console.log('✅ Permission already granted');
+          statusSpan.textContent = "Notifications enabled ✅";
+          statusSpan.style.color = "#059669";
+          checkbox.checked = true;
+          
+          new Notification('TaskMaster Pro', {
+            body: 'Notifications are already enabled!',
+            icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K'
+          });
+        } else {
+          console.log('📢 Requesting notification permission...');
+          statusSpan.textContent = "Requesting permission...";
+          statusSpan.style.color = "#3b82f6";
+          
+          Notification.requestPermission().then(function(permission) {
+            console.log('Permission result:', permission);
+            if (permission === 'granted') {
+              statusSpan.textContent = "Notifications enabled ✅";
+              statusSpan.style.color = "#059669";
+              checkbox.checked = true;
+              
+              new Notification('TaskMaster Pro', {
+                body: 'Push notifications enabled! You\'ll now receive task reminders.',
+                icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K'
+              });
+              alert('✅ Push notifications enabled! You\'ll now receive task reminders.');
+            } else {
+              statusSpan.textContent = "Permission denied";
+              statusSpan.style.color = "#dc2626";
+              checkbox.checked = false;
+              alert('❌ Notification permission denied. You can enable it in your browser settings.');
+            }
+          }).catch(function(error) {
+            console.error('❌ Permission request failed:', error);
+            statusSpan.textContent = "Permission request failed";
             statusSpan.style.color = "#dc2626";
             checkbox.checked = false;
-          }
-        });
+          });
+        }
+      } else {
+        console.log('❌ Notifications not supported');
+        statusSpan.textContent = "Notifications not supported";
+        statusSpan.style.color = "#dc2626";
+        checkbox.checked = false;
+        alert('❌ Notifications are not supported in this browser.');
       }
     }
     
