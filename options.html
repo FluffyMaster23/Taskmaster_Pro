@@ -211,8 +211,31 @@
 
   <script src="todo.js"></script>
   <script>
+    // Immediate execution - set user ID right away
+    console.log('🚀 Options.html script loaded');
+    console.log('Document ready state:', document.readyState);
+    
+    // Try to display user ID immediately if DOM is ready
+    if (document.readyState === 'loading') {
+      console.log('DOM still loading, will wait for DOMContentLoaded');
+    } else {
+      console.log('DOM already loaded, executing immediately');
+      setTimeout(function() {
+        const elem = document.getElementById('currentUserId');
+        if (elem) {
+          const userId = localStorage.getItem('taskmaster_user_id') || 
+                        'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+          localStorage.setItem('taskmaster_user_id', userId);
+          elem.textContent = userId;
+          console.log('✅ User ID set immediately:', userId);
+        }
+      }, 10);
+    }
+    
     // Enhanced test notification function for iOS debugging
     function testNotification() {
+      console.log('🧪 TEST NOTIFICATION BUTTON CLICKED');
+      alert('Test notification button clicked! Check console for details.');
       console.log('Testing notification...');
       
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
@@ -412,7 +435,9 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
         if ('Notification' in window) {
           if (Notification.permission === 'granted') {
             const notification = new Notification('🧪 TaskMaster Pro Test', {
-              body: 'Desktop notification is working! ✅',
+              body: 'DDEBUG BUTTON CLICKED');
+      alert('Debug button clicked! Check console for details.');
+      console.log('🔍 esktop notification is working! ✅',
               icon: '/favicon.ico'
             });
             
@@ -909,19 +934,28 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
     
     // Display user ID function
     function displayUserId() {
+      console.log('Displaying user ID...');
+      
       // Get user ID (same logic as in todo.js and list.html)
       function getUserId() {
         let userId = localStorage.getItem('taskmaster_user_id');
         if (!userId) {
           userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
           localStorage.setItem('taskmaster_user_id', userId);
+          console.log('Created new user ID:', userId);
+        } else {
+          console.log('Found existing user ID:', userId);
         }
         return userId;
       }
       
       const userIdElement = document.getElementById('currentUserId');
       if (userIdElement) {
-        userIdElement.textContent = getUserId();
+        const userId = getUserId();
+        userIdElement.textContent = userId;
+        console.log('✅ User ID displayed:', userId);
+      } else {
+        console.error('❌ currentUserId element not found!');
       }
     }
     
