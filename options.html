@@ -975,32 +975,11 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-      const isFirefox = /firefox/i.test(navigator.userAgent);
-      const isChrome = /CriOS/i.test(navigator.userAgent); // Chrome on iOS
       const statusSpan = document.getElementById('notificationStatus');
       const checkbox = document.getElementById('enableNotifications');
       
-      // Get iOS version if on iOS
-      let iOSVersion = null;
-      if (isIOS) {
-        const match = navigator.userAgent.match(/OS (\d+)_?(\d+)?/);
-        if (match) {
-          iOSVersion = parseInt(match[1]);
-        }
-      }
-      
       console.log('🔔 Requesting notification permission...');
-      console.log('Platform:', { 
-        isIOS, 
-        isSafari, 
-        isFirefox, 
-        isChrome,
-        iOSVersion,
-        userAgent: navigator.userAgent,
-        hasOneSignal: !!window.OneSignal,
-        hasNotificationAPI: 'Notification' in window,
-        notificationPermission: typeof Notification !== 'undefined' ? Notification.permission : 'N/A'
-      });
+      console.log('Platform:', { isIOS, isSafari });
       
       // Always use native notifications first for desktop browsers
       if (!isIOS && 'Notification' in window) {
@@ -1050,22 +1029,9 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
         return; // Exit early for desktop
       }
       
-      // iOS handling
-      if (isIOS) {
-        console.log(`📱 iOS ${iOSVersion || 'unknown'} detected`);
-        
-        // Check iOS version requirements
-        if (iOSVersion && iOSVersion < 16) {
-          statusSpan.textContent = "iOS 16.4+ required";
-          statusSpan.style.color = "#dc2626";
-          checkbox.checked = false;
-          alert(`ℹ️ Your iOS version (${iOSVersion}) is too old.\n\nNotifications require iOS 16.4 or newer.\n\nPlease update iOS: Settings → General → Software Update`);
-          return;
-        }
-        
-        // iOS Safari with OneSignal (best option)
-        if (isSafari && window.OneSignal) {
-          console.log('📱 Using OneSignal for iOS Safari');
+      if (isIOS && isSafari && window.OneSignal) {
+        // iOS Safari → OneSignal
+        console.log('📱 Using OneSignal for iOS Safari');
         
         window.OneSignal.push(function() {
           // First check current status
@@ -1082,6 +1048,43 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
             
             // Not enabled yet - try to show prompt
             console.log('OneSignal ready, showing native Apple prompt...');
+            statusSpan.textContent = "Requesting permission...";
+            statusSpan.style.color = "#3b82f6";
+            
+            // Try showNativePrompt first (shows Apple's native dialog)
+            window.OneSignal.showNativePrompt().then(function() {
+              console.log('✅ Native Apple prompt shown');
+              setTimeout(() => {
+                window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+                  if (isEnabled) {
+                    statusSpan.textContent = "iOS notifications enabled ✅";
+                    statusSpan.style.color = "#059669";
+                    checkbox.checked = true;
+                    alert('✅ Push notifications enabled!');
+                  } else {
+                    statusSpan.textContent = "Permission not granted";
+                    statusSpan.style.color = "#f59e0b";
+                    checkbox.checked = false;
+                  }
+                });
+              }, 1000);
+            }).catch(function(error) {
+              console.log('⚠️ showNativePrompt error:', error);
+              statusSpan.textContent = "Already configured - check iOS settings";
+              statusSpan.style.color = "#6b7280";
+              checkbox.checked = false;
+              alert('ℹ️ You already chose notification settings.\n\nTo change:\n1. iOS Settings → Safari → Advanced → Website Data\n2. Find and remove this site\n3. Refresh page and try again');
+            });
+          });
+        });
+      } else {
+        // Non-iOS/Safari
+        console.log('❌ iOS notifications not available without Safari + OneSignal');
+        statusSpan.textContent = "Not supported on mobile";
+        statusSpan.style.color = "#6b7280";
+        checkbox.checked = false;
+      }
+    }
             statusSpan.textContent = "Requesting permission...";
             statusSpan.style.color = "#3b82f6";
             
