@@ -34,6 +34,26 @@ async function getAllSections() {
   return [...DEFAULT_SECTIONS, ...customListNames];
 }
 
+async function syncFirebaseToLocal() {
+  if (window.currentUser && !window.isGuestMode && typeof loadCustomLists === 'function') {
+    try {
+      const customLists = await loadCustomLists();
+      const customListNames = customLists.map(list => list.name);
+      const userId = getUserId();
+      const userCustomListsKey = `taskmaster_custom_section_names_${userId}`;
+      localStorage.setItem(userCustomListsKey, JSON.stringify(customListNames));
+      
+      const tasks = await loadTasks();
+      localStorage.setItem('todos', JSON.stringify(tasks));
+      
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+  return false;
+}
+
 // Dynamic SECTIONS array that includes custom lists (will be updated async)
 let SECTIONS = [];
 
