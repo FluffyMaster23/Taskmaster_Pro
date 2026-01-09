@@ -1032,65 +1032,133 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       if (isIOS && isSafari && window.OneSignal) {
         // iOS Safari → OneSignal
         console.log('📱 Using OneSignal for iOS Safari');
-        statusSpan.textContent = "Requesting permission...";
-        statusSpan.style.color = "#3b82f6";
         
         window.OneSignal.push(function() {
-          console.log('OneSignal ready, showing native prompt...');
-          
-          // First try showNativePrompt (recommended method)
-          window.OneSignal.showNativePrompt().then(function() {
-            console.log('✅ Native prompt shown successfully');
-            setTimeout(() => {
-              window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
-                console.log('OneSignal enabled status:', isEnabled);
-                if (isEnabled) {
-                  statusSpan.textContent = "iOS notifications enabled ✅";
-                  statusSpan.style.color = "#059669";
-                  checkbox.checked = true;
-                  alert('✅ Push notifications enabled! You\'ll now receive task reminders.');
-                } else {
-                  statusSpan.textContent = "Permission denied";
-                  statusSpan.style.color = "#dc2626";
-                  checkbox.checked = false;
-                }
-              });
-            }, 1000);
-          }).catch(function(error) {
-            console.log('⚠️ showNativePrompt failed, trying registerForPushNotifications...', error);
+          // First check current status
+          window.OneSignal.isPushNotificationsEnabled(function(isAlreadyEnabled) {
+            if (isAlreadyEnabled) {
+              // Already enabled - just confirm
+              console.log('✅ Notifications already enabled');
+              statusSpan.textContent = "iOS notifications enabled ✅";
+              statusSpan.style.color = "#059669";
+              checkbox.checked = true;
+              alert('✅ Push notifications are already enabled!');
+              return;
+            }
             
-            // Fallback to registerForPushNotifications
-            window.OneSignal.registerForPushNotifications().then(function() {
-              console.log('✅ Registered for push notifications');
+            // Not enabled yet - try to show prompt
+            console.log('OneSignal ready, showing native Apple prompt...');
+            statusSpan.textContent = "Requesting permission...";
+            statusSpan.style.color = "#3b82f6";
+            
+            // Try showNativePrompt first (shows Apple's native dialog)
+            window.OneSignal.showNativePrompt().then(function() {
+              console.log('✅ Native Apple prompt shown');
               setTimeout(() => {
                 window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+                  console.log('OneSignal enabled status:', isEnabled);
                   if (isEnabled) {
                     statusSpan.textContent = "iOS notifications enabled ✅";
                     statusSpan.style.color = "#059669";
                     checkbox.checked = true;
                     alert('✅ Push notifications enabled! You\'ll now receive task reminders.');
                   } else {
-                    statusSpan.textContent = "Permission pending...";
+                    statusSpan.textContent = "Permission not granted";
                     statusSpan.style.color = "#f59e0b";
                     checkbox.checked = false;
+                    alert('ℹ️ You didn\'t allow notifications. To enable:\n\n1. iOS Settings → Safari → Advanced\n2. Website Data → Find this site\n3. Remove, then refresh and try again\n\nOr allow when the Apple prompt appears.');
                   }
                 });
               }, 1000);
-            }).catch(function(err) {
-              console.error('❌ registerForPushNotifications failed:', err);
-              statusSpan.textContent = "Permission denied";
-              statusSpan.style.color = "#dc2626";
-              checkbox.checked = false;
-              alert('❌ Failed to enable notifications. Please check iOS Settings → Safari → Notifications.');
+            }).catch(function(error) {
+              console.log('⚠️ showNativePrompt error:', error);
+              
+              // Check if already denied/decided
+              if (error.message && error.message.includes('already')) {
+                alert('ℹ️ You already chose notification settings.\n\nTo change:\n1. iOS Settings → Safari → Advanced → Website Data\n2. Find and remove this site\n3. Refresh page and try again\n\nOr check: iOS Settings → Safari → Notifications');
+                statusSpan.textContent = "Already configured - check iOS settings";
+                statusSpan.style.color = "#6b7280";
+                checkbox.checked = false;
+              } else {
+                // Try fallback method
+                console.log('Trying registerForPushNotifications fallback...');
+                window.OneSignal.registerForPushNotifications().then(function() {
+                  console.log('✅ Registration successful');
+                  setTimeout(() => {
+                    window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+                      if (isEnabled) {
+                        statusSpan.textContent = "iOS notifications enabled ✅";
+                        statusSpan.style.color = "#059669";
+                        checkbox.checked = true;
+                        alert('✅ Push notifications enabled!');
+                      } else {
+                        statusSpan.textContent = "Permission pending";
+                        statusSpan.style.color = "#f59e0b";
+                        checkbox.checked = false;
+                      }
+                    });
+                  }, 1000);
+                }).catch(function(err) {
+                  console.error('❌ All methods failed:', err);
+                  statusSpan.textContent = "Setup needed - check settings";
+                  statusSpan.style.color = "#dc2626";
+                  checkbox.checked = false;
+                  alert('ℹ️ Notification setup issue.\n\nTroubleshooting:\n1. iOS Settings → Safari → Notifications (must be ON)\n2. Must use HTTPS (not localhost)\n3. Clear site data and try again\n\nSettings → Safari → Advanced → Website Data');
+                });
+              }
             });
           });
         });
+      } else if (isIOS) {
+        // iOS but not Safari - likely Firefox/Chrome on iOS
+        console.log('📱 iOS detected but not Safari - checking native notifications...');
+        
+        if ('Notification' in window) {
+          if (Notification.permission === 'granted') {
+            statusSpan.textContent = "iOS notifications enabled ✅";
+            statusSpan.style.color = "#059669";
+            checkbox.checked = true;
+            new Notification('TaskMaster Pro', {
+              body: 'Notifications already enabled on iOS!',
+              icon: '/favicon.ico'
+            });
+          } else if (Notification.permission === 'denied') {
+            statusSpan.textContent = "Blocked - check iOS settings";
+            statusSpan.style.color = "#dc2626";
+            checkbox.checked = false;
+            alert('ℹ️ Notifications blocked.\n\nTo enable:\nIOS Settings → ' + (navigator.userAgent.includes('Firefox') ? 'Firefox' : 'Chrome') + ' → Notifications');
+          } else {
+            // Request permission
+            Notification.requestPermission().then(function(permission) {
+              if (permission === 'granted') {
+                statusSpan.textContent = "iOS notifications enabled ✅";
+                statusSpan.style.color = "#059669";
+                checkbox.checked = true;
+                new Notification('TaskMaster Pro', {
+                  body: 'Push notifications enabled!',
+                  icon: '/favicon.ico'
+                });
+                alert('✅ Notifications enabled!');
+              } else {
+                statusSpan.textContent = "Not allowed";
+                statusSpan.style.color = "#f59e0b";
+                checkbox.checked = false;
+              }
+            });
+          }
+        } else {
+          statusSpan.textContent = "Not supported on this iOS browser";
+          statusSpan.style.color = "#6b7280";
+          checkbox.checked = false;
+          alert('ℹ️ Notifications not supported on this iOS browser.\n\nTry: Safari (iOS 16.4+) or Firefox/Chrome (iOS 16.4+)');
+        }
       } else {
         // Mobile browsers that don't support notifications (expected)
         console.log('❌ Notifications not supported on this platform');
         statusSpan.textContent = "Not supported on mobile";
         statusSpan.style.color = "#6b7280";
         checkbox.checked = false;
+        alert('ℹ️ Notifications not supported on this mobile browser.');
       }
     }
     
