@@ -15,43 +15,31 @@ function getUserId() {
 
 // Function to get all sections (default + user's custom lists)
 async function getAllSections() {
+  console.log('🔍 getAllSections called');
+  console.log('📊 Current user:', window.currentUser ? window.currentUser.uid : 'None');
+  console.log('🎭 Guest mode:', window.isGuestMode);
+  
+  // Try to load from Firebase first if user is logged in
   if (window.currentUser && !window.isGuestMode && typeof loadCustomLists === 'function') {
     try {
+      console.log('☁️ Loading custom lists from Firebase...');
       const customLists = await loadCustomLists();
+      console.log('📦 Custom lists loaded:', customLists);
       const customListNames = customLists.map(list => list.name);
-      
-      const userId = getUserId();
-      const userCustomListsKey = `taskmaster_custom_section_names_${userId}`;
-      localStorage.setItem(userCustomListsKey, JSON.stringify(customListNames));
-      
+      console.log('📝 List names:', customListNames);
       return [...DEFAULT_SECTIONS, ...customListNames];
-    } catch (error) {}
+    } catch (error) {
+      console.error('❌ Error loading custom lists from Firebase:', error);
+    }
   }
   
+  // Fallback to localStorage
+  console.log('💾 Loading from localStorage...');
   const userId = getUserId();
   const userCustomListsKey = `taskmaster_custom_section_names_${userId}`;
   const customListNames = JSON.parse(localStorage.getItem(userCustomListsKey) || '[]');
+  console.log('📝 localStorage list names:', customListNames);
   return [...DEFAULT_SECTIONS, ...customListNames];
-}
-
-async function syncFirebaseToLocal() {
-  if (window.currentUser && !window.isGuestMode && typeof loadCustomLists === 'function') {
-    try {
-      const customLists = await loadCustomLists();
-      const customListNames = customLists.map(list => list.name);
-      const userId = getUserId();
-      const userCustomListsKey = `taskmaster_custom_section_names_${userId}`;
-      localStorage.setItem(userCustomListsKey, JSON.stringify(customListNames));
-      
-      const tasks = await loadTasks();
-      localStorage.setItem('todos', JSON.stringify(tasks));
-      
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }
-  return false;
 }
 
 // Dynamic SECTIONS array that includes custom lists (will be updated async)

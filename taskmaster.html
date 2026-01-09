@@ -140,16 +140,16 @@
         window.currentUser = user;
         window.isGuestMode = false;
         
+        // Set user presence to online
         await setUserPresence(user, true);
         
-        if (typeof syncFirebaseToLocal === 'function') {
-          await syncFirebaseToLocal();
-        }
-        
+        // Reload sections from Firebase after authentication
+        console.log('User authenticated, loading lists from Firebase...');
         if (typeof createSections === 'function') {
           await createSections();
         }
         
+        // Show admin link if user is admin
         if (adminLink) {
           const userEmail = user.email ? user.email.toLowerCase().trim() : '';
           const adminEmail = 'fluffyfighter23@gmx.de';
@@ -163,6 +163,8 @@
         window.currentUser = null;
         window.isGuestMode = true;
         
+        // Reload sections for guest mode
+        console.log('Guest mode, loading local lists...');
         if (typeof createSections === 'function') {
           await createSections();
         }
