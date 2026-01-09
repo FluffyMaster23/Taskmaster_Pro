@@ -186,13 +186,13 @@
     <p style="font-size: 0.9em; color: #f59e0b; margin-top: 10px;"><strong>Note for iOS:</strong> Notifications require the app to be deployed on HTTPS. Local development (localhost) may not support OneSignal notifications on iOS devices.</p>
     
     <!-- Test Notification Button -->
-    <button onclick="testNotification()" style="margin-top: 15px; background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
+    <button id="testBtn" style="margin-top: 15px; background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
       Test Notification
     </button>
     <p style="font-size: 0.8em; color: #6b7280; margin-top: 5px;">Click to test if notifications are working on your device.</p>
     
     <!-- Debug Button for iOS -->
-    <button onclick="debugNotifications()" style="margin-top: 10px; background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9em;">
+    <button id="debugBtn" style="margin-top: 10px; background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9em;">
       Debug Notifications
     </button>
     <p style="font-size: 0.8em; color: #6b7280; margin-top: 5px;">View detailed notification status and troubleshooting info.</p>
@@ -234,9 +234,62 @@
     
     // Enhanced test notification function for iOS debugging
     function testNotification() {
-      console.log('🧪 TEST NOTIFICATION BUTTON CLICKED');
-      alert('Test notification button clicked! Check console for details.');
-      console.log('Testing notification...');
+      console.log('🧪 TEST BUTTON CLICKED');
+      
+      if ('Notification' in window) {
+        if (Notification.permission === 'granted') {
+          new Notification('TaskMaster Pro Test', {
+            body: 'Test notification working! ✅',
+            icon: '/favicon.ico'
+          });
+          alert('✅ Test notification sent!');
+        } else if (Notification.permission === 'denied') {
+          alert('❌ Notifications are blocked. Enable them in your browser settings.');
+        } else {
+          alert('ℹ️ Requesting permission...');
+          Notification.requestPermission().then(function(permission) {
+            if (permission === 'granted') {
+              new Notification('TaskMaster Pro Test', {
+                body: 'Permission granted! Notifications working! ✅',
+                icon: '/favicon.ico'
+              });
+              alert('✅ Permission granted! Test notification sent!');
+            } else {
+              alert('❌ Permission denied.');
+            }
+          });
+        }
+      } else {
+        alert('❌ Notifications not supported in this browser.');
+      }
+    }
+    
+    // Debug function to show detailed notification status
+    function debugNotifications() {
+      console.log('🔍 DEBUG BUTTON CLICKED');
+      
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      let info = '🔍 DEBUG INFO\n\n';
+      info += 'iOS: ' + (isIOS ? 'Yes' : 'No') + '\n';
+      info += 'HTTPS: ' + (location.protocol === 'https:' ? 'Yes ✅' : 'No ❌') + '\n';
+      info += 'Notification API: ' + ('Notification' in window ? 'Available ✅' : 'Not Available ❌') + '\n';
+      
+      if ('Notification' in window) {
+        info += 'Permission: ' + Notification.permission + '\n';
+      }
+      
+      info += 'OneSignal: ' + (window.OneSignal ? 'Loaded ✅' : 'Not Loaded ❌') + '\n';
+      
+      if (isIOS) {
+        info += '\n📱 iOS NOTES:\n';
+        info += '• Add site to Home Screen\n';
+        info += '• Open from Home Screen\n';
+        info += '• Then enable notifications\n';
+      }
+      
+      alert(info);
+      console.log(info);
+    }
       
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -915,6 +968,20 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
     // Initialize when page loads
     document.addEventListener('DOMContentLoaded', function() {
       console.log('Options page loading...');
+      
+      // Setup button event listeners
+      const testBtn = document.getElementById('testBtn');
+      const debugBtn = document.getElementById('debugBtn');
+      
+      if (testBtn) {
+        testBtn.addEventListener('click', testNotification);
+        console.log('✅ Test button listener added');
+      }
+      
+      if (debugBtn) {
+        debugBtn.addEventListener('click', debugNotifications);
+        console.log('✅ Debug button listener added');
+      }
       
       if (speechSynthesis.onvoiceschanged !== undefined) {
         speechSynthesis.onvoiceschanged = loadVoices;
