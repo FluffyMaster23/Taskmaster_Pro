@@ -661,18 +661,32 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
     }
 
     // Check notification status
-    // Check notification status
     function checkNotificationStatus() {
       const statusSpan = document.getElementById('notificationStatus');
+      if (!statusSpan) return;
+      
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       
+      console.log('Checking notification status...', { isIOS, isSafari, hasOneSignal: !!window.OneSignal });
+      
       if (isIOS && isSafari) {
         // iOS Safari with OneSignal
         if (window.OneSignal) {
+          // Set a timeout in case OneSignal doesn't respond
+          let responded = false;
+          setTimeout(function() {
+            if (!responded) {
+              console.log('OneSignal check timed out');
+              statusSpan.textContent = "Ready - check the box to enable";
+              statusSpan.style.color = "#f59e0b";
+            }
+          }, 3000);
+          
           window.OneSignal.push(function() {
             window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+              responded = true;
               if (isEnabled) {
                 statusSpan.textContent = "iOS notifications enabled ✅";
                 statusSpan.style.color = "#059669";
@@ -875,6 +889,8 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
 
     // Initialize when page loads
     document.addEventListener('DOMContentLoaded', function() {
+      console.log('Options page loading...');
+      
       if (speechSynthesis.onvoiceschanged !== undefined) {
         speechSynthesis.onvoiceschanged = loadVoices;
       }
@@ -882,42 +898,13 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       loadVoiceSettings();
       displayUserId();
       
-      // Initialize notifications based on platform
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-      
-      if (isIOS && isSafari) {
-        // iOS Safari → Initialize OneSignal
-        if (typeof initializeOneSignal === 'function') {
-          initializeOneSignal().finally(() => {
-            setTimeout(() => {
-              checkNotificationStatus();
-              setupNotificationCheckbox();
-            }, 500);
-          });
-        } else {
-          setTimeout(() => {
-            checkNotificationStatus();
-            setupNotificationCheckbox();
-          }, 1000);
-        }
-      } else {
-        // Desktop → Initialize FCM
-        if (typeof initializeFirebaseMessaging === 'function') {
-          initializeFirebaseMessaging().finally(() => {
-            setTimeout(() => {
-              checkNotificationStatus();
-              setupNotificationCheckbox();
-            }, 500);
-          });
-        } else {
-          setTimeout(() => {
-            checkNotificationStatus();
-            setupNotificationCheckbox();
-          }, 500);
-        }
-      }
+      // Always check notification status and setup checkbox immediately
+      console.log('Setting up notifications...');
+      setTimeout(() => {
+        checkNotificationStatus();
+        setupNotificationCheckbox();
+        console.log('Notification setup complete');
+      }, 100);
     });
     
     // Display user ID function
@@ -940,27 +927,48 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
     
     // Handle notification checkbox
     function setupNotificationCheckbox() {
+      console.log('Setting up notification checkbox...');
       const checkbox = document.getElementById('enableNotifications');
       const statusSpan = document.getElementById('notificationStatus');
       
-      if (!checkbox) return;
+      if (!checkbox) {
+        console.error('Checkbox element not found!');
+        return;
+      }
+      
+      console.log('Checkbox found, setting up...');
       
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       
+      console.log('Platform detected:', { isIOS, isSafari, hasOneSignal: !!window.OneSignal });
+      
       // Set initial checkbox state
       if (isIOS && isSafari && window.OneSignal) {
+        console.log('iOS Safari with OneSignal - checking status...');
+        let checkboxUpdated = false;
+        setTimeout(function() {
+          if (!checkboxUpdated) {
+            console.log('OneSignal check timed out, leaving checkbox unchecked');
+          }
+        }, 3000);
+        
         window.OneSignal.push(function() {
           window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+            checkboxUpdated = true;
             checkbox.checked = isEnabled;
+            console.log('OneSignal status:', isEnabled ? 'enabled' : 'disabled');
           });
         });
       } else if ('Notification' in window) {
         checkbox.checked = Notification.permission === 'granted';
+        console.log('Native notifications permission:', Notification.permission);
       }
       
+      // Add event listener
       checkbox.addEventListener('change', function() {
+        console.log('Checkbox changed:', this.checked);
         if (this.checked) {
           requestNotificationPermission();
         } else {
@@ -969,6 +977,8 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
           statusSpan.style.color = "#6b7280";
         }
       });
+      
+      console.log('✅ Checkbox setup complete');
     }
     
     function requestNotificationPermission() {
