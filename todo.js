@@ -263,43 +263,86 @@ let messaging = null;
 let fcmToken = null;
 
 async function initializeFirebaseMessaging() {
+  console.log('🚀 Initializing Firebase Messaging...');
+  
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
   
+  // Check if browser supports notifications
+  if (!('Notification' in window)) {
+    console.log('❌ Browser does not support notifications');
+    return;
+  }
+  
+  // iOS Safari uses OneSignal
   if (isIOS && isSafari) {
+    console.log('📱 iOS Safari detected, using OneSignal...');
     return initializeOneSignal();
   }
   
   try {
+    // Check if Firebase Messaging is supported
     if (!firebase.messaging.isSupported()) {
+      console.log('⚠️ Firebase Messaging not supported, using native notifications');
       return initializeNativeNotifications();
     }
     
     messaging = firebase.messaging();
+    console.log('✅ Firebase Messaging initialized');
     
-    const permission = await Notification.requestPermission();
+    // Request notification permission
+    console.log('📢 Requesting notification permission...');
+    let permission = Notification.permission;
+    
+    if (permission === 'default') {
+      permission = await Notification.requestPermission();
+      console.log('📢 Permission response:', permission);
+    } else {
+      console.log('📢 Current permission:', permission);
+    }
     
     if (permission === 'granted') {
+      console.log('✅ Notification permission granted');
+      
       if ('serviceWorker' in navigator) {
         try {
-          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+          console.log('📝 Registering Firebase service worker...');
+          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+            scope: '/'
+          });
+          console.log('✅ Service worker registered:', registration.scope);
           
+          // Wait for service worker to be ready
+          await navigator.serviceWorker.ready;
+          console.log('✅ Service worker ready');
+          
+          console.log('🔑 Getting FCM token...');
           fcmToken = await messaging.getToken({
             vapidKey: 'BCS6sik162IJiqA7odT7O6wGCaffPepZvCHeUWuHReHQrSkQOybm1XWOLZY6ChJP9cYJ25ytTVdwgMK-tJL19ag',
             serviceWorkerRegistration: registration
           });
           
           if (fcmToken) {
+            console.log('✅ FCM Token received:', fcmToken.substring(0, 20) + '...');
             localStorage.setItem('fcm_token', fcmToken);
             window.fcmEnabled = true;
+          } else {
+            console.log('⚠️ No FCM token received');
           }
         } catch (swError) {
+          console.error('❌ Service worker registration failed:', swError);
+          console.log('⚠️ Falling back to native notifications');
           initializeNativeNotifications();
         }
+      } else {
+        console.log('⚠️ Service workers not supported, using native notifications');
+        initializeNativeNotifications();
       }
       
+      // Handle foreground messages
       messaging.onMessage((payload) => {
+        console.log('📨 Foreground message received:', payload);
         const notificationTitle = payload.notification?.title || 'TaskMaster Pro';
         const notificationOptions = {
           body: payload.notification?.body || payload.data?.body,
@@ -307,25 +350,38 @@ async function initializeFirebaseMessaging() {
           badge: '/favicon.ico',
           tag: payload.data?.tag || 'taskmaster',
           requireInteraction: false,
-          data: payload.data
+          data: payload.data,
+          vibrate: [200, 100, 200]
         };
         
         if (Notification.permission === 'granted') {
+          console.log('🔔 Showing notification:', notificationTitle);
           new Notification(notificationTitle, notificationOptions);
         }
       });
       
+      // Handle token refresh
       messaging.onTokenRefresh(async () => {
+        console.log('🔄 FCM token refreshing...');
         try {
           const newToken = await messaging.getToken();
+          console.log('✅ New FCM token received');
           localStorage.setItem('fcm_token', newToken);
           fcmToken = newToken;
-        } catch (error) {}
+        } catch (error) {
+          console.error('❌ Token refresh failed:', error);
+        }
       });
       
+    } else if (permission === 'denied') {
+      console.log('❌ Notification permission denied by user');
+    } else {
+      console.log('⚠️ Notification permission not granted yet');
     }
     
   } catch (error) {
+    console.error('❌ Firebase Messaging initialization error:', error);
+    console.log('⚠️ Falling back to native notifications');
     initializeNativeNotifications();
   }
 }
@@ -390,16 +446,29 @@ async function initializeOneSignal() {
 }
 
 function initializeNativeNotifications() {
+  console.log('🔔 Initializing native notifications...');
+  
   if (!('Notification' in window)) {
+    console.log('❌ Notifications not supported in this browser');
     return;
   }
   
+  console.log('📢 Current notification permission:', Notification.permission);
+  
   if (Notification.permission === 'default') {
+    console.log('📢 Requesting notification permission...');
     Notification.requestPermission().then(function(permission) {
+      console.log('📢 Permission response:', permission);
       window.nativeNotificationsEnabled = (permission === 'granted');
+      if (permission === 'granted') {
+        console.log('✅ Native notifications enabled');
+      } else {
+        console.log('❌ Native notifications denied');
+      }
     });
   } else {
     window.nativeNotificationsEnabled = (Notification.permission === 'granted');
+    console.log('✅ Native notifications status:', window.nativeNotificationsEnabled);
   }
 }
 
@@ -1210,13 +1279,21 @@ function showWelcomeNotification() {
 }
 
 function showNotification(task, isReminder = false) {
+  console.log(`🔔 showNotification called for task: ${task.task}, isReminder: ${isReminder}`);
+  
   if (!("Notification" in window)) {
+    console.log('❌ Notifications not supported');
     return;
   }
   
+  console.log('📢 Current permission:', Notification.permission);
+  
   if (Notification.permission !== "granted") {
+    console.log('⚠️ Notification permission not granted');
     if (Notification.permission === "default") {
+      console.log('📢 Requesting permission...');
       Notification.requestPermission().then(permission => {
+        console.log('📢 Permission response:', permission);
         if (permission === "granted") {
           showNotification(task, isReminder);
         }
@@ -1224,6 +1301,8 @@ function showNotification(task, isReminder = false) {
     }
     return;
   }
+  
+  console.log('✅ Permission granted, showing notification...');
   
   const now = new Date();
   const due = new Date(task.time);
@@ -1249,17 +1328,22 @@ function showNotification(task, isReminder = false) {
     body = `${task.task}\nThis task is due now!`;
   }
 
+  console.log(`📢 Creating notification: ${title}`);
   const notification = new Notification(title, {
     body: body,
     icon: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K",
     tag: task.id,
     requireInteraction: false,
     badge: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0iIzRmNDZlNSIgeG1zbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iOCIgY3k9IjgiIHI9IjgiLz4KPC9zdmc+",
-    silent: false
+    silent: false,
+    vibrate: [200, 100, 200]
   });
+
+  console.log('✅ Notification created successfully');
 
   // Handle notification click
   notification.onclick = () => {
+    console.log('Notification clicked');
     window.focus();
     notification.close();
   };
@@ -1405,37 +1489,49 @@ function startNotificationChecker() {
   if (!window._reminderTaskIds) window._reminderTaskIds = new Set();
   if (!window._spokenTaskIds) window._spokenTaskIds = new Set();
   
-  sendTasksToServiceWorker();
+  console.log('🔔 Starting notification checker...');
   
-setInterval(() => {
-  const now = new Date();
-  const all = getTasks();
+  // Function to check tasks
+  const checkTasks = () => {
+    const now = new Date();
+    const all = getTasks();
+    
+    console.log(`🔍 Checking ${all.length} tasks for notifications...`);
+    
+    sendTasksToServiceWorker();
+
+    all.forEach(task => {
+      const due = new Date(task.time);
+      const timeDiff = due - now;
+      const reminderMinutes = task.reminderMinutes || 0;
+      const reminderTime = reminderMinutes * 60 * 1000;
+      
+      if (reminderMinutes > 0 && timeDiff <= reminderTime && timeDiff > reminderTime - 60000 && !window._reminderTaskIds.has(task.id)) {
+        console.log(`⏰ Sending reminder for task: ${task.task}`);
+        window._reminderTaskIds.add(task.id);
+        showNotification(task, true);
+      }
+      
+      if (timeDiff <= 60000 && timeDiff >= -60000 && !window._notifiedTaskIds.has(task.id)) {
+        console.log(`🔔 Task due now: ${task.task}`);
+        window._notifiedTaskIds.add(task.id);
+        showNotification(task, false);
+      }
+
+      if (timeDiff <= 60000 && timeDiff >= -60000 && !window._spokenTaskIds.has(task.id)) {
+        window._spokenTaskIds.add(task.id);
+        const reminderMessage = task.msg && task.msg.trim() ? task.msg : `Task: ${task.task}`;
+        setTimeout(() => speakDavid(reminderMessage), 500);
+      }
+    });
+  };
   
-  sendTasksToServiceWorker();
-
-  all.forEach(task => {
-    const due = new Date(task.time);
-    const timeDiff = due - now;
-    const reminderMinutes = task.reminderMinutes || 0;
-    const reminderTime = reminderMinutes * 60 * 1000;
-    
-    if (reminderMinutes > 0 && timeDiff <= reminderTime && timeDiff > reminderTime - 60000 && !window._reminderTaskIds.has(task.id)) {
-      window._reminderTaskIds.add(task.id);
-      showNotification(task, true);
-    }
-    
-    if (timeDiff <= 60000 && timeDiff >= -60000 && !window._notifiedTaskIds.has(task.id)) {
-      window._notifiedTaskIds.add(task.id);
-      showNotification(task, false);
-    }
-
-    if (timeDiff <= 60000 && timeDiff >= -60000 && !window._spokenTaskIds.has(task.id)) {
-      window._spokenTaskIds.add(task.id);
-      const reminderMessage = task.msg && task.msg.trim() ? task.msg : `Task: ${task.task}`;
-      setTimeout(() => speakDavid(reminderMessage), 500);
-    }
-  });
-}, 60000);
+  // Check immediately on startup
+  checkTasks();
+  
+  // Then check every minute
+  setInterval(checkTasks, 60000);
+  console.log('✅ Notification checker started (runs every 60 seconds)');
 }
 
 // === RENDER EXISTING TASKS ===
