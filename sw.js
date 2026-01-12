@@ -1,18 +1,26 @@
-const CACHE_NAME = 'todo-app-v1';
+const CACHE_NAME = 'todo-app-v2';
 const urlsToCache = [
   './',
   './index.html',
   './todo.js',
-  './manifest.json'
+  './manifest.json',
+  './styles.css',
+  './options.html',
+  './taskmaster.html'
 ];
 
 // Install Service Worker
 self.addEventListener('install', event => {
+  console.log('Service Worker: Installing...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Opened cache');
+        console.log('Service Worker: Opened cache');
         return cache.addAll(urlsToCache);
+      })
+      .then(() => {
+        console.log('Service Worker: Cache loaded');
+        return self.skipWaiting(); // Activate immediately
       })
   );
 });
@@ -25,27 +33,86 @@ self.addEventListener('fetch', event => {
         // Return cached version or fetch from network
         return response || fetch(event.request);
       })
+      .catch(error => {
+        console.error('Service Worker: Fetch failed', error);
+        throw error;
+      })
   );
 });
 
 // Activate Service Worker and update cache
 self.addEventListener('activate', event => {
+  console.log('Service Worker: Activating...');
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
+            console.log('Service Worker: Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
+    }).then(() => {
+      console.log('Service Worker: Activated');
+      return self.clients.claim(); // Take control immediately
+    })
+  );
+});
+
+// Handle push notifications (for Firebase/OneSignal)
+self.addEventListener('push', event => {
+  console.log('Service Worker: Push notification received', event);
+  
+  let notificationData = {
+    title: 'TaskMaster Pro',
+    body: 'You have a task reminder!',
+    icon: '/favicon.ico',
+    badge: '/favicon.ico',
+    tag: 'taskmaster-reminder',
+    requireInteraction: false,
+    vibrate: [200, 100, 200]
+  };
+  
+  // Try to parse push data if available
+  if (event.data) {
+    try {
+      const data = event.data.json();
+      notificationData = {
+        title: data.title || notificationData.title,
+        body: data.body || data.message || notificationData.body,
+        icon: data.icon || notificationData.icon,
+        badge: data.badge || notificationData.badge,
+        tag: data.tag || notificationData.tag,
+        requireInteraction: data.requireInteraction || notificationData.requireInteraction,
+        vibrate: data.vibrate || notificationData.vibrate,
+        data: data.data || {}
+      };
+    } catch (error) {
+      console.log('Service Worker: Could not parse push data', error);
+    }
+  }
+  
+  event.waitUntil(
+    self.registration.showNotification(notificationData.title, {
+      body: notificationData.body,
+      icon: notificationData.icon,
+      badge: notificationData.badge,
+      tag: notificationData.tag,
+      requireInteraction: notificationData.requireInteraction,
+      vibrate: notificationData.vibrate,
+      data: notificationData.data
+    }).then(() => {
+      console.log('Service Worker: Notification shown');
+    }).catch(error => {
+      console.error('Service Worker: Could not show notification', error);
     })
   );
 });
 
 // Handle background sync for notifications
 self.addEventListener('sync', event => {
+  console.log('Service Worker: Sync event', event.tag);
   if (event.tag === 'todo-reminder') {
     event.waitUntil(checkReminders());
   }
@@ -53,20 +120,35 @@ self.addEventListener('sync', event => {
 
 // Handle notification clicks
 self.addEventListener('notificationclick', event => {
+  console.log('Service Worker: Notification clicked', event.notification.tag);
   event.notification.close();
   
+  // Open or focus the app window
   event.waitUntil(
-    clients.matchAll().then(clientList => {
-      if (clientList.length > 0) {
-        return clientList[0].focus();
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      // Check if there's already a window open
+      for (let i = 0; i < clientList.length; i++) {
+        const client = clientList[i];
+        if (client.url === self.registration.scope && 'focus' in client) {
+          return client.focus();
+        }
       }
-      return clients.openWindow('./');
+      // If no window is open, open a new one
+      if (clients.openWindow) {
+        return clients.openWindow('./');
+      }
     })
   );
 });
 
+// Handle notification close
+self.addEventListener('notificationclose', event => {
+  console.log('Service Worker: Notification closed', event.notification.tag);
+});
+
 // Function to check reminders (placeholder)
 function checkReminders() {
+  console.log('Service Worker: Checking reminders');
   // This would normally check for due tasks and send notifications
   // For now, it's a placeholder since task checking happens in the main app
   return Promise.resolve();

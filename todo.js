@@ -995,18 +995,41 @@ window.onload = () => {
   const savedRate = localStorage.getItem("speechRate");
   if (savedRate) {
     window.speechRate = parseFloat(savedRate);
-    document.getElementById("speechRateSelect").value = savedRate;
+    const rateSelect = document.getElementById("speechRateSelect");
+    if (rateSelect) {
+      rateSelect.value = savedRate;
+    }
   }
 
-  // Register Service Worker for PWA
+  // Register Service Worker for PWA and notifications
   if ('serviceWorker' in navigator) {
+    console.log('🔧 Registering service worker...');
     navigator.serviceWorker.register('./sw.js')
       .then(registration => {
-        console.log('SW registered: ', registration);
+        console.log('✅ Service worker registered:', registration.scope);
+        
+        // Wait for service worker to be ready before checking notifications
+        return navigator.serviceWorker.ready;
+      })
+      .then(registration => {
+        console.log('✅ Service worker ready:', registration);
+        
+        // Check if notification permission is already granted
+        if (Notification && Notification.permission === 'granted') {
+          console.log('✅ Notifications already enabled');
+          localStorage.setItem('notificationsEnabled', 'true');
+        } else if (Notification && Notification.permission === 'default') {
+          console.log('ℹ️ Notification permission not set yet');
+        } else if (Notification && Notification.permission === 'denied') {
+          console.log('⚠️ Notification permission denied');
+          localStorage.setItem('notificationsEnabled', 'false');
+        }
       })
       .catch(registrationError => {
-        console.log('SW registration failed: ', registrationError);
+        console.error('❌ Service worker registration failed:', registrationError);
       });
+  } else {
+    console.log('⚠️ Service workers not supported in this browser');
   }
 
   // Initialize page based on current page

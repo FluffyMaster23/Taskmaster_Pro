@@ -666,25 +666,40 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       
+      console.log('🔍 Checking notification status...');
+      console.log('📱 isIOS:', isIOS);
+      console.log('🔧 OneSignal available:', !!window.OneSignal);
+      console.log('🔔 Notification API:', Notification ? Notification.permission : 'N/A');
+      
       if (isIOS) {
         if (window.oneSignalEnabled) {
           statusSpan.textContent = "iOS notifications active (OneSignal)";
-        } else if (window.iosNativeNotificationsAvailable && Notification.permission === 'granted') {
+        } else if (window.iosNativeNotificationsAvailable && Notification && Notification.permission === 'granted') {
           statusSpan.textContent = "iOS notifications active (Native Web Push)";
         } else if (window.iosNativeNotificationsAvailable) {
           statusSpan.textContent = "iOS native notifications available - permission needed";
+        } else if (Notification && Notification.permission === 'granted') {
+          statusSpan.textContent = "iOS notifications enabled";
+        } else if (Notification && Notification.permission === 'denied') {
+          statusSpan.textContent = "iOS notifications blocked - check Safari settings";
         } else {
-          statusSpan.textContent = "iOS notifications pending setup";
+          statusSpan.textContent = "iOS notifications not configured";
         }
       } else {
         if (Notification && Notification.permission === 'granted') {
           statusSpan.textContent = "Desktop notifications enabled";
         } else if (Notification && Notification.permission === 'denied') {
-          statusSpan.textContent = "Desktop notifications blocked";
+          statusSpan.textContent = "Desktop notifications blocked - check browser settings";
+        } else if (Notification && Notification.permission === 'default') {
+          statusSpan.textContent = "Desktop notifications not configured - check the box to enable";
+        } else if (!Notification) {
+          statusSpan.textContent = "Notifications not supported by this browser";
         } else {
           statusSpan.textContent = "Desktop notifications not configured";
         }
       }
+      
+      console.log('📊 Status set to:', statusSpan.textContent);
     }
 
     // Load voices into dropdown
@@ -894,28 +909,52 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       const checkbox = document.getElementById('enableNotifications');
       const statusSpan = document.getElementById('notificationStatus');
       
-      if (!checkbox) return;
+      if (!checkbox) {
+        console.error('❌ Notification checkbox not found');
+        return;
+      }
+      
+      console.log('🔧 Setting up notification checkbox...');
       
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       
+      // Check current notification status
       if (isIOS && isSafari && window.OneSignal) {
+        console.log('📱 Checking OneSignal status...');
         OneSignal.push(function() {
           OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+            console.log('OneSignal enabled:', isEnabled);
             checkbox.checked = isEnabled;
+            if (isEnabled) {
+              statusSpan.textContent = "Notifications enabled (OneSignal)";
+            }
           });
         });
       } else {
+        console.log('💻 Checking native notification permission:', Notification ? Notification.permission : 'N/A');
         checkbox.checked = Notification && Notification.permission === 'granted';
+        if (checkbox.checked) {
+          statusSpan.textContent = "Notifications enabled";
+        }
       }
       
-      checkbox.addEventListener('change', function() {
+      // Set up event listener for checkbox changes
+      console.log('🔧 Attaching checkbox change listener...');
+      checkbox.addEventListener('change', function(e) {
+        console.log('✅ Checkbox changed! New state:', this.checked);
+        
         if (this.checked) {
+          console.log('🔔 User enabled notifications, triggering prompt...');
           triggerNotificationPrompt();
         } else {
+          console.log('🔕 User disabled notifications');
           statusSpan.textContent = "Notifications disabled";
+          localStorage.setItem('notificationsEnabled', 'false');
         }
       });
+      
+      console.log('✅ Notification checkbox setup complete');
     }
     
     function triggerNotificationPrompt() {
@@ -924,60 +963,118 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       const statusSpan = document.getElementById('notificationStatus');
       const checkbox = document.getElementById('enableNotifications');
       
+      console.log('🔔 Triggering notification prompt...');
+      console.log('📱 Device: isIOS=' + isIOS + ', isSafari=' + isSafari);
+      console.log('🔧 OneSignal available:', !!window.OneSignal);
+      console.log('🔧 Notification API available:', !!window.Notification);
+      
       if (isIOS && isSafari && window.OneSignal) {
+        console.log('📱 Using OneSignal for iOS Safari...');
+        statusSpan.textContent = "Requesting OneSignal permissions...";
+        
         OneSignal.push(function() {
+          console.log('OneSignal ready, showing native prompt...');
           OneSignal.showNativePrompt().then(function() {
+            console.log('OneSignal prompt shown, waiting for response...');
             setTimeout(() => {
               OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+                console.log('OneSignal enabled status:', isEnabled);
                 if (isEnabled) {
-                  statusSpan.textContent = "Notifications enabled";
+                  statusSpan.textContent = "Notifications enabled (OneSignal)";
                   checkbox.checked = true;
+                  window.oneSignalEnabled = true;
                 } else {
                   statusSpan.textContent = "Notifications denied";
                   checkbox.checked = false;
                 }
               });
             }, 1000);
-          }).catch(function() {
-            OneSignal.registerForPushNotifications().catch(function() {
+          }).catch(function(error) {
+            console.error('OneSignal prompt failed:', error);
+            console.log('Trying OneSignal registerForPushNotifications...');
+            OneSignal.registerForPushNotifications().then(function() {
+              statusSpan.textContent = "Notifications enabled (OneSignal)";
+              checkbox.checked = true;
+              window.oneSignalEnabled = true;
+            }).catch(function(error2) {
+              console.error('OneSignal registration failed:', error2);
               statusSpan.textContent = "Notifications denied";
               checkbox.checked = false;
             });
           });
         });
-          
-        } else {
-          tryIOSNativeNotifications();
-        }
+      } else if (isIOS && isSafari) {
+        console.log('📱 iOS Safari without OneSignal, trying native...');
+        tryIOSNativeNotifications();
       } else {
-        if (Notification) {
-          if (Notification.permission === 'default') {
-            Notification.requestPermission().then(function(permission) {
-              if (permission === 'granted') {
-                statusSpan.textContent = "Notifications enabled";
-                checkbox.checked = true;
-                
-                setTimeout(() => {
-                  new Notification('TaskMaster Pro', {
-                    body: 'Notifications enabled! You\'ll get reminders when tasks are due.',
-                    icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K'
-                  });
-                }, 500);
-              } else {
-                statusSpan.textContent = "Notifications denied";
-                checkbox.checked = false;
-              }
-            });
-          } else if (Notification.permission === 'granted') {
-            statusSpan.textContent = "Notifications already enabled";
-            checkbox.checked = true;
-          } else {
-            statusSpan.textContent = "Notifications denied - check browser settings";
-            checkbox.checked = false;
-          }
-        } else {
+        console.log('💻 Desktop/Android browser, using native Notification API...');
+        if (!window.Notification) {
+          console.error('❌ Notification API not available');
           statusSpan.textContent = "Notifications not supported";
           checkbox.checked = false;
+          return;
+        }
+        
+        console.log('🔔 Current permission:', Notification.permission);
+        statusSpan.textContent = "Requesting permission...";
+        
+        if (Notification.permission === 'default') {
+          console.log('📢 Requesting notification permission...');
+          Notification.requestPermission().then(function(permission) {
+            console.log('📢 Permission result:', permission);
+            if (permission === 'granted') {
+              statusSpan.textContent = "Notifications enabled";
+              checkbox.checked = true;
+              localStorage.setItem('notificationsEnabled', 'true');
+              
+              // Register service worker if not already registered
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('./sw.js').then(function(registration) {
+                  console.log('✅ Service worker registered:', registration);
+                }).catch(function(error) {
+                  console.error('❌ Service worker registration failed:', error);
+                });
+              }
+              
+              // Show test notification
+              setTimeout(() => {
+                console.log('🔔 Showing test notification...');
+                new Notification('TaskMaster Pro', {
+                  body: 'Notifications enabled! You\'ll get reminders when tasks are due.',
+                  icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K',
+                  tag: 'test-notification',
+                  requireInteraction: false
+                });
+              }, 500);
+            } else {
+              console.log('❌ Permission denied by user');
+              statusSpan.textContent = "Notifications denied";
+              checkbox.checked = false;
+              localStorage.setItem('notificationsEnabled', 'false');
+            }
+          }).catch(function(error) {
+            console.error('❌ Permission request error:', error);
+            statusSpan.textContent = "Error requesting permission";
+            checkbox.checked = false;
+          });
+        } else if (Notification.permission === 'granted') {
+          console.log('✅ Notifications already enabled');
+          statusSpan.textContent = "Notifications already enabled";
+          checkbox.checked = true;
+          localStorage.setItem('notificationsEnabled', 'true');
+          
+          // Show test notification to confirm
+          setTimeout(() => {
+            new Notification('TaskMaster Pro', {
+              body: 'Notifications are working!',
+              icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K'
+            });
+          }, 500);
+        } else {
+          console.log('❌ Notifications blocked');
+          statusSpan.textContent = "Notifications denied - check browser settings";
+          checkbox.checked = false;
+          localStorage.setItem('notificationsEnabled', 'false');
         }
       }
     }
