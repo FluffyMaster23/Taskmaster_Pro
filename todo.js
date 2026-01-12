@@ -1387,18 +1387,31 @@ function showNotification(task, isReminder = false) {
 async function createSections() {
   const sectionsDiv = document.getElementById("sections");
   if (!sectionsDiv) {
-    console.log('Sections div not found, skipping section creation');
+    console.log('⚠️ Sections div not found, skipping section creation');
     return;
   }
   
+  console.log('🔨 createSections called - building task sections...');
+  
   // Get fresh sections list (including any newly created custom lists) - now async
   const allSections = await getAllSections();
+  
+  console.log('📋 All sections to display:', allSections);
+  console.log('📊 Total sections:', allSections.length);
   
   // Update global SECTIONS for other functions
   SECTIONS = allSections;
   
   // Clear existing sections
   sectionsDiv.innerHTML = '';
+  
+  if (allSections.length === 0) {
+    sectionsDiv.innerHTML = '<p style="color: #666; text-align: center; padding: 40px;">No lists found. <a href="list.html" style="color: #4f46e5;">Create your first list</a>!</p>';
+    console.log('📭 No sections to display');
+    return;
+  }
+  
+  console.log('✨ Creating ' + allSections.length + ' sections...');
   
   allSections.forEach(section => {
   const details = document.createElement("details");

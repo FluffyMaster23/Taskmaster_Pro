@@ -943,12 +943,13 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       console.log('🔧 Attaching checkbox change listener...');
       checkbox.addEventListener('change', function(e) {
         console.log('✅ Checkbox changed! New state:', this.checked);
+        console.log('🔔 Browser notification permission:', Notification ? Notification.permission : 'N/A');
         
         if (this.checked) {
-          console.log('🔔 User enabled notifications, triggering prompt...');
+          console.log('🔔 User CHECKED the box - triggering prompt...');
           triggerNotificationPrompt();
         } else {
-          console.log('🔕 User disabled notifications');
+          console.log('🔕 User UNCHECKED the box - disabling notifications');
           statusSpan.textContent = "Notifications disabled";
           localStorage.setItem('notificationsEnabled', 'false');
         }

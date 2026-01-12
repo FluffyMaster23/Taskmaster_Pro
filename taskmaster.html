@@ -102,6 +102,20 @@
   <script src="todo.js"></script>
   
   <script>
+    // Immediately try to create sections when page loads
+    window.addEventListener('DOMContentLoaded', async function() {
+      console.log('🚀 TaskMaster page loaded, initializing sections...');
+      // Wait a bit for todo.js to load
+      setTimeout(async () => {
+        if (typeof createSections === 'function') {
+          console.log('📋 Calling createSections on page load...');
+          await createSections();
+        } else {
+          console.error('❌ createSections function not found!');
+        }
+      }, 1000);
+    });
+    
     // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyC1S6U4E_IIAw5csnapl8ZoIyBS_Lv5k2A",
@@ -180,9 +194,12 @@
         
         // Reload sections for guest mode
         console.log('Guest mode, loading local lists...');
-        if (typeof createSections === 'function') {
-          await createSections();
-        }
+        setTimeout(async () => {
+          if (typeof createSections === 'function') {
+            console.log('📋 Guest mode: calling createSections...');
+            await createSections();
+          }
+        }, 500);
       }
     });
 
