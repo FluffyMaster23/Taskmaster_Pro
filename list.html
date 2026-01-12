@@ -468,6 +468,10 @@
       // Update the sections array in the main app
       await updateMainAppSections();
       
+      // Broadcast event to other tabs/windows
+      localStorage.setItem('list_update_trigger', Date.now().toString());
+      window.dispatchEvent(new Event('storage'));
+      
       showMessage(`List "${name}" created successfully and synced to cloud!`);
       await displayCustomLists();
       return true;

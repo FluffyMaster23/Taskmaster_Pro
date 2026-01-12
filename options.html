@@ -1016,6 +1016,8 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
         }
         
         console.log('🔔 Current permission:', Notification.permission);
+        console.log('🌐 User agent:', navigator.userAgent);
+        console.log('🌐 Is Firefox:', navigator.userAgent.includes('Firefox'));
         statusSpan.textContent = "Requesting permission...";
         
         if (Notification.permission === 'default') {

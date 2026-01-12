@@ -149,6 +149,21 @@
           await createSections();
         }
         
+        // Also check for list updates periodically
+        setInterval(async () => {
+          console.log('🔄 Periodic check for new lists...');
+          const currentSections = await getAllSections();
+          const displayedSections = Array.from(document.querySelectorAll('[id^="summary-"]')).map(el => 
+            el.textContent.trim()
+          );
+          
+          if (currentSections.length !== displayedSections.length || 
+              !currentSections.every(section => displayedSections.includes(section))) {
+            console.log('✨ New lists detected, refreshing...');
+            await createSections();
+          }
+        }, 5000); // Check every 5 seconds
+        
         // Show admin link if user is admin
         if (adminLink) {
           const userEmail = user.email ? user.email.toLowerCase().trim() : '';
@@ -226,6 +241,35 @@
           online: false,
           lastSeen: firebase.firestore.FieldValue.serverTimestamp()
         });
+      }
+    });
+    
+    // Listen for list updates from list.html
+    window.addEventListener('storage', async (e) => {
+      if (e.key === 'list_update_trigger' || e.key === null) {
+        console.log('🔔 List update detected from another tab!');
+        setTimeout(async () => {
+          if (typeof createSections === 'function') {
+            await createSections();
+          }
+        }, 500);
+      }
+    });
+    
+    // Also listen for focus events (when switching back to this tab)
+    window.addEventListener('focus', async () => {
+      console.log('👀 Tab focused, checking for updates...');
+      if (typeof getAllSections === 'function' && typeof createSections === 'function') {
+        const currentSections = await getAllSections();
+        const displayedSections = Array.from(document.querySelectorAll('[id^="summary-"]')).map(el => 
+          el.textContent.trim()
+        );
+        
+        if (currentSections.length !== displayedSections.length || 
+            !currentSections.every(section => displayedSections.includes(section))) {
+          console.log('✨ Updates detected on focus, refreshing...');
+          await createSections();
+        }
       }
     });
   </script>

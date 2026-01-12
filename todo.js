@@ -81,17 +81,23 @@ window.addEventListener('DOMContentLoaded', function() {
   // Refresh sections when page becomes visible (to pick up new custom lists)
   document.addEventListener('visibilitychange', async function() {
     if (!document.hidden && window.location.pathname.includes('taskmaster.html')) {
+      console.log('🔄 Page visible, checking for list updates...');
       // Check if custom lists have been updated (now async)
       const currentSections = await getAllSections();
+      console.log('📋 Current sections from storage:', currentSections);
+      
       const displayedSections = Array.from(document.querySelectorAll('[id^="summary-"]')).map(el => 
         el.textContent.trim()
       );
+      console.log('📺 Displayed sections on page:', displayedSections);
       
       // If sections have changed, recreate them
       if (currentSections.length !== displayedSections.length || 
           !currentSections.every(section => displayedSections.includes(section))) {
-        console.log('Custom lists updated, refreshing sections...');
+        console.log('✨ Custom lists updated, refreshing sections...');
         await createSections();
+      } else {
+        console.log('✅ Sections are up to date');
       }
     }
   });
