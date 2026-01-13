@@ -1723,3 +1723,180 @@ function speakWizLine(type = "startup") {
   const chosen = lines[Math.floor(Math.random() * lines.length)];
   speak(chosen);
 }
+
+// === FIREBASE INITIALIZATION FOR TASKMASTER PAGE ===
+// Immediately try to create sections when page loads
+window.addEventListener('DOMContentLoaded', async function() {
+  // Wait a bit for todo.js to load
+  setTimeout(async () => {
+    if (typeof createSections === 'function') {
+      await createSections();
+    }
+  }, 1000);
+});
+
+// Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyC1S6U4E_IIAw5csnapl8ZoIyBS_Lv5k2A",
+  authDomain: "taskmaster-pro-bf98a.firebaseapp.com",
+  projectId: "taskmaster-pro-bf98a",
+  storageBucket: "taskmaster-pro-bf98a.firebasestorage.app",
+  messagingSenderId: "47778628154",
+  appId: "1:47778628154:web:eddd6a64147d917fcb6b03",
+  measurementId: "G-JERNL4E72Z"
+};
+
+// Initialize Firebase
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// Set auth persistence to LOCAL
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((error) => {
+  console.error('Error setting auth persistence:', error);
+});
+
+// Check authentication state
+auth.onAuthStateChanged(async (user) => {
+  const welcomeMsg = document.getElementById('welcome-message');
+  const guestNotice = document.getElementById('guest-notice');
+  const usernameEl = document.getElementById('username');
+  const adminLink = document.getElementById('admin-link');
+  
+  if (user) {
+    const displayName = user.displayName || user.email.split('@')[0];
+    usernameEl.textContent = displayName;
+    welcomeMsg.style.display = 'block';
+    guestNotice.style.display = 'none';
+    window.currentUser = user;
+    window.isGuestMode = false;
+    
+    // Set user presence to online
+    await setUserPresence(user, true);
+    
+    // Reload sections from Firebase after authentication
+    if (typeof createSections === 'function') {
+      await createSections();
+    }
+    
+    // Also check for list updates periodically
+    setInterval(async () => {
+      const currentSections = await getAllSections();
+      const displayedSections = Array.from(document.querySelectorAll('[id^="summary-"]')).map(el => 
+        el.textContent.trim()
+      );
+      
+      if (currentSections.length !== displayedSections.length || 
+          !currentSections.every(section => displayedSections.includes(section))) {
+        await createSections();
+      }
+    }, 5000); // Check every 5 seconds
+    
+    // Show admin link if user is admin
+    if (adminLink) {
+      const userEmail = user.email ? user.email.toLowerCase().trim() : '';
+      const adminEmail = 'fluffyfighter23@gmx.de';
+      if (userEmail === adminEmail) {
+        adminLink.style.display = 'inline-block';
+      }
+    }
+  } else {
+    welcomeMsg.style.display = 'none';
+    guestNotice.style.display = 'block';
+    window.currentUser = null;
+    window.isGuestMode = true;
+    
+    // Reload sections for guest mode
+    setTimeout(async () => {
+      if (typeof createSections === 'function') {
+        await createSections();
+      }
+    }, 500);
+  }
+});
+
+// Sign out function
+async function signOut() {
+  const user = auth.currentUser;
+  if (user) {
+    // Wait for presence to be updated before signing out
+    await setUserPresence(user, false);
+  }
+  
+  auth.signOut().then(() => {
+    alert('Signed out successfully!');
+    window.location.reload();
+  });
+}
+
+// Set user online/offline presence
+function setUserPresence(user, online) {
+  if (!user) return Promise.resolve();
+  
+  return db.collection('presence').doc(user.uid).set({
+    online: online,
+    username: user.displayName || user.email.split('@')[0],
+    email: user.email,
+    lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true }).catch(error => console.error('Error updating presence:', error));
+}
+
+// Heartbeat: Update lastSeen every 30 seconds
+let heartbeatInterval;
+
+auth.onAuthStateChanged((user) => {
+  // Clear any existing heartbeat
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  
+  if (user) {
+    // Update presence immediately
+    setUserPresence(user, true);
+    
+    // Set up heartbeat to update lastSeen every 30 seconds
+    heartbeatInterval = setInterval(() => {
+      db.collection('presence').doc(user.uid).update({
+        lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+      }).catch(error => console.error('Heartbeat error:', error));
+    }, 30000);
+  }
+});
+
+// Mark user offline when closing tab/browser (best effort)
+window.addEventListener('beforeunload', () => {
+  const user = auth.currentUser;
+  if (user) {
+    // Use synchronous update attempt
+    navigator.sendBeacon && db.collection('presence').doc(user.uid).update({
+      online: false,
+      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
+});
+
+// Listen for list updates from list.html
+window.addEventListener('storage', async (e) => {
+  if (e.key === 'list_update_trigger' || e.key === null) {
+    setTimeout(async () => {
+      if (typeof createSections === 'function') {
+        await createSections();
+      }
+    }, 500);
+  }
+});
+
+// Also listen for focus events (when switching back to this tab)
+window.addEventListener('focus', async () => {
+  if (typeof getAllSections === 'function' && typeof createSections === 'function') {
+    const currentSections = await getAllSections();
+    const displayedSections = Array.from(document.querySelectorAll('[id^="summary-"]')).map(el => 
+      el.textContent.trim()
+    );
+    
+    if (currentSections.length !== displayedSections.length || 
+        !currentSections.every(section => displayedSections.includes(section))) {
+      await createSections();
+    }
+  }
+});
