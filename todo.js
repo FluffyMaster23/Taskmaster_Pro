@@ -39,30 +39,32 @@ function getUserId() {
 
 // Function to get all sections (default + user's custom lists)
 async function getAllSections() {
-  console.log('🔍 getAllSections called');
-  console.log('📊 Current user:', window.currentUser ? window.currentUser.uid : 'None');
-  console.log('🎭 Guest mode:', window.isGuestMode);
+  const userId = getUserId();
+  const userCustomListsKey = `taskmaster_custom_section_names_${userId}`;
   
-  // Try to load from Firebase first if user is logged in
+  // Always check localStorage first (most reliable)
+  const customListNames = JSON.parse(localStorage.getItem(userCustomListsKey) || '[]');
+  
+  // If localStorage has data, use it
+  if (customListNames.length > 0) {
+    return [...DEFAULT_SECTIONS, ...customListNames];
+  }
+  
+  // Try to load from Firebase if user is logged in and localStorage is empty
   if (window.currentUser && !window.isGuestMode && typeof loadCustomLists === 'function') {
     try {
-      console.log('☁️ Loading custom lists from Firebase...');
       const customLists = await loadCustomLists();
-      console.log('📦 Custom lists loaded:', customLists);
-      const customListNames = customLists.map(list => list.name);
-      console.log('📝 List names:', customListNames);
-      return [...DEFAULT_SECTIONS, ...customListNames];
+      if (customLists && customLists.length > 0) {
+        const listNames = customLists.map(list => list.name);
+        // Save to localStorage for faster access next time
+        localStorage.setItem(userCustomListsKey, JSON.stringify(listNames));
+        return [...DEFAULT_SECTIONS, ...listNames];
+      }
     } catch (error) {
-      console.error('❌ Error loading custom lists from Firebase:', error);
+      console.error('Error loading custom lists from Firebase:', error);
     }
   }
   
-  // Fallback to localStorage
-  console.log('💾 Loading from localStorage...');
-  const userId = getUserId();
-  const userCustomListsKey = `taskmaster_custom_section_names_${userId}`;
-  const customListNames = JSON.parse(localStorage.getItem(userCustomListsKey) || '[]');
-  console.log('📝 localStorage list names:', customListNames);
   return [...DEFAULT_SECTIONS, ...customListNames];
 }
 
