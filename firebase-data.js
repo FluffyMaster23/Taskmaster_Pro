@@ -11,7 +11,33 @@ function setupTasksListener() {
     
     console.log('🔄 Setting up real-time task listener for user:', userId);
     
-    // Listen for real-time updates
+    // First, load tasks from Firebase immediately
+    db.collection('users').doc(userId).collection('tasks').doc('data').get()
+      .then((doc) => {
+        if (doc.exists) {
+          const tasks = doc.data().tasks || [];
+          console.log('📥 Initial load from Firebase:', tasks.length, 'tasks');
+          localStorage.setItem('todos', JSON.stringify(tasks));
+          
+          // Render tasks if on taskmaster page
+          if (window.location.pathname.includes('taskmaster.html')) {
+            const allUls = document.querySelectorAll('[id^="ul-"]');
+            allUls.forEach(ul => {
+              ul.innerHTML = '';
+            });
+            
+            if (typeof renderExistingTasks === 'function') {
+              console.log('🎨 Rendering initial tasks...');
+              renderExistingTasks();
+            }
+          }
+        }
+      })
+      .catch((error) => {
+        console.error('Error loading initial tasks:', error);
+      });
+    
+    // Then set up real-time listener for updates
     const unsubscribe = db.collection('users').doc(userId).collection('tasks').doc('data')
       .onSnapshot((doc) => {
         if (doc.exists) {

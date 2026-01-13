@@ -167,6 +167,12 @@ function initializeTaskMasterPage() {
   // Setup Firebase Cloud Messaging for notifications
   initializeFirebaseMessaging();
   
+  // Setup real-time task listener if user is already logged in
+  if (window.currentUser && !window.isGuestMode && typeof setupTasksListener === 'function') {
+    console.log('🔄 Setting up task listener on page load...');
+    setupTasksListener();
+  }
+  
   // Create task sections (now async)
   createSections();
   
