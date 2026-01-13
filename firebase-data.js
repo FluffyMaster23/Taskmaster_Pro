@@ -72,50 +72,49 @@ function setupTasksListener() {
   }
 }
 
-// Save tasks to Firestore or localStorage
+// Save tasks to Firestore (login required)
 async function saveTasks(tasks) {
-  if (window.currentUser && !window.isGuestMode) {
-    // Logged in user - save to Firestore
-    try {
-      const userId = window.currentUser.uid;
-      await db.collection('users').doc(userId).collection('tasks').doc('data').set({
-        tasks: tasks,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      console.log('Tasks saved to Firestore');
-    } catch (error) {
-      console.error('Error saving to Firestore:', error);
-      // Fallback to localStorage if Firestore fails
-      localStorage.setItem('todos', JSON.stringify(tasks));
-    }
-  } else {
-    // Guest user - save to localStorage
+  if (!window.currentUser) {
+    console.error('Cannot save tasks: User not logged in');
+    return;
+  }
+  
+  try {
+    const userId = window.currentUser.uid;
+    await db.collection('users').doc(userId).collection('tasks').doc('data').set({
+      tasks: tasks,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    console.log('✅ Tasks saved to Firestore:', tasks.length, 'tasks');
+    
+    // Update localStorage cache
     localStorage.setItem('todos', JSON.stringify(tasks));
+  } catch (error) {
+    console.error('❌ Error saving to Firestore:', error);
+    throw error;
   }
 }
 
-// Load tasks from Firestore or localStorage
+// Load tasks from Firestore (login required)
 async function loadTasks() {
-  if (window.currentUser && !window.isGuestMode) {
-    // Logged in user - load from Firestore
-    try {
-      const userId = window.currentUser.uid;
-      const doc = await db.collection('users').doc(userId).collection('tasks').doc('data').get();
-      
-      if (doc.exists) {
-        console.log('Tasks loaded from Firestore');
-        return doc.data().tasks || [];
-      } else {
-        // No data in Firestore, check localStorage for migration
-        const localData = localStorage.getItem('todos');
-        if (localData) {
-          const tasks = JSON.parse(localData);
-          // Migrate local data to Firestore
-          await saveTasks(tasks);
-          console.log('Migrated localStorage tasks to Firestore');
-          return tasks;
-        }
-        return [];
+  if (!window.currentUser) {
+    console.error('Cannot load tasks: User not logged in');
+    return [];
+  }
+  
+  try {
+    const userId = window.currentUser.uid;
+    const doc = await db.collection('users').doc(userId).collection('tasks').doc('data').get();
+    
+    if (doc.exists) {
+      const tasks = doc.data().tasks || [];
+      console.log('✅ Tasks loaded from Firestore:', tasks.length, 'tasks');
+      // Update localStorage cache
+      localStorage.setItem('todos', JSON.stringify(tasks));
+      return tasks;
+    } else {
+      console.log('📭 No tasks found in Firestore');
+      return [];
       }
     } catch (error) {
       console.error('Error loading from Firestore:', error);

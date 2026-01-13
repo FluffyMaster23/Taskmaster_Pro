@@ -1084,8 +1084,8 @@ function testLocalStorage() {
 
 function getTasks() {
   try {
-    const tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
-    console.log(`getTasks(): Found ${tasks.length} tasks in localStorage`);
+    const tasks = JSON.parse(localStorage.getItem("todos") || "[]");
+    console.log(`getTasks(): Found ${tasks.length} tasks in localStorage cache`);
     return tasks;
   } catch (error) {
     console.error('Error reading tasks from localStorage:', error);
@@ -1758,7 +1758,7 @@ auth.onAuthStateChanged(async (user) => {
       guestNotice.style.visibility = 'visible';
     }
     window.currentUser = null;
-    window.isGuestMode = true;
+    window.isGuestMode = false;
     
     // Clean up task listener if exists
     if (window.tasksListenerUnsubscribe) {
@@ -1766,12 +1766,13 @@ auth.onAuthStateChanged(async (user) => {
       window.tasksListenerUnsubscribe = null;
     }
     
-    // Reload sections for guest mode
-    setTimeout(async () => {
-      if (typeof createSections === 'function') {
-        await createSections();
-      }
-    }, 500);
+    // Clear any cached data
+    localStorage.removeItem('todos');
+    
+    // Redirect to login page if on taskmaster page
+    if (window.location.pathname.includes('taskmaster.html')) {
+      window.location.href = 'account.html';
+    }
   }
 });
 
