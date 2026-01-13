@@ -42,22 +42,30 @@ async function getAllSections() {
   const userId = getUserId();
   const userCustomListsKey = `taskmaster_custom_section_names_${userId}`;
   
+  console.log('🔍 getAllSections - userId:', userId);
+  console.log('🔑 localStorage key:', userCustomListsKey);
+  
   // Always check localStorage first (most reliable)
   const customListNames = JSON.parse(localStorage.getItem(userCustomListsKey) || '[]');
+  console.log('📝 Found in localStorage:', customListNames);
+  console.log('📊 customListNames.length:', customListNames.length);
   
   // If localStorage has data, use it
   if (customListNames.length > 0) {
+    console.log('✅ Returning lists from localStorage:', [...DEFAULT_SECTIONS, ...customListNames]);
     return [...DEFAULT_SECTIONS, ...customListNames];
   }
   
   // Try to load from Firebase if user is logged in and localStorage is empty
   if (window.currentUser && !window.isGuestMode && typeof loadCustomLists === 'function') {
     try {
+      console.log('☁️ Trying Firebase...');
       const customLists = await loadCustomLists();
       if (customLists && customLists.length > 0) {
         const listNames = customLists.map(list => list.name);
         // Save to localStorage for faster access next time
         localStorage.setItem(userCustomListsKey, JSON.stringify(listNames));
+        console.log('✅ Returning lists from Firebase:', [...DEFAULT_SECTIONS, ...listNames]);
         return [...DEFAULT_SECTIONS, ...listNames];
       }
     } catch (error) {
@@ -65,6 +73,7 @@ async function getAllSections() {
     }
   }
   
+  console.log('📭 No lists found, returning empty:', [...DEFAULT_SECTIONS, ...customListNames]);
   return [...DEFAULT_SECTIONS, ...customListNames];
 }
 
