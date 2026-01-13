@@ -1055,18 +1055,6 @@ window.onload = () => {
 };
 
 // === STORAGE + TASK HANDLING
-
-  if (hour >= 5 && hour < 12) {
-    greeting = "Morning, G. Let’s get the day rolling.";
-  } else if (hour >= 12 && hour < 18) {
-    greeting = "Afternoon, boss. Time to knock some things out.";
-  } else {
-    greeting = "Evening, player. Still grinding?";
-  }
-
-  speak(greeting);
-
-// === STORAGE + TASK HANDLING
 function testLocalStorage() {
   try {
     const testKey = 'test_storage';
