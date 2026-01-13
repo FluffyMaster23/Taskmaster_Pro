@@ -126,21 +126,19 @@ async function loadTasks() {
 async function saveCustomLists(lists) {
   if (!window.currentUser) {
     console.error('Cannot save lists: User not logged in');
+    localStorage.setItem('customLists', JSON.stringify(lists));
     return;
   }
   
   try {
-      const userId = window.currentUser.uid;
-      await db.collection('users').doc(userId).collection('lists').doc('data').set({
-        lists: lists,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      console.log('Custom lists saved to Firestore');
-    } catch (error) {
-      console.error('Error saving lists to Firestore:', error);
-      localStorage.setItem('customLists', JSON.stringify(lists));
-    }
-  } else {
+    const userId = window.currentUser.uid;
+    await db.collection('users').doc(userId).collection('lists').doc('data').set({
+      lists: lists,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    console.log('Custom lists saved to Firestore');
+  } catch (error) {
+    console.error('Error saving lists to Firestore:', error);
     localStorage.setItem('customLists', JSON.stringify(lists));
   }
 }
