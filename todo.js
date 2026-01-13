@@ -580,53 +580,6 @@ function sendLocalNotification(task, isReminder = false) {
     }
   };
 }
-  
-  OneSignal.push(function() {
-    OneSignal.getUserId().then(function(userId) {
-      if (userId) {
-        let title, message;
-        
-        if (isReminder) {
-          const dueTime = new Date(task.time);
-          const now = new Date();
-          const timeDiff = dueTime - now;
-          const hours = Math.floor(timeDiff / (1000 * 60 * 60));
-          const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-          
-          title = "⏰ TaskMaster Pro - Reminder";
-          if (hours > 0) {
-            message = `${task.task} - Due in ${hours}h ${minutes}m`;
-          } else {
-            message = `${task.task} - Due in ${minutes} minutes`;
-          }
-        } else {
-          title = "🚨 TaskMaster Pro - Task Due Now!";
-          message = `${task.task} - This task is due now!`;
-        }
-        
-        // Use OneSignal's sendSelfNotification for background delivery
-        OneSignal.sendSelfNotification(
-          title,
-          message,
-          window.location.href, // URL to open when clicked
-          "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K", // App icon
-          {
-            // Data payload for the notification
-            task_id: task.id,
-            task_title: task.task,
-            is_reminder: isReminder.toString(),
-            due_time: task.time
-          }
-        ).then(function() {
-          console.log('Background notification sent successfully');
-        }).catch(function(error) {
-          console.error('Failed to send background notification:', error);
-        });
-      }
-    });
-  });
-}
-// === END ONESIGNAL IMPLEMENTATION ===
 
 // === VOICE FUNCTIONALITY SETUP ===
 function setupVoiceFunctionality() {
