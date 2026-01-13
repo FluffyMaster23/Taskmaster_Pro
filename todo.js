@@ -1681,13 +1681,24 @@ auth.onAuthStateChanged(async (user) => {
   if (user) {
     const displayName = user.displayName || user.email.split('@')[0];
     if (usernameEl) usernameEl.textContent = displayName;
-    if (welcomeMsg) welcomeMsg.style.display = 'block';
-    if (guestNotice) guestNotice.style.display = 'none';
+    if (welcomeMsg) {
+      welcomeMsg.style.display = 'block';
+      welcomeMsg.style.visibility = 'visible';
+    }
+    if (guestNotice) {
+      guestNotice.style.display = 'none';
+      guestNotice.style.visibility = 'hidden';
+    }
     window.currentUser = user;
     window.isGuestMode = false;
     
     // Set user presence to online
     await setUserPresence(user, true);
+    
+    // Setup real-time task listener
+    if (typeof setupTasksListener === 'function') {
+      setupTasksListener();
+    }
     
     // Reload sections from Firebase after authentication
     if (typeof createSections === 'function') {
@@ -1716,10 +1727,22 @@ auth.onAuthStateChanged(async (user) => {
       }
     }
   } else {
-    if (welcomeMsg) welcomeMsg.style.display = 'none';
-    if (guestNotice) guestNotice.style.display = 'block';
+    if (welcomeMsg) {
+      welcomeMsg.style.display = 'none';
+      welcomeMsg.style.visibility = 'hidden';
+    }
+    if (guestNotice) {
+      guestNotice.style.display = 'block';
+      guestNotice.style.visibility = 'visible';
+    }
     window.currentUser = null;
     window.isGuestMode = true;
+    
+    // Clean up task listener if exists
+    if (window.tasksListenerUnsubscribe) {
+      window.tasksListenerUnsubscribe();
+      window.tasksListenerUnsubscribe = null;
+    }
     
     // Reload sections for guest mode
     setTimeout(async () => {

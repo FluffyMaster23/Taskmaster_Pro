@@ -4,6 +4,34 @@
  * Falls back to localStorage for guest users
  */
 
+// Setup real-time listener for task updates
+function setupTasksListener() {
+  if (window.currentUser && !window.isGuestMode) {
+    const userId = window.currentUser.uid;
+    
+    // Listen for real-time updates
+    const unsubscribe = db.collection('users').doc(userId).collection('tasks').doc('data')
+      .onSnapshot((doc) => {
+        if (doc.exists) {
+          const tasks = doc.data().tasks || [];
+          
+          // Update localStorage cache
+          localStorage.setItem('todos', JSON.stringify(tasks));
+          
+          // Refresh UI if on taskmaster page
+          if (window.location.pathname.includes('taskmaster.html') && typeof createSections === 'function') {
+            createSections();
+          }
+        }
+      }, (error) => {
+        console.error('Error listening to task updates:', error);
+      });
+    
+    // Store unsubscribe function to clean up later
+    window.tasksListenerUnsubscribe = unsubscribe;
+  }
+}
+
 // Save tasks to Firestore or localStorage
 async function saveTasks(tasks) {
   if (window.currentUser && !window.isGuestMode) {
