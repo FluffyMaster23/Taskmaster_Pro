@@ -386,13 +386,19 @@
       return userId;
     }
     
+    // Get current user ID (Firebase user if logged in, otherwise device ID)
+    function getCurrentUserId() {
+      // Use Firebase user ID if logged in, otherwise device ID
+      return window.currentUser ? window.currentUser.uid : getUserId();
+    }
+    
     // Custom lists storage - user-specific
     function getCustomListsKey() {
-      return `taskmaster_custom_lists_${getUserId()}`;
+      return `taskmaster_custom_lists_${getCurrentUserId()}`;
     }
     
     function getCustomSectionNamesKey() {
-      return `taskmaster_custom_section_names_${getUserId()}`;
+      return `taskmaster_custom_section_names_${getCurrentUserId()}`;
     }
     
     // Get custom lists from Firestore or localStorage (user-specific)
