@@ -91,9 +91,37 @@ async function getAllSections() {
 async function migrateOldListData() {
   const userId = window.currentUser ? window.currentUser.uid : getUserId();
   const currentKey = `taskmaster_custom_section_names_${userId}`;
+  const currentListsKey = `taskmaster_custom_lists_${userId}`;
   
   console.log('🔄 MIGRATION CHECK - Current user ID:', userId);
   console.log('🔄 MIGRATION CHECK - Current key:', currentKey);
+  
+  // First, sync section names from full lists data if they're out of sync
+  const fullListsData = localStorage.getItem(currentListsKey);
+  const sectionNamesData = localStorage.getItem(currentKey);
+  
+  if (fullListsData && fullListsData !== '[]') {
+    try {
+      const lists = JSON.parse(fullListsData);
+      const listNames = lists.map(list => list.name);
+      const existingNames = sectionNamesData ? JSON.parse(sectionNamesData) : [];
+      
+      console.log('🔄 Full lists data has:', lists.length, 'lists');
+      console.log('🔄 Section names has:', existingNames.length, 'names');
+      
+      // If they don't match, rebuild section names from full data
+      if (listNames.length !== existingNames.length || !listNames.every(name => existingNames.includes(name))) {
+        console.log('🔧 SYNCING section names from full list data...');
+        console.log('🔧 Old section names:', existingNames);
+        console.log('🔧 New section names:', listNames);
+        localStorage.setItem(currentKey, JSON.stringify(listNames));
+        console.log('✅ Section names synced!');
+        return; // Early return, we're done
+      }
+    } catch (error) {
+      console.error('Error syncing section names:', error);
+    }
+  }
   
   // If we already have data under current key, no need to migrate
   const existingData = localStorage.getItem(currentKey);
