@@ -57,7 +57,7 @@ async function getAllSections() {
   }
   
   // Try to load from Firebase if user is logged in and localStorage is empty
-  if (window.currentUser && !window.isGuestMode && typeof loadCustomLists === 'function') {
+  if (window.currentUser && typeof loadCustomLists === 'function') {
     try {
       console.log('☁️ Trying Firebase...');
       const customLists = await loadCustomLists();

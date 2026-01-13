@@ -115,24 +115,21 @@ async function loadTasks() {
     } else {
       console.log('📭 No tasks found in Firestore');
       return [];
-      }
-    } catch (error) {
-      console.error('Error loading from Firestore:', error);
-      // Fallback to localStorage
-      const localData = localStorage.getItem('todos');
-      return localData ? JSON.parse(localData) : [];
     }
-  } else {
-    // Guest user - load from localStorage
-    const localData = localStorage.getItem('todos');
-    return localData ? JSON.parse(localData) : [];
+  } catch (error) {
+    console.error('❌ Error loading from Firestore:', error);
+    throw error;
   }
 }
 
-// Save custom lists to Firestore or localStorage
+// Save custom lists to Firestore (login required)
 async function saveCustomLists(lists) {
-  if (window.currentUser && !window.isGuestMode) {
-    try {
+  if (!window.currentUser) {
+    console.error('Cannot save lists: User not logged in');
+    return;
+  }
+  
+  try {
       const userId = window.currentUser.uid;
       await db.collection('users').doc(userId).collection('lists').doc('data').set({
         lists: lists,
@@ -148,39 +145,31 @@ async function saveCustomLists(lists) {
   }
 }
 
-// Load custom lists from Firestore or localStorage
+// Load custom lists from Firestore (login required)
 async function loadCustomLists() {
-  if (window.currentUser && !window.isGuestMode) {
-    try {
-      const userId = window.currentUser.uid;
-      const doc = await db.collection('users').doc(userId).collection('lists').doc('data').get();
-      
-      if (doc.exists) {
-        console.log('Custom lists loaded from Firestore');
-        return doc.data().lists || [];
-      } else {
-        // Check localStorage for migration
-        const localData = localStorage.getItem('customLists');
-        if (localData) {
-          const lists = JSON.parse(localData);
-          await saveCustomLists(lists);
-          console.log('Migrated localStorage lists to Firestore');
-          return lists;
-        }
-        return [];
-      }
-    } catch (error) {
-      console.error('Error loading lists from Firestore:', error);
-      const localData = localStorage.getItem('customLists');
-      return localData ? JSON.parse(localData) : [];
+  if (!window.currentUser) {
+    console.error('Cannot load lists: User not logged in');
+    return [];
+  }
+  
+  try {
+    const userId = window.currentUser.uid;
+    const doc = await db.collection('users').doc(userId).collection('lists').doc('data').get();
+    
+    if (doc.exists) {
+      console.log('✅ Custom lists loaded from Firestore');
+      return doc.data().lists || [];
+    } else {
+      console.log('📭 No custom lists found in Firestore');
+      return [];
     }
-  } else {
-    const localData = localStorage.getItem('customLists');
-    return localData ? JSON.parse(localData) : [];
+  } catch (error) {
+    console.error('❌ Error loading lists from Firestore:', error);
+    throw error;
   }
 }
 
-// Delete a task from Firestore or localStorage
+// Delete a task from Firestore
 async function deleteTask(taskId) {
   const tasks = await loadTasks();
   const updatedTasks = tasks.filter(task => task.id !== taskId);
