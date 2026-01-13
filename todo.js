@@ -73,8 +73,68 @@ async function getAllSections() {
     }
   }
   
+  // Try to migrate old list data if no data found
+  await migrateOldListData();
+  
+  // Check again after migration
+  const migratedListNames = JSON.parse(localStorage.getItem(userCustomListsKey) || '[]');
+  if (migratedListNames.length > 0) {
+    console.log('✅ Returning migrated lists:', [...DEFAULT_SECTIONS, ...migratedListNames]);
+    return [...DEFAULT_SECTIONS, ...migratedListNames];
+  }
+  
   console.log('📭 No lists found, returning empty:', DEFAULT_SECTIONS);
   return DEFAULT_SECTIONS;
+}
+
+// Migrate data from old device ID to current user ID (one-time migration)
+async function migrateOldListData() {
+  const userId = window.currentUser ? window.currentUser.uid : getUserId();
+  const currentKey = `taskmaster_custom_section_names_${userId}`;
+  
+  // If we already have data under current key, no need to migrate
+  const existingData = localStorage.getItem(currentKey);
+  if (existingData && existingData !== '[]') {
+    console.log('✅ Data already exists for current user ID, no migration needed');
+    return;
+  }
+  
+  // Look for any old list data in localStorage
+  console.log('🔍 Searching for old list data to migrate...');
+  let foundData = null;
+  let foundKey = null;
+  
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('taskmaster_custom_section_names_user_') && key !== currentKey) {
+      const data = localStorage.getItem(key);
+      if (data && data !== '[]') {
+        foundData = data;
+        foundKey = key;
+        console.log('📦 Found old section names:', key);
+        break;
+      }
+    }
+  }
+  
+  // Migrate if we found old data
+  if (foundData && foundKey) {
+    console.log('🚚 Migrating lists from', foundKey, 'to', currentKey);
+    localStorage.setItem(currentKey, foundData);
+    
+    // Also migrate full list data
+    const oldListKey = foundKey.replace('taskmaster_custom_section_names_', 'taskmaster_custom_lists_');
+    const oldListData = localStorage.getItem(oldListKey);
+    if (oldListData) {
+      const newListKey = `taskmaster_custom_lists_${userId}`;
+      localStorage.setItem(newListKey, oldListData);
+      console.log('🚚 Migrated full list data');
+    }
+    
+    console.log('✅ Migration complete!');
+  } else {
+    console.log('📭 No old list data found to migrate');
+  }
 }
 
 // Dynamic SECTIONS array that includes custom lists (will be updated async)

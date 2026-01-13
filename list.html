@@ -401,6 +401,56 @@
       return `taskmaster_custom_section_names_${getCurrentUserId()}`;
     }
     
+    // Migrate data from old device ID to current user ID (one-time migration)
+    async function migrateOldListData() {
+      const currentUserId = getCurrentUserId();
+      const currentKey = getCustomListsKey();
+      
+      // If we already have data under current key, no need to migrate
+      const existingData = localStorage.getItem(currentKey);
+      if (existingData) {
+        console.log('✅ Data already exists for current user ID, no migration needed');
+        return;
+      }
+      
+      // Look for any old list data in localStorage
+      console.log('🔍 Searching for old list data to migrate...');
+      let foundData = null;
+      let foundKey = null;
+      
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('taskmaster_custom_lists_user_') && key !== currentKey) {
+          const data = localStorage.getItem(key);
+          if (data && data !== '[]') {
+            foundData = data;
+            foundKey = key;
+            console.log('📦 Found old list data:', key);
+            break;
+          }
+        }
+      }
+      
+      // Migrate if we found old data
+      if (foundData && foundKey) {
+        console.log('🚚 Migrating lists from', foundKey, 'to', currentKey);
+        localStorage.setItem(currentKey, foundData);
+        
+        // Also migrate section names
+        const oldSectionKey = foundKey.replace('taskmaster_custom_lists_', 'taskmaster_custom_section_names_');
+        const oldSectionData = localStorage.getItem(oldSectionKey);
+        if (oldSectionData) {
+          const newSectionKey = getCustomSectionNamesKey();
+          localStorage.setItem(newSectionKey, oldSectionData);
+          console.log('🚚 Migrated section names');
+        }
+        
+        console.log('✅ Migration complete! Reloading lists...');
+      } else {
+        console.log('📭 No old list data found to migrate');
+      }
+    }
+    
     // Get custom lists from Firestore or localStorage (user-specific)
     async function getCustomLists() {
       // Use Firebase function from firebase-data.js if available
@@ -658,6 +708,9 @@
         // Set user presence to online
         await setUserPresence(user, true);
         
+        // Migrate old list data if needed
+        await migrateOldListData();
+        
         // Setup real-time listener for lists
         if (typeof setupListsListener === 'function') {
           setupListsListener();
@@ -671,6 +724,9 @@
         guestNotice.style.display = 'block';
         window.currentUser = null;
         window.isGuestMode = true;
+        
+        // Migrate old list data if needed
+        await migrateOldListData();
         
         // Load local lists for guest
         console.log('Guest mode, loading local lists...');
