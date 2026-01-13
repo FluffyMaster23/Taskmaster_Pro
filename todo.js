@@ -92,26 +92,43 @@ async function migrateOldListData() {
   const userId = window.currentUser ? window.currentUser.uid : getUserId();
   const currentKey = `taskmaster_custom_section_names_${userId}`;
   
+  console.log('🔄 MIGRATION CHECK - Current user ID:', userId);
+  console.log('🔄 MIGRATION CHECK - Current key:', currentKey);
+  
   // If we already have data under current key, no need to migrate
   const existingData = localStorage.getItem(currentKey);
+  console.log('🔄 MIGRATION CHECK - Existing data:', existingData);
+  
   if (existingData && existingData !== '[]') {
     console.log('✅ Data already exists for current user ID, no migration needed');
     return;
   }
   
   // Look for any old list data in localStorage
-  console.log('🔍 Searching for old list data to migrate...');
+  console.log('🔍 Searching ALL localStorage keys...');
+  console.log('📊 Total localStorage items:', localStorage.length);
+  
+  // List all taskmaster keys
+  const allKeys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.includes('taskmaster_custom')) {
+      allKeys.push(key);
+      console.log('🔑 Found taskmaster key:', key, '=', localStorage.getItem(key));
+    }
+  }
+  
   let foundData = null;
   let foundKey = null;
   
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && key.startsWith('taskmaster_custom_section_names_user_') && key !== currentKey) {
+  // Look for section names keys
+  for (const key of allKeys) {
+    if (key.startsWith('taskmaster_custom_section_names_') && key !== currentKey) {
       const data = localStorage.getItem(key);
       if (data && data !== '[]') {
         foundData = data;
         foundKey = key;
-        console.log('📦 Found old section names:', key);
+        console.log('📦 Found old section names:', key, '=', data);
         break;
       }
     }
@@ -119,7 +136,7 @@ async function migrateOldListData() {
   
   // Migrate if we found old data
   if (foundData && foundKey) {
-    console.log('🚚 Migrating lists from', foundKey, 'to', currentKey);
+    console.log('🚚 MIGRATING lists from', foundKey, 'to', currentKey);
     localStorage.setItem(currentKey, foundData);
     
     // Also migrate full list data
@@ -127,13 +144,16 @@ async function migrateOldListData() {
     const oldListData = localStorage.getItem(oldListKey);
     if (oldListData) {
       const newListKey = `taskmaster_custom_lists_${userId}`;
+      console.log('🚚 Also migrating full list data from', oldListKey, 'to', newListKey);
       localStorage.setItem(newListKey, oldListData);
       console.log('🚚 Migrated full list data');
     }
     
-    console.log('✅ Migration complete!');
+    console.log('✅✅✅ MIGRATION COMPLETE! Data is now at:', currentKey);
+    console.log('✅ Migrated data:', localStorage.getItem(currentKey));
   } else {
     console.log('📭 No old list data found to migrate');
+    console.log('🔍 All taskmaster keys found:', allKeys);
   }
 }
 
@@ -218,7 +238,7 @@ function initializeCurrentPage() {
   }
 }
 
-function initializeTaskMasterPage() {
+async function initializeTaskMasterPage() {
   console.log('Initializing TaskMaster page');
   
   // Setup voice functionality
@@ -233,8 +253,11 @@ function initializeTaskMasterPage() {
     setupTasksListener();
   }
   
+  // Run migration first before creating sections
+  await migrateOldListData();
+  
   // Create task sections (now async)
-  createSections();
+  await createSections();
   
   // Check if we should focus on a specific list (from list.html)
   const focusList = sessionStorage.getItem('focusList');
