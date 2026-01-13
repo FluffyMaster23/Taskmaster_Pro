@@ -9,18 +9,32 @@ function setupTasksListener() {
   if (window.currentUser && !window.isGuestMode) {
     const userId = window.currentUser.uid;
     
+    console.log('🔄 Setting up real-time task listener for user:', userId);
+    
     // Listen for real-time updates
     const unsubscribe = db.collection('users').doc(userId).collection('tasks').doc('data')
       .onSnapshot((doc) => {
         if (doc.exists) {
           const tasks = doc.data().tasks || [];
           
+          console.log('🔥 Firebase snapshot received:', tasks.length, 'tasks');
+          
           // Update localStorage cache
           localStorage.setItem('todos', JSON.stringify(tasks));
           
           // Refresh UI if on taskmaster page
-          if (window.location.pathname.includes('taskmaster.html') && typeof createSections === 'function') {
-            createSections();
+          if (window.location.pathname.includes('taskmaster.html')) {
+            // Clear existing tasks from UI
+            const allUls = document.querySelectorAll('[id^="ul-"]');
+            allUls.forEach(ul => {
+              ul.innerHTML = '';
+            });
+            
+            // Re-render all tasks
+            if (typeof renderExistingTasks === 'function') {
+              console.log('🎨 Re-rendering tasks in UI...');
+              renderExistingTasks();
+            }
           }
         }
       }, (error) => {
