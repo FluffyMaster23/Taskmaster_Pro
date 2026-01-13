@@ -39,27 +39,27 @@ function getUserId() {
 
 // Function to get all sections (default + user's custom lists)
 async function getAllSections() {
-  const userId = getUserId();
+  // Use Firebase user ID if logged in, otherwise device ID
+  const userId = window.currentUser ? window.currentUser.uid : getUserId();
   const userCustomListsKey = `taskmaster_custom_section_names_${userId}`;
   
   console.log('🔍 getAllSections - userId:', userId);
   console.log('🔑 localStorage key:', userCustomListsKey);
   
-  // Always check localStorage first (most reliable)
+  // Check localStorage cache first
   const customListNames = JSON.parse(localStorage.getItem(userCustomListsKey) || '[]');
   console.log('📝 Found in localStorage:', customListNames);
-  console.log('📊 customListNames.length:', customListNames.length);
   
   // If localStorage has data, use it
   if (customListNames.length > 0) {
-    console.log('✅ Returning lists from localStorage:', [...DEFAULT_SECTIONS, ...customListNames]);
+    console.log('✅ Returning lists from localStorage cache:', [...DEFAULT_SECTIONS, ...customListNames]);
     return [...DEFAULT_SECTIONS, ...customListNames];
   }
   
-  // Try to load from Firebase if user is logged in and localStorage is empty
+  // Load from Firebase if user is logged in
   if (window.currentUser && typeof loadCustomLists === 'function') {
     try {
-      console.log('☁️ Trying Firebase...');
+      console.log('☁️ Loading lists from Firebase...');
       const customLists = await loadCustomLists();
       if (customLists && customLists.length > 0) {
         const listNames = customLists.map(list => list.name);
@@ -73,8 +73,8 @@ async function getAllSections() {
     }
   }
   
-  console.log('📭 No lists found, returning empty:', [...DEFAULT_SECTIONS, ...customListNames]);
-  return [...DEFAULT_SECTIONS, ...customListNames];
+  console.log('📭 No lists found, returning empty:', DEFAULT_SECTIONS);
+  return DEFAULT_SECTIONS;
 }
 
 // Dynamic SECTIONS array that includes custom lists (will be updated async)
