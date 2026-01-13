@@ -1092,20 +1092,36 @@ function getTasks() {
     return [];
   }
 }
-function saveTask(task) {
+async function saveTask(task) {
   try {
     const all = getTasks();
     all.push(task);
-    localStorage.setItem("tasks", JSON.stringify(all));
-    console.log(`saveTask(): Saved task "${task.name}" to localStorage. Total tasks: ${all.length}`);
+    
+    // Save to Firebase if logged in, or localStorage if guest
+    if (typeof saveTasks === 'function') {
+      await saveTasks(all);
+      console.log(`saveTask(): Saved task "${task.task}" to Firebase/localStorage. Total tasks: ${all.length}`);
+    } else {
+      // Fallback to localStorage if firebase-data.js not loaded
+      localStorage.setItem("todos", JSON.stringify(all));
+      console.log(`saveTask(): Saved task "${task.task}" to localStorage. Total tasks: ${all.length}`);
+    }
   } catch (error) {
-    console.error('Error saving task to localStorage:', error);
+    console.error('Error saving task:', error);
   }
 }
-function removeTask(taskId) {
+
+async function removeTask(taskId) {
   const all = getTasks();
   const filtered = all.filter(t => t.id !== taskId);
-  localStorage.setItem("tasks", JSON.stringify(filtered));
+  
+  // Save to Firebase if logged in, or localStorage if guest
+  if (typeof saveTasks === 'function') {
+    await saveTasks(filtered);
+  } else {
+    // Fallback to localStorage if firebase-data.js not loaded
+    localStorage.setItem("todos", JSON.stringify(filtered));
+  }
   
   // Also remove from OneSignal scheduled tasks for iOS
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
@@ -1127,9 +1143,9 @@ function renderTask(task, ul) {
   checkbox.setAttribute("aria-label", `Complete task: ${task.task}`);
   checkbox.style.marginRight = "10px";
 
-  checkbox.addEventListener("change", () => {
+  checkbox.addEventListener("change", async () => {
     if (checkbox.checked) {
-      removeTask(task.id);
+      await removeTask(task.id);
       li.remove();
       const updated = getTasks();
       if (updated.length === 0 && !window._clearMessageSpoken) {
@@ -1424,7 +1440,7 @@ async function createSections() {
   const ul = document.createElement("ul");
   ul.id = `ul-${section}`;
 
-  addBtn.onclick = () => {
+  addBtn.onclick = async () => {
     const task = taskInput.value.trim();
     const msg = messageInput.value.trim();
     const time = dateInput.value;
@@ -1432,7 +1448,7 @@ async function createSections() {
     if (!task || !time) return alert("Task name and due date/time are required.");
     const id = Date.now().toString();
     const data = { id, section, task, msg, time, reminderMinutes };
-    saveTask(data);
+    await saveTask(data);
     renderTask(data, ul);
     
     // Schedule notifications based on platform
