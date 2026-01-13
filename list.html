@@ -652,6 +652,11 @@
         // Set user presence to online
         await setUserPresence(user, true);
         
+        // Setup real-time listener for lists
+        if (typeof setupListsListener === 'function') {
+          setupListsListener();
+        }
+        
         // Load lists from Firebase after authentication
         console.log('User authenticated, loading lists from Firebase...');
         await displayCustomLists();

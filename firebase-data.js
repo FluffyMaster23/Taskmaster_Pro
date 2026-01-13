@@ -4,6 +4,38 @@
  * Falls back to localStorage for guest users
  */
 
+// Clear localStorage data after 2 hours if not logged in
+function checkAndClearExpiredData() {
+  if (window.currentUser) {
+    // User is logged in, don't clear anything
+    return;
+  }
+  
+  const lastSaveTime = localStorage.getItem('lastDataSave');
+  if (!lastSaveTime) {
+    // No timestamp found, set it now
+    localStorage.setItem('lastDataSave', Date.now().toString());
+    return;
+  }
+  
+  const twoHoursInMs = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+  const timeSinceLastSave = Date.now() - parseInt(lastSaveTime);
+  
+  if (timeSinceLastSave > twoHoursInMs) {
+    console.log('⏰ 2 hours expired, clearing localStorage data for guest user');
+    localStorage.removeItem('todos');
+    localStorage.removeItem('customLists');
+    localStorage.removeItem('lastDataSave');
+  }
+}
+
+// Call this on page load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', checkAndClearExpiredData);
+} else {
+  checkAndClearExpiredData();
+}
+
 // Setup real-time listener for task updates
 function setupTasksListener() {
   if (window.currentUser && !window.isGuestMode) {
@@ -72,10 +104,64 @@ function setupTasksListener() {
   }
 }
 
+// Setup real-time listener for custom lists updates
+function setupListsListener() {
+  if (window.currentUser && !window.isGuestMode) {
+    const userId = window.currentUser.uid;
+    
+    console.log('🔄 Setting up real-time lists listener for user:', userId);
+    
+    // First, load lists from Firebase immediately
+    db.collection('users').doc(userId).collection('lists').doc('data').get()
+      .then((doc) => {
+        if (doc.exists) {
+          const lists = doc.data().lists || [];
+          console.log('📥 Initial load of lists from Firebase:', lists.length, 'lists');
+          localStorage.setItem('customLists', JSON.stringify(lists));
+          
+          // Refresh UI if on list page
+          if (window.location.pathname.includes('list.html') && typeof displayCustomLists === 'function') {
+            console.log('🎨 Rendering initial lists...');
+            displayCustomLists();
+          }
+        }
+      })
+      .catch((error) => {
+        console.error('Error loading initial lists:', error);
+      });
+    
+    // Then set up real-time listener for updates
+    const unsubscribe = db.collection('users').doc(userId).collection('lists').doc('data')
+      .onSnapshot((doc) => {
+        if (doc.exists) {
+          const lists = doc.data().lists || [];
+          
+          console.log('🔥 Firebase lists snapshot received:', lists.length, 'lists');
+          
+          // Update localStorage cache
+          localStorage.setItem('customLists', JSON.stringify(lists));
+          
+          // Refresh UI if on list page
+          if (window.location.pathname.includes('list.html') && typeof displayCustomLists === 'function') {
+            console.log('🎨 Re-rendering lists in UI...');
+            displayCustomLists();
+          }
+        }
+      }, (error) => {
+        console.error('Error listening to lists updates:', error);
+      });
+    
+    // Store unsubscribe function to clean up later
+    window.listsListenerUnsubscribe = unsubscribe;
+  }
+}
+
 // Save tasks to Firestore (login required)
 async function saveTasks(tasks) {
   if (!window.currentUser) {
     console.error('Cannot save tasks: User not logged in');
+    localStorage.setItem('todos', JSON.stringify(tasks));
+    localStorage.setItem('lastDataSave', Date.now().toString());
     return;
   }
   
@@ -91,6 +177,8 @@ async function saveTasks(tasks) {
     localStorage.setItem('todos', JSON.stringify(tasks));
   } catch (error) {
     console.error('❌ Error saving to Firestore:', error);
+    localStorage.setItem('todos', JSON.stringify(tasks));
+    localStorage.setItem('lastDataSave', Date.now().toString());
     throw error;
   }
 }
@@ -127,6 +215,7 @@ async function saveCustomLists(lists) {
   if (!window.currentUser) {
     console.error('Cannot save lists: User not logged in');
     localStorage.setItem('customLists', JSON.stringify(lists));
+    localStorage.setItem('lastDataSave', Date.now().toString());
     return;
   }
   
@@ -140,14 +229,16 @@ async function saveCustomLists(lists) {
   } catch (error) {
     console.error('Error saving lists to Firestore:', error);
     localStorage.setItem('customLists', JSON.stringify(lists));
+    localStorage.setItem('lastDataSave', Date.now().toString());
   }
 }
 
 // Load custom lists from Firestore (login required)
 async function loadCustomLists() {
   if (!window.currentUser) {
-    console.error('Cannot load lists: User not logged in');
-    return [];
+    console.log('No user logged in, loading lists from localStorage');
+    const lists = localStorage.getItem('customLists');
+    return lists ? JSON.parse(lists) : [];
   }
   
   try {
@@ -155,15 +246,22 @@ async function loadCustomLists() {
     const doc = await db.collection('users').doc(userId).collection('lists').doc('data').get();
     
     if (doc.exists) {
+      const lists = doc.data().lists || [];
       console.log('✅ Custom lists loaded from Firestore');
-      return doc.data().lists || [];
+      // Update localStorage cache
+      localStorage.setItem('customLists', JSON.stringify(lists));
+      return lists;
     } else {
-      console.log('📭 No custom lists found in Firestore');
-      return [];
+      console.log('📭 No custom lists found in Firestore, checking localStorage');
+      // Fallback to localStorage if nothing in Firestore
+      const lists = localStorage.getItem('customLists');
+      return lists ? JSON.parse(lists) : [];
     }
   } catch (error) {
     console.error('❌ Error loading lists from Firestore:', error);
-    throw error;
+    // Fallback to localStorage on error
+    const lists = localStorage.getItem('customLists');
+    return lists ? JSON.parse(lists) : [];
   }
 }
 
