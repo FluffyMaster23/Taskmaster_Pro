@@ -1197,36 +1197,6 @@ function renderTask(task, ul) {
 }
 
 // === NOTIFICATION CHECKER ===
-// Notification checker function (checks for upcoming tasks and sends notifications)
-    return;
-  }
-
-  const permission = Notification.permission;
-  const hasAskedBefore = localStorage.getItem('notificationAsked');
-  const isFirstVisit = !hasAskedBefore;
-
-  console.log("Notification permission:", permission);
-  console.log("First visit:", isFirstVisit);
-
-  // Only show automatic prompt on first visit (like Windows)
-  if (isFirstVisit && permission === "default") {
-    // Mark that we've asked before
-    localStorage.setItem('notificationAsked', 'true');
-    
-    // Wait for page to fully load, then request
-    setTimeout(async () => {
-      console.log("First visit - requesting notification permission");
-      await requestNotificationPermission();
-    }, 1500);
-  } else if (permission === "granted") {
-    console.log("Notifications already enabled");
-    updateNotificationControls();
-  } else {
-    // Not first visit, just update UI
-    updateNotificationControls();
-  }
-}
-
 // Check and request notifications with iOS PWA support
 async function checkAndRequestNotifications() {
   if (!("Notification" in window)) {
