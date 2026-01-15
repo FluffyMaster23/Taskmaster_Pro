@@ -240,34 +240,6 @@ async function initializeTaskMasterPage() {
     console.log('⚠️ Check Upcoming button not found');
   }
   
-  // Add debug button for iOS notification testing
-  const testNotificationBtn = document.getElementById('testNotificationCheck');
-  if (testNotificationBtn) {
-    testNotificationBtn.addEventListener('click', () => {
-      console.log('🧪 TEST NOTIFICATION CHECK BUTTON CLICKED');
-      console.log('🧪 Manually triggering notification check...');
-      
-      const now = new Date();
-      const all = getTasks();
-      
-      console.log('🧪 Current time:', now.toLocaleString());
-      console.log('🧪 Total tasks:', all.length);
-      console.log('🧪 All tasks:', JSON.stringify(all, null, 2));
-      
-      if (all.length === 0) {
-        alert('No tasks found! Create a task first.');
-        return;
-      }
-      
-      // Show test notification
-      const testTask = all[0];
-      console.log('🧪 Showing test notification for first task:', testTask.task);
-      showNotification(testTask, false);
-      
-      alert(`Test check complete!\nTasks: ${all.length}\nCheck console for details.`);
-    });
-  }
-  
   // Start the notification checker
   startNotificationChecker();
 }
