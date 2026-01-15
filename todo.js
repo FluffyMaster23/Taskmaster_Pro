@@ -231,6 +231,34 @@ async function initializeTaskMasterPage() {
     console.log('⚠️ Check Upcoming button not found');
   }
   
+  // Add debug button for iOS notification testing
+  const testNotificationBtn = document.getElementById('testNotificationCheck');
+  if (testNotificationBtn) {
+    testNotificationBtn.addEventListener('click', () => {
+      console.log('🧪 TEST NOTIFICATION CHECK BUTTON CLICKED');
+      console.log('🧪 Manually triggering notification check...');
+      
+      const now = new Date();
+      const all = getTasks();
+      
+      console.log('🧪 Current time:', now.toLocaleString());
+      console.log('🧪 Total tasks:', all.length);
+      console.log('🧪 All tasks:', JSON.stringify(all, null, 2));
+      
+      if (all.length === 0) {
+        alert('No tasks found! Create a task first.');
+        return;
+      }
+      
+      // Show test notification
+      const testTask = all[0];
+      console.log('🧪 Showing test notification for first task:', testTask.task);
+      showNotification(testTask, false);
+      
+      alert(`Test check complete!\nTasks: ${all.length}\nCheck console for details.`);
+    });
+  }
+  
   // Start the notification checker
   startNotificationChecker();
 }
@@ -1305,6 +1333,12 @@ function showWelcomeNotification() {
 function showNotification(task, isReminder = false) {
   console.log(`🔔 showNotification called for task: ${task.task}, isReminder: ${isReminder}`);
   
+  // Detect iOS
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  
+  console.log('📱 Device: iOS =', isIOS);
+  
   if (!("Notification" in window)) {
     console.log('❌ Notifications not supported');
     return;
@@ -1372,10 +1406,13 @@ function showNotification(task, isReminder = false) {
     notification.close();
   };
 
-  // Auto-close notification after 10 seconds
-  setTimeout(() => {
-    notification.close();
-  }, 10000);
+    // Auto-close notification after 10 seconds (iOS may auto-close earlier)
+    setTimeout(() => {
+      notification.close();
+    }, 10000);
+  } catch (error) {
+    console.error('❌ Error creating notification:', error);
+  }
 }
 
 // === DOM BUILD ===
