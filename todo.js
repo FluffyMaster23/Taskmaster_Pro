@@ -25,6 +25,28 @@ auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((error) => {
 // === CONFIG ===
 const DEFAULT_SECTIONS = [];
 
+// Clear old localStorage list data with old user_ prefix
+function clearOldListData() {
+  if (!window.currentUser) return;
+  
+  const currentUserId = window.currentUser.uid;
+  const keysToRemove = [];
+  
+  // Find all old list keys with user_ prefix
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.includes('taskmaster_custom') && key.includes('user_') && !key.includes(currentUserId)) {
+      keysToRemove.push(key);
+    }
+  }
+  
+  // Remove old keys
+  if (keysToRemove.length > 0) {
+    console.log('🧹 Clearing old list data:', keysToRemove);
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+  }
+}
+
 // Function to get all sections (default + user's custom lists)
 async function getAllSections() {
   // Only use Firebase user ID if logged in
@@ -39,17 +61,10 @@ async function getAllSections() {
   console.log('🔍 getAllSections - userId:', userId);
   console.log('🔑 localStorage key:', userCustomListsKey);
   
-  // Check localStorage cache first
-  const customListNames = JSON.parse(localStorage.getItem(userCustomListsKey) || '[]');
-  console.log('📝 Found in localStorage:', customListNames);
+  // Clear old data first
+  clearOldListData();
   
-  // If localStorage has data, use it
-  if (customListNames.length > 0) {
-    console.log('✅ Returning lists from localStorage cache:', [...DEFAULT_SECTIONS, ...customListNames]);
-    return [...DEFAULT_SECTIONS, ...customListNames];
-  }
-  
-  // Load from Firebase if user is logged in
+  // Always load from Firebase to get the latest data
   if (typeof loadCustomLists === 'function') {
     try {
       console.log('☁️ Loading lists from Firebase...');
@@ -64,6 +79,13 @@ async function getAllSections() {
     } catch (error) {
       console.error('Error loading custom lists from Firebase:', error);
     }
+  }
+  
+  // Only use localStorage as backup if Firebase fails
+  const customListNames = JSON.parse(localStorage.getItem(userCustomListsKey) || '[]');
+  if (customListNames.length > 0) {
+    console.log('⚠️ Using localStorage backup:', [...DEFAULT_SECTIONS, ...customListNames]);
+    return [...DEFAULT_SECTIONS, ...customListNames];
   }
   
   console.log('📭 No lists found, returning empty:', DEFAULT_SECTIONS);
