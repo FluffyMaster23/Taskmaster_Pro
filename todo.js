@@ -1419,13 +1419,18 @@ function showNotification(task, isReminder = false) {
 
 // === DOM BUILD ===
 async function createSections() {
+  console.log('🔨 createSections called');
+  console.log('📍 Current page:', window.location.pathname);
+  
   const sectionsDiv = document.getElementById("sections");
+  console.log('🔍 Sections div found:', sectionsDiv !== null);
+  
   if (!sectionsDiv) {
     console.log('⚠️ Sections div not found, skipping section creation');
     return;
   }
   
-  console.log('🔨 createSections called - building task sections...');
+  console.log('✅ Sections div exists, building task sections...');
   
   // Get fresh sections list (including any newly created custom lists) - now async
   const allSections = await getAllSections();
