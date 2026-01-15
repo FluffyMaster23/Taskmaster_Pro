@@ -51,7 +51,8 @@ function clearOldListData() {
 async function getAllSections() {
   // Only use Firebase user ID if logged in
   if (!window.currentUser) {
-    console.log('📭 No user logged in, no lists available');
+    console.log('⚠️ No user logged in, waiting for authentication...');
+    // Return empty but don't fail - auth might be in progress
     return DEFAULT_SECTIONS;
   }
   
@@ -64,7 +65,13 @@ async function getAllSections() {
   // Clear old data first
   clearOldListData();
   
-  // Always load from Firebase to get the latest data
+  // Try localStorage cache first for instant load
+  const cachedListNames = JSON.parse(localStorage.getItem(userCustomListsKey) || '[]');
+  if (cachedListNames.length > 0) {
+    console.log('⚡ Using cached lists:', cachedListNames);
+  }
+  
+  // Load from Firebase to get the latest data
   if (typeof loadCustomLists === 'function') {
     try {
       console.log('☁️ Loading lists from Firebase...');
@@ -73,6 +80,23 @@ async function getAllSections() {
         const listNames = customLists.map(list => list.name);
         // Save to localStorage for faster access next time
         localStorage.setItem(userCustomListsKey, JSON.stringify(listNames));
+        console.log('✅ Returning lists from Firebase:', [...DEFAULT_SECTIONS, ...listNames]);
+        return [...DEFAULT_SECTIONS, ...listNames];
+      }
+    } catch (error) {
+      console.error('Error loading custom lists from Firebase:', error);
+    }
+  }
+  
+  // Fallback to cached lists if Firebase fails
+  if (cachedListNames.length > 0) {
+    console.log('⚠️ Using localStorage backup:', [...DEFAULT_SECTIONS, ...cachedListNames]);
+    return [...DEFAULT_SECTIONS, ...cachedListNames];
+  }
+  
+  console.log('📭 No lists found, returning empty:', DEFAULT_SECTIONS);
+  return DEFAULT_SECTIONS;
+}
         console.log('✅ Returning lists from Firebase:', [...DEFAULT_SECTIONS, ...listNames]);
         return [...DEFAULT_SECTIONS, ...listNames];
       }
