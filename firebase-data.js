@@ -119,10 +119,22 @@ function setupListsListener() {
           console.log('📥 Initial load of lists from Firebase:', lists.length, 'lists');
           localStorage.setItem('customLists', JSON.stringify(lists));
           
+          // Update section names cache
+          const listNames = lists.map(list => list.name);
+          const sectionNamesKey = `taskmaster_custom_section_names_${userId}`;
+          localStorage.setItem(sectionNamesKey, JSON.stringify(listNames));
+          console.log('✅ Section names cache updated:', listNames);
+          
           // Refresh UI if on list page
           if (window.location.pathname.includes('list.html') && typeof displayCustomLists === 'function') {
             console.log('🎨 Rendering initial lists...');
             displayCustomLists();
+          }
+          
+          // Recreate sections if on taskmaster page
+          if (window.location.pathname.includes('taskmaster.html') && typeof createSections === 'function') {
+            console.log('🎨 Recreating sections with Firebase data...');
+            createSections();
           }
         }
       })
@@ -141,10 +153,22 @@ function setupListsListener() {
           // Update localStorage cache
           localStorage.setItem('customLists', JSON.stringify(lists));
           
+          // Update section names cache
+          const listNames = lists.map(list => list.name);
+          const sectionNamesKey = `taskmaster_custom_section_names_${userId}`;
+          localStorage.setItem(sectionNamesKey, JSON.stringify(listNames));
+          console.log('✅ Section names cache updated:', listNames);
+          
           // Refresh UI if on list page
           if (window.location.pathname.includes('list.html') && typeof displayCustomLists === 'function') {
             console.log('🎨 Re-rendering lists in UI...');
             displayCustomLists();
+          }
+          
+          // Recreate sections if on taskmaster page
+          if (window.location.pathname.includes('taskmaster.html') && typeof createSections === 'function') {
+            console.log('🎨 Recreating sections with Firebase data...');
+            createSections();
           }
         }
       }, (error) => {
