@@ -1,4 +1,5 @@
 // === FIREBASE INITIALIZATION ===
+// Version: 2026-01-15-v2
 // Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyC1S6U4E_IIAw5csnapl8ZoIyBS_Lv5k2A",
