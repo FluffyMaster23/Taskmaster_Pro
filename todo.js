@@ -1398,7 +1398,7 @@ function showNotification(task, isReminder = false) {
     requireInteraction: false,
     badge: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0iIzRmNDZlNSIgeG1zbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iOCIgY3k9IjgiIHI9IjgiLz4KPC9zdmc+",
     silent: false,
-    vibrate: [200, 100, 200]
+    vibrate: isIOS ? undefined : [200, 100, 200]
   });
 
   console.log('✅ Notification created successfully');
