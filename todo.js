@@ -188,9 +188,6 @@ async function initializeTaskMasterPage() {
     setupTasksListener();
   }
   
-  // Run migration first before creating sections
-  await migrateOldListData();
-  
   // Create task sections (now async)
   await createSections();
   
@@ -1541,24 +1538,28 @@ function startNotificationChecker() {
     const now = new Date();
     const all = getTasks();
     
-    console.log(`🔍 Checking ${all.length} tasks for notifications...`);
+    console.log(`🔍 [${now.toLocaleTimeString()}] Checking ${all.length} tasks for notifications...`);
     
     sendTasksToServiceWorker();
 
     all.forEach(task => {
       const due = new Date(task.time);
       const timeDiff = due - now;
+      const timeDiffMinutes = Math.round(timeDiff / 1000 / 60);
       const reminderMinutes = task.reminderMinutes || 0;
       const reminderTime = reminderMinutes * 60 * 1000;
       
+      // Log each task being checked
+      console.log(`⏱️  Task: "${task.task}" | Due: ${due.toLocaleString()} | Time diff: ${timeDiffMinutes} min | Already notified: ${window._notifiedTaskIds.has(task.id)}`);
+      
       if (reminderMinutes > 0 && timeDiff <= reminderTime && timeDiff > reminderTime - 60000 && !window._reminderTaskIds.has(task.id)) {
-        console.log(`⏰ Sending reminder for task: ${task.task}`);
+        console.log(`⏰ SENDING REMINDER for task: ${task.task}`);
         window._reminderTaskIds.add(task.id);
         showNotification(task, true);
       }
       
       if (timeDiff <= 60000 && timeDiff >= -60000 && !window._notifiedTaskIds.has(task.id)) {
-        console.log(`🔔 Task due now: ${task.task}`);
+        console.log(`🔔 TASK DUE NOW - SENDING NOTIFICATION: ${task.task}`);
         window._notifiedTaskIds.add(task.id);
         showNotification(task, false);
       }
@@ -1566,6 +1567,7 @@ function startNotificationChecker() {
       if (timeDiff <= 60000 && timeDiff >= -60000 && !window._spokenTaskIds.has(task.id)) {
         window._spokenTaskIds.add(task.id);
         const reminderMessage = task.msg && task.msg.trim() ? task.msg : `Task: ${task.task}`;
+        console.log(`🗣️  Speaking task: ${task.task}`);
         setTimeout(() => speakDavid(reminderMessage), 500);
       }
     });
@@ -1574,9 +1576,9 @@ function startNotificationChecker() {
   // Check immediately on startup
   checkTasks();
   
-  // Then check every minute
-  setInterval(checkTasks, 60000);
-  console.log('✅ Notification checker started (runs every 60 seconds)');
+  // Then check every 30 seconds (more frequent for better timing)
+  setInterval(checkTasks, 30000);
+  console.log('✅ Notification checker started (runs every 30 seconds)');
 }
 
 // === RENDER EXISTING TASKS ===
