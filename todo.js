@@ -51,8 +51,7 @@ function clearOldListData() {
 async function getAllSections() {
   // Only use Firebase user ID if logged in
   if (!window.currentUser) {
-    console.log('⚠️ No user logged in, waiting for authentication...');
-    // Return empty but don't fail - auth might be in progress
+    console.log('📭 No user logged in, no lists available');
     return DEFAULT_SECTIONS;
   }
   
@@ -65,13 +64,7 @@ async function getAllSections() {
   // Clear old data first
   clearOldListData();
   
-  // Try localStorage cache first for instant load
-  const cachedListNames = JSON.parse(localStorage.getItem(userCustomListsKey) || '[]');
-  if (cachedListNames.length > 0) {
-    console.log('⚡ Using cached lists:', cachedListNames);
-  }
-  
-  // Load from Firebase to get the latest data
+  // Always load from Firebase to get the latest data
   if (typeof loadCustomLists === 'function') {
     try {
       console.log('☁️ Loading lists from Firebase...');
@@ -80,23 +73,6 @@ async function getAllSections() {
         const listNames = customLists.map(list => list.name);
         // Save to localStorage for faster access next time
         localStorage.setItem(userCustomListsKey, JSON.stringify(listNames));
-        console.log('✅ Returning lists from Firebase:', [...DEFAULT_SECTIONS, ...listNames]);
-        return [...DEFAULT_SECTIONS, ...listNames];
-      }
-    } catch (error) {
-      console.error('Error loading custom lists from Firebase:', error);
-    }
-  }
-  
-  // Fallback to cached lists if Firebase fails
-  if (cachedListNames.length > 0) {
-    console.log('⚠️ Using localStorage backup:', [...DEFAULT_SECTIONS, ...cachedListNames]);
-    return [...DEFAULT_SECTIONS, ...cachedListNames];
-  }
-  
-  console.log('📭 No lists found, returning empty:', DEFAULT_SECTIONS);
-  return DEFAULT_SECTIONS;
-}
         console.log('✅ Returning lists from Firebase:', [...DEFAULT_SECTIONS, ...listNames]);
         return [...DEFAULT_SECTIONS, ...listNames];
       }
@@ -199,15 +175,6 @@ function initializeCurrentPage() {
 
 async function initializeTaskMasterPage() {
   console.log('Initializing TaskMaster page');
-  
-  // Request notification permission immediately
-  if ('Notification' in window && Notification.permission === 'default') {
-    console.log('📢 Requesting notification permission...');
-    const permission = await Notification.requestPermission();
-    console.log('📢 Permission result:', permission);
-  } else if ('Notification' in window) {
-    console.log('📢 Notification permission status:', Notification.permission);
-  }
   
   // Setup voice functionality
   setupVoiceFunctionality();
@@ -1185,9 +1152,8 @@ async function removeTask(taskId) {
 function renderTask(task, ul) {
   const li = document.createElement("li");
   
-  // Convert timestamp or ISO string to local time for display
-  const dueTimestamp = typeof task.time === 'number' ? task.time : new Date(task.time).getTime();
-  const dueDate = new Date(dueTimestamp);
+  // Convert ISO string to local time for display
+  const dueDate = new Date(task.time);
   const localTimeString = dueDate.toLocaleString(undefined, {
     month: 'short',
     day: 'numeric',
@@ -1516,31 +1482,39 @@ async function createSections() {
     const time = dateInput.value;
     const reminderMinutes = parseInt(reminderSelect.value);
     if (!task || !time) return alert("Task name and due date/time are required.");
-    
-    // datetime-local gives us "2026-01-15T03:29" which is in LOCAL timezone
-    // We need to store it as a Unix timestamp to avoid timezone confusion
-    const localDate = new Date(time);
-    const timestamp = localDate.getTime(); // Store as milliseconds since epoch
-    
-    console.log('📝 Creating task:');
-    console.log('   Input value:', time);
-    console.log('   Local Date:', localDate.toLocaleString());
-    console.log('   Timestamp:', timestamp);
-    console.log('   Will notify at:', new Date(timestamp).toLocaleString());
-    
     const id = Date.now().toString();
-    const data = { id, section, task, msg, time: timestamp, reminderMinutes };
+    
+    // Convert datetime-local value to ISO string (preserves local timezone)
+    const localDate = new Date(time);
+    const isoTime = localDate.toISOString();
+    
+    const data = { id, section, task, msg, time: isoTime, reminderMinutes };
     await saveTask(data);
     renderTask(data, ul);
+    
+    // Schedule notifications based on platform
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    
+    if (isIOS) {
+      if (window.oneSignalEnabled) {
+        // Schedule OneSignal notification for iOS (production)
+        scheduleOneSignalTaskReminder(data);
+      } else if (window.iosNativeNotificationsAvailable) {
+        // Fallback to iOS native notifications (localhost/development)
+        console.log('📱 Using iOS native notifications for task:', data.task);
+        // iOS native notifications are handled by the interval checker like desktop
+      } else {
+        console.log('⚠️ No iOS notification system available');
+      }
+    }
+    // Desktop notifications are handled by the interval checker
     
     taskInput.value = "";
     messageInput.value = "";
     dateInput.value = "";
     reminderSelect.value = "0";
     window._clearMessageSpoken = false;
-    
-    // Show confirmation
-    alert(`Task created!\nWill notify at: ${new Date(timestamp).toLocaleString()}`);
   };
 
   wrapper.appendChild(taskInput);
@@ -1572,12 +1546,12 @@ function startNotificationChecker() {
   
   // Function to check tasks
   const checkTasks = () => {
-    const now = Date.now(); // Current time as timestamp
+    const now = new Date();
     const all = getTasks();
     
-    console.log(`\n🔍 [${new Date(now).toLocaleString()}] Checking ${all.length} tasks for notifications...`);
-    console.log(`🕐 Current timestamp: ${now}`);
-    console.log(`🕐 Current time: ${new Date(now).toLocaleString()}`);
+    console.log(`\n🔍 [${ now.toLocaleString()}] Checking ${all.length} tasks for notifications...`);
+    console.log(`🕐 Current time (UTC): ${now.toISOString()}`);
+    console.log(`🕐 Current time (Local): ${now.toLocaleString()}`);
     
     sendTasksToServiceWorker();
 
@@ -1587,52 +1561,39 @@ function startNotificationChecker() {
     }
 
     all.forEach(task => {
-      const dueTimestamp = typeof task.time === 'number' ? task.time : new Date(task.time).getTime();
-      const timeDiff = dueTimestamp - now; // milliseconds
-      const timeDiffMinutes = Math.round(timeDiff / 1000 / 60);
+      const due = new Date(task.time);
+      const timeDiff = due - now; // milliseconds
       const timeDiffSeconds = Math.round(timeDiff / 1000);
+      const timeDiffMinutes = Math.round(timeDiff / 1000 / 60);
       const reminderMinutes = task.reminderMinutes || 0;
       const reminderTime = reminderMinutes * 60 * 1000;
       
       // Detailed logging
       console.log(`\n📋 Task: "${task.task}"`);
-      console.log(`   📅 Stored time: ${task.time} (${typeof task.time})`);
-      console.log(`   🕐 Due timestamp: ${dueTimestamp}`);
-      console.log(`   🕐 Due time: ${new Date(dueTimestamp).toLocaleString()}`);
-      console.log(`   ⏱️  Time until due: ${timeDiffMinutes} min (${timeDiffSeconds} sec)`);
+      console.log(`   📅 Stored time: ${task.time}`);
+      console.log(`   🕐 Due (UTC): ${due.toISOString()}`);
+      console.log(`   🕐 Due (Local): ${due.toLocaleString()}`);
+      console.log(`   ⏱️  Time diff: ${timeDiffMinutes} min (${timeDiffSeconds} sec)`);
       console.log(`   ⏰ Reminder: ${reminderMinutes} min before`);
       console.log(`   ✅ Already notified: ${window._notifiedTaskIds.has(task.id)}`);
       console.log(`   ✅ Already reminded: ${window._reminderTaskIds.has(task.id)}`);
       
-      // Use 3 minute window for better reliability
-      const notificationWindow = 180000; // 3 minutes in milliseconds
+      // Check if within 2 minutes window (instead of 1 minute for better reliability)
+      const notificationWindow = 120000; // 2 minutes in milliseconds
       
-      // Check reminder notification
-      if (reminderMinutes > 0) {
-        const timeUntilReminder = timeDiff - reminderTime;
-        const shouldRemind = timeUntilReminder <= 0 && timeUntilReminder >= -notificationWindow;
-        console.log(`   ⏰ Time until reminder: ${Math.round(timeUntilReminder / 1000 / 60)} min`);
-        console.log(`   ⏰ Should remind: ${shouldRemind}`);
-        
-        if (shouldRemind && !window._reminderTaskIds.has(task.id)) {
-          console.log(`   ⏰ ✅ SENDING REMINDER NOW!`);
-          window._reminderTaskIds.add(task.id);
-          showNotification(task, true);
-        }
+      if (reminderMinutes > 0 && timeDiff <= reminderTime && timeDiff > (reminderTime - notificationWindow) && !window._reminderTaskIds.has(task.id)) {
+        console.log(`   ⏰ ✅ SENDING REMINDER NOW!`);
+        window._reminderTaskIds.add(task.id);
+        showNotification(task, true);
       }
       
-      // Check due notification (within 3 minutes before or after)
-      const shouldNotify = Math.abs(timeDiff) <= notificationWindow;
-      console.log(`   🔔 Should notify (within ${notificationWindow/60000} min): ${shouldNotify}`);
-      
-      if (shouldNotify && !window._notifiedTaskIds.has(task.id)) {
+      if (timeDiff <= notificationWindow && timeDiff >= -notificationWindow && !window._notifiedTaskIds.has(task.id)) {
         console.log(`   🔔 ✅ TASK DUE - SENDING NOTIFICATION NOW!`);
         window._notifiedTaskIds.add(task.id);
         showNotification(task, false);
       }
 
-      // Speech notification
-      if (shouldNotify && !window._spokenTaskIds.has(task.id)) {
+      if (timeDiff <= notificationWindow && timeDiff >= -notificationWindow && !window._spokenTaskIds.has(task.id)) {
         window._spokenTaskIds.add(task.id);
         const reminderMessage = task.msg && task.msg.trim() ? task.msg : `Task: ${task.task}`;
         console.log(`   🗣️  ✅ SPEAKING TASK NOW!`);
@@ -1645,7 +1606,7 @@ function startNotificationChecker() {
   console.log('🚀 Running initial notification check...');
   checkTasks();
   
-  // Then check every 30 seconds
+  // Then check every 30 seconds (more frequent for better timing)
   setInterval(checkTasks, 30000);
   console.log('✅ Notification checker started (runs every 30 seconds)');
 }
