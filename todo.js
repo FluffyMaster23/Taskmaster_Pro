@@ -1154,7 +1154,19 @@ async function removeTask(taskId) {
 }
 function renderTask(task, ul) {
   const li = document.createElement("li");
-  li.textContent = `${task.task} — Due: ${new Date(task.time).toLocaleString()}`;
+  
+  // Convert ISO string to local time for display
+  const dueDate = new Date(task.time);
+  const localTimeString = dueDate.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+  
+  li.textContent = `${task.task} — Due: ${localTimeString}`;
 
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
@@ -1465,7 +1477,12 @@ async function createSections() {
     const reminderMinutes = parseInt(reminderSelect.value);
     if (!task || !time) return alert("Task name and due date/time are required.");
     const id = Date.now().toString();
-    const data = { id, section, task, msg, time, reminderMinutes };
+    
+    // Convert datetime-local value to ISO string (preserves local timezone)
+    const localDate = new Date(time);
+    const isoTime = localDate.toISOString();
+    
+    const data = { id, section, task, msg, time: isoTime, reminderMinutes };
     await saveTask(data);
     renderTask(data, ul);
     
