@@ -1410,13 +1410,10 @@ function showNotification(task, isReminder = false) {
     notification.close();
   };
 
-    // Auto-close notification after 10 seconds (iOS may auto-close earlier)
-    setTimeout(() => {
-      notification.close();
-    }, 10000);
-  } catch (error) {
-    console.error('❌ Error creating notification:', error);
-  }
+  // Auto-close notification after 10 seconds
+  setTimeout(() => {
+    notification.close();
+  }, 10000);
 }
 
 // === DOM BUILD ===
