@@ -1532,48 +1532,69 @@ function startNotificationChecker() {
   if (!window._spokenTaskIds) window._spokenTaskIds = new Set();
   
   console.log('🔔 Starting notification checker...');
+  console.log('🌍 Device timezone:', Intl.DateTimeFormat().resolvedOptions().timeZone);
+  console.log('📢 Notification permission:', Notification.permission);
   
   // Function to check tasks
   const checkTasks = () => {
     const now = new Date();
     const all = getTasks();
     
-    console.log(`🔍 [${now.toLocaleTimeString()}] Checking ${all.length} tasks for notifications...`);
+    console.log(`\n🔍 [${ now.toLocaleString()}] Checking ${all.length} tasks for notifications...`);
+    console.log(`🕐 Current time (UTC): ${now.toISOString()}`);
+    console.log(`🕐 Current time (Local): ${now.toLocaleString()}`);
     
     sendTasksToServiceWorker();
 
+    if (all.length === 0) {
+      console.log('📭 No tasks to check');
+      return;
+    }
+
     all.forEach(task => {
       const due = new Date(task.time);
-      const timeDiff = due - now;
+      const timeDiff = due - now; // milliseconds
+      const timeDiffSeconds = Math.round(timeDiff / 1000);
       const timeDiffMinutes = Math.round(timeDiff / 1000 / 60);
       const reminderMinutes = task.reminderMinutes || 0;
       const reminderTime = reminderMinutes * 60 * 1000;
       
-      // Log each task being checked
-      console.log(`⏱️  Task: "${task.task}" | Due: ${due.toLocaleString()} | Time diff: ${timeDiffMinutes} min | Already notified: ${window._notifiedTaskIds.has(task.id)}`);
+      // Detailed logging
+      console.log(`\n📋 Task: "${task.task}"`);
+      console.log(`   📅 Stored time: ${task.time}`);
+      console.log(`   🕐 Due (UTC): ${due.toISOString()}`);
+      console.log(`   🕐 Due (Local): ${due.toLocaleString()}`);
+      console.log(`   ⏱️  Time diff: ${timeDiffMinutes} min (${timeDiffSeconds} sec)`);
+      console.log(`   ⏰ Reminder: ${reminderMinutes} min before`);
+      console.log(`   ✅ Already notified: ${window._notifiedTaskIds.has(task.id)}`);
+      console.log(`   ✅ Already reminded: ${window._reminderTaskIds.has(task.id)}`);
       
-      if (reminderMinutes > 0 && timeDiff <= reminderTime && timeDiff > reminderTime - 60000 && !window._reminderTaskIds.has(task.id)) {
-        console.log(`⏰ SENDING REMINDER for task: ${task.task}`);
+      // Check if within 2 minutes window (instead of 1 minute for better reliability)
+      const notificationWindow = 120000; // 2 minutes in milliseconds
+      
+      if (reminderMinutes > 0 && timeDiff <= reminderTime && timeDiff > (reminderTime - notificationWindow) && !window._reminderTaskIds.has(task.id)) {
+        console.log(`   ⏰ ✅ SENDING REMINDER NOW!`);
         window._reminderTaskIds.add(task.id);
         showNotification(task, true);
       }
       
-      if (timeDiff <= 60000 && timeDiff >= -60000 && !window._notifiedTaskIds.has(task.id)) {
-        console.log(`🔔 TASK DUE NOW - SENDING NOTIFICATION: ${task.task}`);
+      if (timeDiff <= notificationWindow && timeDiff >= -notificationWindow && !window._notifiedTaskIds.has(task.id)) {
+        console.log(`   🔔 ✅ TASK DUE - SENDING NOTIFICATION NOW!`);
         window._notifiedTaskIds.add(task.id);
         showNotification(task, false);
       }
 
-      if (timeDiff <= 60000 && timeDiff >= -60000 && !window._spokenTaskIds.has(task.id)) {
+      if (timeDiff <= notificationWindow && timeDiff >= -notificationWindow && !window._spokenTaskIds.has(task.id)) {
         window._spokenTaskIds.add(task.id);
         const reminderMessage = task.msg && task.msg.trim() ? task.msg : `Task: ${task.task}`;
-        console.log(`🗣️  Speaking task: ${task.task}`);
+        console.log(`   🗣️  ✅ SPEAKING TASK NOW!`);
         setTimeout(() => speakDavid(reminderMessage), 500);
       }
     });
   };
   
   // Check immediately on startup
+  console.log('🚀 Running initial notification check...');
   checkTasks();
   
   // Then check every 30 seconds (more frequent for better timing)
