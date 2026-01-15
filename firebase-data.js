@@ -213,9 +213,7 @@ async function loadTasks() {
 // Save custom lists to Firestore (login required)
 async function saveCustomLists(lists) {
   if (!window.currentUser) {
-    console.error('Cannot save lists: User not logged in');
-    localStorage.setItem('customLists', JSON.stringify(lists));
-    localStorage.setItem('lastDataSave', Date.now().toString());
+    console.error('❌ Cannot save lists: User not logged in');
     return;
   }
   
@@ -225,20 +223,27 @@ async function saveCustomLists(lists) {
       lists: lists,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    console.log('Custom lists saved to Firestore');
-  } catch (error) {
-    console.error('Error saving lists to Firestore:', error);
+    console.log('✅ Custom lists saved to Firestore:', lists.length, 'lists');
+    
+    // Update localStorage cache
     localStorage.setItem('customLists', JSON.stringify(lists));
-    localStorage.setItem('lastDataSave', Date.now().toString());
+    
+    // Update section names cache
+    const listNames = lists.map(list => list.name);
+    const sectionNamesKey = `taskmaster_custom_section_names_${userId}`;
+    localStorage.setItem(sectionNamesKey, JSON.stringify(listNames));
+    console.log('✅ Section names cache updated');
+  } catch (error) {
+    console.error('❌ Error saving lists to Firestore:', error);
+    throw error;
   }
 }
 
 // Load custom lists from Firestore (login required)
 async function loadCustomLists() {
   if (!window.currentUser) {
-    console.log('No user logged in, loading lists from localStorage');
-    const lists = localStorage.getItem('customLists');
-    return lists ? JSON.parse(lists) : [];
+    console.log('⚠️ No user logged in, cannot load lists');
+    return [];
   }
   
   try {
@@ -247,21 +252,24 @@ async function loadCustomLists() {
     
     if (doc.exists) {
       const lists = doc.data().lists || [];
-      console.log('✅ Custom lists loaded from Firestore');
+      console.log('✅ Custom lists loaded from Firestore:', lists.length, 'lists');
+      
       // Update localStorage cache
       localStorage.setItem('customLists', JSON.stringify(lists));
+      
+      // Update section names cache
+      const listNames = lists.map(list => list.name);
+      const sectionNamesKey = `taskmaster_custom_section_names_${userId}`;
+      localStorage.setItem(sectionNamesKey, JSON.stringify(listNames));
+      
       return lists;
     } else {
-      console.log('📭 No custom lists found in Firestore, checking localStorage');
-      // Fallback to localStorage if nothing in Firestore
-      const lists = localStorage.getItem('customLists');
-      return lists ? JSON.parse(lists) : [];
+      console.log('📭 No custom lists found in Firestore');
+      return [];
     }
   } catch (error) {
     console.error('❌ Error loading lists from Firestore:', error);
-    // Fallback to localStorage on error
-    const lists = localStorage.getItem('customLists');
-    return lists ? JSON.parse(lists) : [];
+    return [];
   }
 }
 

@@ -374,103 +374,32 @@
   </div>
 
   <script>
-    // Generate or get unique user ID for this browser/device
-    function getUserId() {
-      let userId = localStorage.getItem('taskmaster_user_id');
-      if (!userId) {
-        // Generate unique user ID: timestamp + random string
-        userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        localStorage.setItem('taskmaster_user_id', userId);
-        console.log('🆔 New user ID generated:', userId);
-      }
-      return userId;
-    }
-    
-    // Get current user ID (Firebase user if logged in, otherwise device ID)
-    function getCurrentUserId() {
-      // Use Firebase user ID if logged in, otherwise device ID
-      return window.currentUser ? window.currentUser.uid : getUserId();
-    }
-    
-    // Custom lists storage - user-specific
-    function getCustomListsKey() {
-      return `taskmaster_custom_lists_${getCurrentUserId()}`;
-    }
-    
-    function getCustomSectionNamesKey() {
-      return `taskmaster_custom_section_names_${getCurrentUserId()}`;
-    }
-    
-    // Migrate data from old device ID to current user ID (one-time migration)
-    async function migrateOldListData() {
-      const currentUserId = getCurrentUserId();
-      const currentKey = getCustomListsKey();
-      
-      // If we already have data under current key, no need to migrate
-      const existingData = localStorage.getItem(currentKey);
-      if (existingData) {
-        console.log('✅ Data already exists for current user ID, no migration needed');
-        return;
-      }
-      
-      // Look for any old list data in localStorage
-      console.log('🔍 Searching for old list data to migrate...');
-      let foundData = null;
-      let foundKey = null;
-      
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('taskmaster_custom_lists_user_') && key !== currentKey) {
-          const data = localStorage.getItem(key);
-          if (data && data !== '[]') {
-            foundData = data;
-            foundKey = key;
-            console.log('📦 Found old list data:', key);
-            break;
-          }
-        }
-      }
-      
-      // Migrate if we found old data
-      if (foundData && foundKey) {
-        console.log('🚚 Migrating lists from', foundKey, 'to', currentKey);
-        localStorage.setItem(currentKey, foundData);
-        
-        // Also migrate section names
-        const oldSectionKey = foundKey.replace('taskmaster_custom_lists_', 'taskmaster_custom_section_names_');
-        const oldSectionData = localStorage.getItem(oldSectionKey);
-        if (oldSectionData) {
-          const newSectionKey = getCustomSectionNamesKey();
-          localStorage.setItem(newSectionKey, oldSectionData);
-          console.log('🚚 Migrated section names');
-        }
-        
-        console.log('✅ Migration complete! Reloading lists...');
-      } else {
-        console.log('📭 No old list data found to migrate');
-      }
-    }
-    
-    // Get custom lists from Firestore or localStorage (user-specific)
+    // Get custom lists from Firestore (no localStorage fallback)
     async function getCustomLists() {
-      // Use Firebase function from firebase-data.js if available
+      // Use Firebase function from firebase-data.js
       if (typeof loadCustomLists === 'function') {
         return await loadCustomLists();
       }
-      // Fallback to localStorage
-      const lists = localStorage.getItem(getCustomListsKey());
-      return lists ? JSON.parse(lists) : [];
+      return [];
     }
     
-    // Save custom lists to Firestore or localStorage (user-specific)
+    // Save custom lists to Firestore (no localStorage fallback)
     async function saveCustomListsLocal(lists) {
-      // Use Firebase function from firebase-data.js if available
+      // Use Firebase function from firebase-data.js
       if (typeof saveCustomLists === 'function') {
         await saveCustomLists(lists);
-      } else {
-        // Fallback to localStorage
-        localStorage.setItem(getCustomListsKey(), JSON.stringify(lists));
       }
+    }
+    
+    // Get current user ID (Firebase user if logged in)
+    function getCurrentUserId() {
+      return window.currentUser ? window.currentUser.uid : null;
+    }
+    
+    // Custom lists storage key - user-specific
+    function getCustomSectionNamesKey() {
+      const userId = getCurrentUserId();
+      return userId ? `taskmaster_custom_section_names_${userId}` : null;
     }
     
     // Generate unique ID for lists
@@ -589,7 +518,11 @@
       const customListNames = customLists.map(list => list.name);
       
       // Store custom list names for the main app to use (user-specific)
-      localStorage.setItem(getCustomSectionNamesKey(), JSON.stringify(customListNames));
+      const sectionNamesKey = getCustomSectionNamesKey();
+      if (sectionNamesKey) {
+        localStorage.setItem(sectionNamesKey, JSON.stringify(customListNames));
+        console.log('✅ Section names updated:', customListNames);
+      }
     }
     
     // Display custom lists
@@ -708,16 +641,13 @@
         // Set user presence to online
         await setUserPresence(user, true);
         
-        // Migrate old list data if needed
-        await migrateOldListData();
-        
         // Setup real-time listener for lists
         if (typeof setupListsListener === 'function') {
           setupListsListener();
         }
         
         // Load lists from Firebase after authentication
-        console.log('User authenticated, loading lists from Firebase...');
+        console.log('✅ User authenticated, loading lists from Firebase...');
         await displayCustomLists();
       } else {
         welcomeMsg.style.display = 'none';
@@ -725,12 +655,18 @@
         window.currentUser = null;
         window.isGuestMode = true;
         
-        // Migrate old list data if needed
-        await migrateOldListData();
-        
-        // Load local lists for guest
-        console.log('Guest mode, loading local lists...');
-        await displayCustomLists();
+        // Show message that user needs to sign in
+        console.log('⚠️ Not logged in - lists require authentication');
+        const container = document.getElementById('customListsContainer');
+        if (container) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="icon">🔒</div>
+              <h3>Sign in required</h3>
+              <p>Please <a href="account.html" style="color: #4f46e5; text-decoration: underline;">sign in</a> to create and manage lists.</p>
+            </div>
+          `;
+        }
       }
     });
 

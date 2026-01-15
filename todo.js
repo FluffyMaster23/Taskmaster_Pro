@@ -25,22 +25,15 @@ auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((error) => {
 // === CONFIG ===
 const DEFAULT_SECTIONS = [];
 
-// Generate or get unique user ID for this browser/device
-function getUserId() {
-  let userId = localStorage.getItem('taskmaster_user_id');
-  if (!userId) {
-    // Generate unique user ID: timestamp + random string
-    userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem('taskmaster_user_id', userId);
-    console.log('🆔 New user ID generated:', userId);
-  }
-  return userId;
-}
-
 // Function to get all sections (default + user's custom lists)
 async function getAllSections() {
-  // Use Firebase user ID if logged in, otherwise device ID
-  const userId = window.currentUser ? window.currentUser.uid : getUserId();
+  // Only use Firebase user ID if logged in
+  if (!window.currentUser) {
+    console.log('📭 No user logged in, no lists available');
+    return DEFAULT_SECTIONS;
+  }
+  
+  const userId = window.currentUser.uid;
   const userCustomListsKey = `taskmaster_custom_section_names_${userId}`;
   
   console.log('🔍 getAllSections - userId:', userId);
@@ -57,7 +50,7 @@ async function getAllSections() {
   }
   
   // Load from Firebase if user is logged in
-  if (window.currentUser && typeof loadCustomLists === 'function') {
+  if (typeof loadCustomLists === 'function') {
     try {
       console.log('☁️ Loading lists from Firebase...');
       const customLists = await loadCustomLists();
@@ -73,116 +66,8 @@ async function getAllSections() {
     }
   }
   
-  // Try to migrate old list data if no data found
-  await migrateOldListData();
-  
-  // Check again after migration
-  const migratedListNames = JSON.parse(localStorage.getItem(userCustomListsKey) || '[]');
-  if (migratedListNames.length > 0) {
-    console.log('✅ Returning migrated lists:', [...DEFAULT_SECTIONS, ...migratedListNames]);
-    return [...DEFAULT_SECTIONS, ...migratedListNames];
-  }
-  
   console.log('📭 No lists found, returning empty:', DEFAULT_SECTIONS);
   return DEFAULT_SECTIONS;
-}
-
-// Migrate data from old device ID to current user ID (one-time migration)
-async function migrateOldListData() {
-  const userId = window.currentUser ? window.currentUser.uid : getUserId();
-  const currentKey = `taskmaster_custom_section_names_${userId}`;
-  const currentListsKey = `taskmaster_custom_lists_${userId}`;
-  
-  console.log('🔄 MIGRATION CHECK - Current user ID:', userId);
-  console.log('🔄 MIGRATION CHECK - Current key:', currentKey);
-  
-  // First, sync section names from full lists data if they're out of sync
-  const fullListsData = localStorage.getItem(currentListsKey);
-  const sectionNamesData = localStorage.getItem(currentKey);
-  
-  if (fullListsData && fullListsData !== '[]') {
-    try {
-      const lists = JSON.parse(fullListsData);
-      const listNames = lists.map(list => list.name);
-      const existingNames = sectionNamesData ? JSON.parse(sectionNamesData) : [];
-      
-      console.log('🔄 Full lists data has:', lists.length, 'lists');
-      console.log('🔄 Section names has:', existingNames.length, 'names');
-      
-      // If they don't match, rebuild section names from full data
-      if (listNames.length !== existingNames.length || !listNames.every(name => existingNames.includes(name))) {
-        console.log('🔧 SYNCING section names from full list data...');
-        console.log('🔧 Old section names:', existingNames);
-        console.log('🔧 New section names:', listNames);
-        localStorage.setItem(currentKey, JSON.stringify(listNames));
-        console.log('✅ Section names synced!');
-        return; // Early return, we're done
-      }
-    } catch (error) {
-      console.error('Error syncing section names:', error);
-    }
-  }
-  
-  // If we already have data under current key, no need to migrate
-  const existingData = localStorage.getItem(currentKey);
-  console.log('🔄 MIGRATION CHECK - Existing data:', existingData);
-  
-  if (existingData && existingData !== '[]') {
-    console.log('✅ Data already exists for current user ID, no migration needed');
-    return;
-  }
-  
-  // Look for any old list data in localStorage
-  console.log('🔍 Searching ALL localStorage keys...');
-  console.log('📊 Total localStorage items:', localStorage.length);
-  
-  // List all taskmaster keys
-  const allKeys = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && key.includes('taskmaster_custom')) {
-      allKeys.push(key);
-      console.log('🔑 Found taskmaster key:', key, '=', localStorage.getItem(key));
-    }
-  }
-  
-  let foundData = null;
-  let foundKey = null;
-  
-  // Look for section names keys
-  for (const key of allKeys) {
-    if (key.startsWith('taskmaster_custom_section_names_') && key !== currentKey) {
-      const data = localStorage.getItem(key);
-      if (data && data !== '[]') {
-        foundData = data;
-        foundKey = key;
-        console.log('📦 Found old section names:', key, '=', data);
-        break;
-      }
-    }
-  }
-  
-  // Migrate if we found old data
-  if (foundData && foundKey) {
-    console.log('🚚 MIGRATING lists from', foundKey, 'to', currentKey);
-    localStorage.setItem(currentKey, foundData);
-    
-    // Also migrate full list data
-    const oldListKey = foundKey.replace('taskmaster_custom_section_names_', 'taskmaster_custom_lists_');
-    const oldListData = localStorage.getItem(oldListKey);
-    if (oldListData) {
-      const newListKey = `taskmaster_custom_lists_${userId}`;
-      console.log('🚚 Also migrating full list data from', oldListKey, 'to', newListKey);
-      localStorage.setItem(newListKey, oldListData);
-      console.log('🚚 Migrated full list data');
-    }
-    
-    console.log('✅✅✅ MIGRATION COMPLETE! Data is now at:', currentKey);
-    console.log('✅ Migrated data:', localStorage.getItem(currentKey));
-  } else {
-    console.log('📭 No old list data found to migrate');
-    console.log('🔍 All taskmaster keys found:', allKeys);
-  }
 }
 
 // Dynamic SECTIONS array that includes custom lists (will be updated async)
