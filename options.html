@@ -213,7 +213,7 @@
   <script>
     // Enhanced test notification function for iOS debugging
     function testNotification() {
-      console.log('Testing notification...');
+
       
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -221,23 +221,16 @@
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       const isHTTPS = location.protocol === 'https:';
       
-      console.log('Platform detection:', { 
-        isIOS, isFirefox, isSafari, isHTTPS,
-        userAgent: navigator.userAgent,
-        protocol: location.protocol,
-        hostname: location.hostname
-      });
-      
       if (isIOS) {
-        console.log('iOS detected - starting comprehensive notification test...');
+
         
         // Method 1: Try native Web Notifications first (iOS 16.4+ with Firefox/Chrome)
         if ('Notification' in window && !isSafari) {
-          console.log('Testing native Web Notifications on iOS...');
-          console.log('Current permission:', Notification.permission);
+
+
           
           if (Notification.permission === 'granted') {
-            console.log('Native permission already granted, sending test notification...');
+
             try {
               const notification = new Notification('TaskMaster Pro Test', {
                 body: 'Native iOS notification is working!',
@@ -250,7 +243,7 @@
               });
               
               notification.onclick = function() {
-                console.log('Notification clicked');
+
                 window.focus();
                 notification.close();
               };
@@ -267,9 +260,9 @@
               alert('❌ Native notification failed: ' + error.message);
             }
           } else if (Notification.permission === 'default') {
-            console.log('Requesting native notification permission...');
+
             Notification.requestPermission().then(function(permission) {
-              console.log('Permission result:', permission);
+
               if (permission === 'granted') {
                 alert('✅ Native notification permission granted! Click Test again.');
               } else {
@@ -281,25 +274,25 @@
             });
             return;
           } else {
-            console.log('❌ Native notifications denied');
+
             alert('❌ Native notifications denied. Please enable in iOS Settings → Safari → Notifications.');
           }
         }
         
         // Method 2: Try OneSignal for Safari or as fallback
         if (window.OneSignal && (isSafari || Notification.permission !== 'granted')) {
-          console.log('Testing OneSignal on iOS...');
+
           
           // Wait for OneSignal to be ready
           window.OneSignal.push(function() {
-            console.log('OneSignal is ready, checking status...');
+
             
             // Get detailed OneSignal status
             window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
-              console.log('OneSignal enabled:', isEnabled);
+
               
               if (isEnabled) {
-                console.log('✅ OneSignal is enabled, sending test notification...');
+
                 
                 window.OneSignal.sendSelfNotification(
                   "🧪 TaskMaster Pro Test",
@@ -307,24 +300,24 @@
                   window.location.href,
                   "/favicon.ico"
                 ).then(function() {
-                  console.log('✅ OneSignal test notification sent successfully');
+
                   alert('✅ OneSignal test notification sent! Check your notification center.');
                 }).catch(function(error) {
                   console.error('❌ OneSignal test failed:', error);
                   alert('❌ OneSignal test failed: ' + error.message + '\n\nTry: iOS Settings → Notifications → Allow notifications for this site');
                 });
               } else {
-                console.log('⚠️ OneSignal not enabled, attempting to subscribe...');
+
                 
                 // Force OneSignal registration to resolve "pending setup"
                 window.OneSignal.registerForPushNotifications().then(function() {
-                  console.log('✅ OneSignal registration successful');
+
                   
                   // Wait a moment for the subscription to be active, then try sending again
                   setTimeout(() => {
                     window.OneSignal.isPushNotificationsEnabled(function(isNowEnabled) {
                       if (isNowEnabled) {
-                        console.log('✅ OneSignal now enabled, sending test notification...');
+
                         window.OneSignal.sendSelfNotification(
                           "TaskMaster Pro Test",
                           "OneSignal iOS notification is now working! ✅",
@@ -367,16 +360,16 @@
             
             // Also check user ID for debugging
             window.OneSignal.getUserId(function(userId) {
-              console.log('OneSignal User ID:', userId);
+
             });
             
             // Check subscription details
             window.OneSignal.getSubscription(function(subscription) {
-              console.log('OneSignal Subscription:', subscription);
+
             });
           });
         } else if (!window.OneSignal) {
-          console.log('❌ OneSignal not available');
+
           alert('❌ OneSignal not available. Make sure:\n1. You\'re on HTTPS\n2. The page has fully loaded\n3. OneSignal SDK is properly loaded');
         }
         
@@ -401,13 +394,13 @@
 
 Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFirefox ? 'Firefox' : 'Other'}`;
             
-            console.log(helpMessage);
+
           }
         }, 2000);
         
       } else {
         // Desktop/non-iOS testing
-        console.log('💻 Desktop detected - testing native notifications...');
+
         
         if ('Notification' in window) {
           if (Notification.permission === 'granted') {
@@ -435,7 +428,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
     
     // Debug function to show detailed notification status
     function debugNotifications() {
-      console.log('🔍 Starting notification debug...');
+
       
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -462,7 +455,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       if ('serviceWorker' in navigator) {
         debugInfo += `⚙️ Service Worker: Supported ✅\n`;
         navigator.serviceWorker.getRegistrations().then(registrations => {
-          console.log('Service Worker Registrations:', registrations);
+
         });
       } else {
         debugInfo += `⚙️ Service Worker: Not Supported ❌\n`;
@@ -507,7 +500,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
                 
                 // Show in alert and log to console
                 alert(debugInfo);
-                console.log(debugInfo);
+
               });
             });
           });
@@ -518,7 +511,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
         debugInfo += `• Ensure OneSignal SDK loaded correctly\n`;
         
         alert(debugInfo);
-        console.log(debugInfo);
+
       }
     }
     
@@ -556,13 +549,6 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
         if (window.speechRate !== undefined) {
           window.speechRate = parseFloat(speechRateSelect.value);
         }
-        
-        console.log('Auto-saved voice settings (silent):', {
-          voiceIndex: voiceSelect.selectedIndex,
-          originalIndex: selectedOption.dataset.originalIndex,
-          voiceName: voiceSelect.value,
-          speechRate: speechRateSelect.value
-        });
       }
     }
 
@@ -619,8 +605,6 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
         setTimeout(() => {
           window.speechSynthesis.speak(utterance);
         }, 100);
-        
-        console.log(`🔊 Voice confirmation: "${confirmationText}" using voice: ${selectedVoice.name} (${selectedVoice.lang})`);
       }
       
       // Show success message
@@ -666,10 +650,10 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       
-      console.log('🔍 Checking notification status...');
-      console.log('📱 isIOS:', isIOS);
-      console.log('🔧 OneSignal available:', !!window.OneSignal);
-      console.log('🔔 Notification API:', Notification ? Notification.permission : 'N/A');
+
+
+
+
       
       if (isIOS) {
         if (window.oneSignalEnabled) {
@@ -699,7 +683,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
         }
       }
       
-      console.log('📊 Status set to:', statusSpan.textContent);
+
     }
 
     // Load voices into dropdown
@@ -707,23 +691,23 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       const voiceSelect = document.getElementById("voiceSelect");
       
       if (!voiceSelect) {
-        console.log('voiceSelect element not found');
+
         return;
       }
       
       voiceSelect.innerHTML = "";
       
       const voices = speechSynthesis.getVoices();
-      console.log('Available voices:', voices.length);
+
       
       if (voices.length === 0) {
         // Retry loading voices after a short delay
-        console.log('No voices found, retrying...');
+
         setTimeout(loadVoices, 100);
         return;
       }
       
-      console.log('Loading', voices.length, 'voices into dropdown');
+
       
       // Detect iOS for voice filtering
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
@@ -755,14 +739,14 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
           v.name.includes('Cellos') ||
           v.name.includes('Zarvox')
         );
-        console.log(`iOS detected: Filtered to ${filteredVoices.length} iOS voices`);
+
       } else {
         // For non-iOS, filter for English voices or all voices if no English found
         filteredVoices = voices.filter(v => v.lang.startsWith("en"));
         if (filteredVoices.length === 0) {
           filteredVoices = voices; // Use all voices if no English ones
         }
-        console.log(`Desktop detected: Using ${filteredVoices.length} English voices`);
+
       }
       
       // Sort voices by name for better organization
@@ -785,12 +769,12 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
 
       // Set default to "Choose voice" (will be overridden by saved preferences)
       voiceSelect.selectedIndex = 0;
-      console.log('Set default to "Choose voice" option');
+
 
       // Load saved voice preferences after voices are populated
       loadSavedVoicePreferences();
       
-      console.log('✅ Voice loading complete');
+
     }
     
     // Load saved voice preferences
@@ -802,7 +786,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
         const speechRateSelect = document.getElementById("speechRateSelect");
         if (speechRateSelect) {
           speechRateSelect.value = savedRate;
-          console.log('✅ Restored speech rate:', savedRate);
+
         }
       }
       
@@ -822,12 +806,6 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
               voiceSelect.selectedIndex = i;
               window.selectedVoice = voices[index];
               
-              console.log('✅ Restored voice by index:', {
-                originalIndex: index,
-                dropdownIndex: i,
-                name: voices[index].name,
-                lang: voices[index].lang,
-                voiceObject: voices[index]
               });
               return; // Successfully loaded
             }
@@ -848,12 +826,6 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
               voiceSelect.selectedIndex = i;
               window.selectedVoice = voices[originalIndex];
               
-              console.log('✅ Restored voice by name:', {
-                name: savedVoiceName,
-                originalIndex: originalIndex,
-                dropdownIndex: i,
-                voiceObject: voices[originalIndex]
-              });
               return;
             }
           }
@@ -865,7 +837,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       if (voiceSelect) {
         voiceSelect.selectedIndex = 0; // "Choose voice" option
         window.selectedVoice = null; // No voice selected
-        console.log('✅ No saved voice - defaulting to "Choose voice" option');
+
       }
     }
 
@@ -914,17 +886,17 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
         return;
       }
       
-      console.log('🔧 Setting up notification checkbox...');
+
       
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       
       // Check current notification status
       if (isIOS && isSafari && window.OneSignal) {
-        console.log('📱 Checking OneSignal status...');
+
         OneSignal.push(function() {
           OneSignal.isPushNotificationsEnabled(function(isEnabled) {
-            console.log('OneSignal enabled:', isEnabled);
+
             checkbox.checked = isEnabled;
             if (isEnabled) {
               statusSpan.textContent = "Notifications enabled (OneSignal)";
@@ -932,7 +904,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
           });
         });
       } else {
-        console.log('💻 Checking native notification permission:', Notification ? Notification.permission : 'N/A');
+
         checkbox.checked = Notification && Notification.permission === 'granted';
         if (checkbox.checked) {
           statusSpan.textContent = "Notifications enabled";
@@ -940,22 +912,22 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       }
       
       // Set up event listener for checkbox changes
-      console.log('🔧 Attaching checkbox change listener...');
+
       checkbox.addEventListener('change', function(e) {
-        console.log('✅ Checkbox changed! New state:', this.checked);
-        console.log('🔔 Browser notification permission:', Notification ? Notification.permission : 'N/A');
+
+
         
         if (this.checked) {
-          console.log('🔔 User CHECKED the box - triggering prompt...');
+
           triggerNotificationPrompt();
         } else {
-          console.log('🔕 User UNCHECKED the box - disabling notifications');
+
           statusSpan.textContent = "Notifications disabled";
           localStorage.setItem('notificationsEnabled', 'false');
         }
       });
       
-      console.log('✅ Notification checkbox setup complete');
+
     }
     
     function triggerNotificationPrompt() {
@@ -964,22 +936,22 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       const statusSpan = document.getElementById('notificationStatus');
       const checkbox = document.getElementById('enableNotifications');
       
-      console.log('🔔 Triggering notification prompt...');
-      console.log('📱 Device: isIOS=' + isIOS + ', isSafari=' + isSafari);
-      console.log('🔧 OneSignal available:', !!window.OneSignal);
-      console.log('🔧 Notification API available:', !!window.Notification);
+
+
+
+
       
       if (isIOS && isSafari && window.OneSignal) {
-        console.log('📱 Using OneSignal for iOS Safari...');
+
         statusSpan.textContent = "Requesting OneSignal permissions...";
         
         OneSignal.push(function() {
-          console.log('OneSignal ready, showing native prompt...');
+
           OneSignal.showNativePrompt().then(function() {
-            console.log('OneSignal prompt shown, waiting for response...');
+
             setTimeout(() => {
               OneSignal.isPushNotificationsEnabled(function(isEnabled) {
-                console.log('OneSignal enabled status:', isEnabled);
+
                 if (isEnabled) {
                   statusSpan.textContent = "Notifications enabled (OneSignal)";
                   checkbox.checked = true;
@@ -992,7 +964,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
             }, 1000);
           }).catch(function(error) {
             console.error('OneSignal prompt failed:', error);
-            console.log('Trying OneSignal registerForPushNotifications...');
+
             OneSignal.registerForPushNotifications().then(function() {
               statusSpan.textContent = "Notifications enabled (OneSignal)";
               checkbox.checked = true;
@@ -1005,10 +977,10 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
           });
         });
       } else if (isIOS && isSafari) {
-        console.log('📱 iOS Safari without OneSignal, trying native...');
+
         tryIOSNativeNotifications();
       } else {
-        console.log('💻 Desktop/Android browser, using native Notification API...');
+
         if (!window.Notification) {
           console.error('❌ Notification API not available');
           statusSpan.textContent = "Notifications not supported";
@@ -1016,15 +988,12 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
           return;
         }
         
-        console.log('🔔 Current permission:', Notification.permission);
-        console.log('🌐 User agent:', navigator.userAgent);
-        console.log('🌐 Is Firefox:', navigator.userAgent.includes('Firefox'));
         statusSpan.textContent = "Requesting permission...";
         
         if (Notification.permission === 'default') {
-          console.log('📢 Requesting notification permission...');
+
           Notification.requestPermission().then(function(permission) {
-            console.log('📢 Permission result:', permission);
+
             if (permission === 'granted') {
               statusSpan.textContent = "Notifications enabled";
               checkbox.checked = true;
@@ -1033,7 +1002,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
               // Register service worker if not already registered
               if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('./sw.js').then(function(registration) {
-                  console.log('✅ Service worker registered:', registration);
+
                 }).catch(function(error) {
                   console.error('❌ Service worker registration failed:', error);
                 });
@@ -1041,7 +1010,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
               
               // Show test notification
               setTimeout(() => {
-                console.log('🔔 Showing test notification...');
+
                 new Notification('TaskMaster Pro', {
                   body: 'Notifications enabled! You\'ll get reminders when tasks are due.',
                   icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K',
@@ -1050,7 +1019,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
                 });
               }, 500);
             } else {
-              console.log('❌ Permission denied by user');
+
               statusSpan.textContent = "Notifications denied";
               checkbox.checked = false;
               localStorage.setItem('notificationsEnabled', 'false');
@@ -1061,7 +1030,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
             checkbox.checked = false;
           });
         } else if (Notification.permission === 'granted') {
-          console.log('✅ Notifications already enabled');
+
           statusSpan.textContent = "Notifications already enabled";
           checkbox.checked = true;
           localStorage.setItem('notificationsEnabled', 'true');
@@ -1074,7 +1043,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
             });
           }, 500);
         } else {
-          console.log('❌ Notifications blocked');
+
           statusSpan.textContent = "Notifications denied - check browser settings";
           checkbox.checked = false;
           localStorage.setItem('notificationsEnabled', 'false');
@@ -1087,14 +1056,14 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       const statusSpan = document.getElementById('notificationStatus');
       const checkbox = document.getElementById('enableNotifications');
       
-      console.log('🍎 Attempting iOS native notifications fallback...');
+
       
       // Check if iOS native notifications are available
       if (window.iosNativeNotificationsAvailable && 'Notification' in window) {
         if (Notification.permission === 'default') {
-          console.log('📱 Requesting iOS native notification permission...');
+
           Notification.requestPermission().then(function(permission) {
-            console.log('📱 iOS native permission result:', permission);
+
             if (permission === 'granted') {
               statusSpan.textContent = "iOS notifications enabled (Native Web Push)";
               checkbox.checked = true;
@@ -1253,7 +1222,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
         const userId = user.uid;
         
         // Delete all user data from Firestore
-        console.log('Deleting user data from Firestore...');
+
         
         // Delete presence data
         await db.collection('presence').doc(userId).delete();
@@ -1267,7 +1236,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
         // Delete user document
         await db.collection('users').doc(userId).delete();
         
-        console.log('Firestore data deleted successfully');
+
         
         // Delete authentication account
         await user.delete();

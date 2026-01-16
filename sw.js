@@ -11,15 +11,15 @@ const urlsToCache = [
 
 // Install Service Worker
 self.addEventListener('install', event => {
-  console.log('Service Worker: Installing...');
+
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Service Worker: Opened cache');
+
         return cache.addAll(urlsToCache);
       })
       .then(() => {
-        console.log('Service Worker: Cache loaded');
+
         return self.skipWaiting(); // Activate immediately
       })
   );
@@ -42,19 +42,19 @@ self.addEventListener('fetch', event => {
 
 // Activate Service Worker and update cache
 self.addEventListener('activate', event => {
-  console.log('Service Worker: Activating...');
+
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            console.log('Service Worker: Deleting old cache:', cacheName);
+
             return caches.delete(cacheName);
           }
         })
       );
     }).then(() => {
-      console.log('Service Worker: Activated');
+
       return self.clients.claim(); // Take control immediately
     })
   );
@@ -62,7 +62,7 @@ self.addEventListener('activate', event => {
 
 // Handle push notifications (for Firebase/OneSignal)
 self.addEventListener('push', event => {
-  console.log('Service Worker: Push notification received', event);
+
   
   let notificationData = {
     title: 'TaskMaster Pro',
@@ -89,7 +89,7 @@ self.addEventListener('push', event => {
         data: data.data || {}
       };
     } catch (error) {
-      console.log('Service Worker: Could not parse push data', error);
+
     }
   }
   
@@ -103,7 +103,7 @@ self.addEventListener('push', event => {
       vibrate: notificationData.vibrate,
       data: notificationData.data
     }).then(() => {
-      console.log('Service Worker: Notification shown');
+
     }).catch(error => {
       console.error('Service Worker: Could not show notification', error);
     })
@@ -112,7 +112,7 @@ self.addEventListener('push', event => {
 
 // Handle background sync for notifications
 self.addEventListener('sync', event => {
-  console.log('Service Worker: Sync event', event.tag);
+
   if (event.tag === 'todo-reminder') {
     event.waitUntil(checkReminders());
   }
@@ -120,7 +120,7 @@ self.addEventListener('sync', event => {
 
 // Handle notification clicks
 self.addEventListener('notificationclick', event => {
-  console.log('Service Worker: Notification clicked', event.notification.tag);
+
   event.notification.close();
   
   // Open or focus the app window
@@ -143,12 +143,12 @@ self.addEventListener('notificationclick', event => {
 
 // Handle notification close
 self.addEventListener('notificationclose', event => {
-  console.log('Service Worker: Notification closed', event.notification.tag);
+
 });
 
 // Function to check reminders (placeholder)
 function checkReminders() {
-  console.log('Service Worker: Checking reminders');
+
   // This would normally check for due tasks and send notifications
   // For now, it's a placeholder since task checking happens in the main app
   return Promise.resolve();

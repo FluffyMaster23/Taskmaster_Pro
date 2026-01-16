@@ -43,62 +43,62 @@ function clearOldListData() {
   
   // Remove old keys
   if (keysToRemove.length > 0) {
-    console.log('🧹 Clearing old list data:', keysToRemove);
+
     keysToRemove.forEach(key => localStorage.removeItem(key));
   }
 }
 
 // Function to get all sections (default + user's custom lists)
 async function getAllSections() {
-  console.log('🔍 getAllSections called');
-  console.log('👤 Current user:', window.currentUser ? window.currentUser.uid : 'not logged in');
+
+
   
   // Only use Firebase user ID if logged in
   if (!window.currentUser) {
-    console.log('⚠️ No user logged in - checking localStorage anyway for cached lists');
+
     // Check if there's a cached user ID in localStorage
     const cachedKeys = Object.keys(localStorage).filter(k => k.startsWith('taskmaster_custom_section_names_'));
-    console.log('📦 Found cached list keys:', cachedKeys);
+
     
     if (cachedKeys.length > 0) {
       const cachedListNames = JSON.parse(localStorage.getItem(cachedKeys[0]) || '[]');
       if (cachedListNames.length > 0) {
-        console.log('✅ Using cached lists:', cachedListNames);
+
         return [...DEFAULT_SECTIONS, ...cachedListNames];
       }
     }
     
-    console.log('📭 No cached lists found');
+
     return DEFAULT_SECTIONS;
   }
   
   const userId = window.currentUser.uid;
   const userCustomListsKey = `taskmaster_custom_section_names_${userId}`;
   
-  console.log('🔑 Using key:', userCustomListsKey);
+
   
   // Clear old data first
   clearOldListData();
   
   // Try localStorage cache first for instant loading
   const cachedListNames = JSON.parse(localStorage.getItem(userCustomListsKey) || '[]');
-  console.log('📦 Cached lists:', cachedListNames);
+
   
   // Always load from Firebase to get the latest data
   if (typeof loadCustomLists === 'function') {
     try {
-      console.log('☁️ Loading lists from Firebase...');
+
       const customLists = await loadCustomLists();
-      console.log('☁️ Firebase returned:', customLists);
+
       
       if (customLists && customLists.length > 0) {
         const listNames = customLists.map(list => list.name);
         // Save to localStorage for faster access next time
         localStorage.setItem(userCustomListsKey, JSON.stringify(listNames));
-        console.log('✅ Returning lists from Firebase:', listNames);
+
         return [...DEFAULT_SECTIONS, ...listNames];
       } else {
-        console.log('⚠️ Firebase returned no lists, using cache if available');
+
         if (cachedListNames.length > 0) {
           return [...DEFAULT_SECTIONS, ...cachedListNames];
         }
@@ -107,21 +107,21 @@ async function getAllSections() {
       console.error('❌ Error loading custom lists from Firebase:', error);
       // Use cache on error
       if (cachedListNames.length > 0) {
-        console.log('⚠️ Using localStorage cache due to error');
+
         return [...DEFAULT_SECTIONS, ...cachedListNames];
       }
     }
   } else {
-    console.log('⚠️ loadCustomLists function not available');
+
   }
   
   // Final fallback to cache
   if (cachedListNames.length > 0) {
-    console.log('✅ Using cached lists:', cachedListNames);
+
     return [...DEFAULT_SECTIONS, ...cachedListNames];
   }
   
-  console.log('📭 No lists found, returning empty');
+
   return DEFAULT_SECTIONS;
 }
 
@@ -139,7 +139,7 @@ window.speechRate = 1; // Default speech rate
 window.addEventListener('DOMContentLoaded', function() {
   // Clear localStorage function for testing (available in console)
   window.clearAllData = function() {
-    console.log('🧹 Clearing all localStorage data...');
+
     localStorage.clear();
     
     // Reset global variables
@@ -151,7 +151,7 @@ window.addEventListener('DOMContentLoaded', function() {
     window.speechRate = 1;
     window._greetingSpoken = false;
     
-    console.log('✅ All data cleared! Refresh the page to start fresh.');
+
     alert('All data cleared! Refresh the page to start fresh and see notification prompts.');
   };
   
@@ -164,23 +164,23 @@ window.addEventListener('DOMContentLoaded', function() {
   // Refresh sections when page becomes visible (to pick up new custom lists)
   document.addEventListener('visibilitychange', async function() {
     if (!document.hidden && window.location.pathname.includes('taskmaster.html')) {
-      console.log('🔄 Page visible, checking for list updates...');
+
       // Check if custom lists have been updated (now async)
       const currentSections = await getAllSections();
-      console.log('📋 Current sections from storage:', currentSections);
+
       
       const displayedSections = Array.from(document.querySelectorAll('[id^="summary-"]')).map(el => 
         el.textContent.trim()
       );
-      console.log('📺 Displayed sections on page:', displayedSections);
+
       
       // If sections have changed, recreate them
       if (currentSections.length !== displayedSections.length || 
           !currentSections.every(section => displayedSections.includes(section))) {
-        console.log('✨ Custom lists updated, refreshing sections...');
+
         await createSections();
       } else {
-        console.log('✅ Sections are up to date');
+
       }
     }
   });
@@ -202,12 +202,12 @@ function initializeCurrentPage() {
       initializeHomePage();
       break;
     default:
-      console.log('Unknown page, using default initialization');
+
   }
 }
 
 async function initializeTaskMasterPage() {
-  console.log('Initializing TaskMaster page');
+
   
   // Setup voice functionality
   setupVoiceFunctionality();
@@ -217,7 +217,7 @@ async function initializeTaskMasterPage() {
   
   // Setup real-time task listener if user is already logged in
   if (window.currentUser && !window.isGuestMode && typeof setupTasksListener === 'function') {
-    console.log('🔄 Setting up task listener on page load...');
+
     setupTasksListener();
   }
   
@@ -241,27 +241,27 @@ async function initializeTaskMasterPage() {
   const checkUpcomingBtn = document.getElementById('checkUpcoming');
   if (checkUpcomingBtn) {
     checkUpcomingBtn.addEventListener('click', () => {
-      console.log('🔘 Check Upcoming Todos button clicked');
+
       const upcoming = getUpcomingTasks();
-      console.log('📋 Found upcoming tasks:', upcoming.length);
-      console.log('📋 Upcoming tasks details:', upcoming);
+
+
       
       if (upcoming.length === 0) {
         // Use the clear message when no upcoming tasks
-        console.log('📭 No upcoming tasks - playing clear message');
+
         // Always play the clear message when manually requested, reset the flag first
         window._clearMessageSpoken = false;
         setTimeout(() => speakWizLine("clear"), 1000);
       } else {
-        console.log('🔊 Speaking upcoming tasks...');
+
         upcoming.forEach((task, index) => {
-          console.log(`📢 Scheduling task ${index + 1}/${upcoming.length}: ${task.task}`);
+
           setTimeout(() => speakTask(task), index * 3000); // 3 second delay between tasks
         });
       }
     });
   } else {
-    console.log('⚠️ Check Upcoming button not found');
+
   }
   
   // Start the notification checker
@@ -269,20 +269,20 @@ async function initializeTaskMasterPage() {
 }
 
 function initializeOptionsPage() {
-  console.log('Initializing Options page');
+
   
   // Setup voice functionality for the options page
   setupVoiceFunctionality();
   
   // Force voice loading with a small delay to ensure DOM is ready
   setTimeout(() => {
-    console.log('Force-loading voices after page initialization');
+
     loadVoices();
   }, 500);
 }
 
 function initializeHomePage() {
-  console.log('Initializing Home page');
+
   
   // Initialize Firebase Cloud Messaging for notifications
   initializeFirebaseMessaging();
@@ -322,11 +322,11 @@ function initializeHomePage() {
       
       if (isMobile) {
         // On mobile, speech might be blocked - add user interaction trigger
-        console.log('Mobile detected - speech will play after first user interaction');
+
         
         // Add click listener to enable speech after first user interaction
         const enableMobileSpeech = () => {
-          console.log('First user interaction - enabling speech');
+
           speak(greeting);
           document.removeEventListener('click', enableMobileSpeech);
           document.removeEventListener('touchstart', enableMobileSpeech);
@@ -336,7 +336,7 @@ function initializeHomePage() {
         try {
           speak(greeting);
         } catch (e) {
-          console.log('Speech blocked, waiting for user interaction');
+
           document.addEventListener('click', enableMobileSpeech, { once: true });
           document.addEventListener('touchstart', enableMobileSpeech, { once: true });
         }
@@ -346,7 +346,7 @@ function initializeHomePage() {
       }
     }
   } else {
-    console.log('No voice selected - skipping greeting for new user');
+
   }
 }
 
@@ -358,7 +358,7 @@ let messaging = null;
 let fcmToken = null;
 
 async function initializeFirebaseMessaging() {
-  console.log('🚀 Initializing Firebase Messaging...');
+
   
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -366,78 +366,77 @@ async function initializeFirebaseMessaging() {
   
   // Check if browser supports notifications
   if (!('Notification' in window)) {
-    console.log('❌ Browser does not support notifications');
+
     return;
   }
   
   // iOS Safari uses OneSignal
   if (isIOS && isSafari) {
-    console.log('📱 iOS Safari detected, using OneSignal...');
+
     return initializeOneSignal();
   }
   
   try {
     // Check if Firebase Messaging is supported
     if (!firebase.messaging.isSupported()) {
-      console.log('⚠️ Firebase Messaging not supported, using native notifications');
+
       return initializeNativeNotifications();
     }
     
     messaging = firebase.messaging();
-    console.log('✅ Firebase Messaging initialized');
+
     
     // Request notification permission
-    console.log('📢 Requesting notification permission...');
+
     let permission = Notification.permission;
     
     if (permission === 'default') {
       permission = await Notification.requestPermission();
-      console.log('📢 Permission response:', permission);
+
     } else {
-      console.log('📢 Current permission:', permission);
+
     }
     
     if (permission === 'granted') {
-      console.log('✅ Notification permission granted');
+
       
       if ('serviceWorker' in navigator) {
         try {
-          console.log('📝 Registering Firebase service worker...');
+
           const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
             scope: '/'
           });
-          console.log('✅ Service worker registered:', registration.scope);
+
           
           // Wait for service worker to be ready
           await navigator.serviceWorker.ready;
-          console.log('✅ Service worker ready');
+
           
-          console.log('🔑 Getting FCM token...');
+
           fcmToken = await messaging.getToken({
             vapidKey: 'BCS6sik162IJiqA7odT7O6wGCaffPepZvCHeUWuHReHQrSkQOybm1XWOLZY6ChJP9cYJ25ytTVdwgMK-tJL19ag',
             serviceWorkerRegistration: registration
           });
           
           if (fcmToken) {
-            console.log('✅ FCM Token received:', fcmToken.substring(0, 20) + '...');
             localStorage.setItem('fcm_token', fcmToken);
             window.fcmEnabled = true;
           } else {
-            console.log('⚠️ No FCM token received');
+
           }
         } catch (swError) {
           console.error('❌ Service worker registration failed:', swError);
-          console.log('⚠️ Falling back to native notifications');
+
           initializeNativeNotifications();
         }
       } else {
-        console.log('⚠️ Service workers not supported, using native notifications');
+
         initializeNativeNotifications();
       }
       
       // Handle foreground messages
       messaging.onMessage((payload) => {
-        console.log('📨 Foreground message received:', payload);
+
         const notificationTitle = payload.notification?.title || 'TaskMaster Pro';
         const notificationOptions = {
           body: payload.notification?.body || payload.data?.body,
@@ -450,17 +449,17 @@ async function initializeFirebaseMessaging() {
         };
         
         if (Notification.permission === 'granted') {
-          console.log('🔔 Showing notification:', notificationTitle);
+
           new Notification(notificationTitle, notificationOptions);
         }
       });
       
       // Handle token refresh
       messaging.onTokenRefresh(async () => {
-        console.log('🔄 FCM token refreshing...');
+
         try {
           const newToken = await messaging.getToken();
-          console.log('✅ New FCM token received');
+
           localStorage.setItem('fcm_token', newToken);
           fcmToken = newToken;
         } catch (error) {
@@ -469,14 +468,14 @@ async function initializeFirebaseMessaging() {
       });
       
     } else if (permission === 'denied') {
-      console.log('❌ Notification permission denied by user');
+
     } else {
-      console.log('⚠️ Notification permission not granted yet');
+
     }
     
   } catch (error) {
     console.error('❌ Firebase Messaging initialization error:', error);
-    console.log('⚠️ Falling back to native notifications');
+
     initializeNativeNotifications();
   }
 }
@@ -541,29 +540,29 @@ async function initializeOneSignal() {
 }
 
 function initializeNativeNotifications() {
-  console.log('🔔 Initializing native notifications...');
+
   
   if (!('Notification' in window)) {
-    console.log('❌ Notifications not supported in this browser');
+
     return;
   }
   
-  console.log('📢 Current notification permission:', Notification.permission);
+
   
   if (Notification.permission === 'default') {
-    console.log('📢 Requesting notification permission...');
+
     Notification.requestPermission().then(function(permission) {
-      console.log('📢 Permission response:', permission);
+
       window.nativeNotificationsEnabled = (permission === 'granted');
       if (permission === 'granted') {
-        console.log('✅ Native notifications enabled');
+
       } else {
-        console.log('❌ Native notifications denied');
+
       }
     });
   } else {
     window.nativeNotificationsEnabled = (Notification.permission === 'granted');
-    console.log('✅ Native notifications status:', window.nativeNotificationsEnabled);
+
   }
 }
 
@@ -639,20 +638,20 @@ function sendLocalNotification(task, isReminder = false) {
 function setupVoiceFunctionality() {
   // Only setup if voice elements exist on this page
   if (!document.getElementById("voiceSelect") && !document.getElementById("speechRateSelect")) {
-    console.log('Voice elements not found on this page, skipping voice setup');
+
     return;
   }
   
-  console.log('✅ Setting up voice functionality - voiceSelect element found');
+
   
   // Load voices when they're ready
   window.speechSynthesis.onvoiceschanged = () => {
-    console.log('🔄 speechSynthesis.onvoiceschanged event fired');
+
     loadVoices();
   };
   
   // Also try loading immediately (for some browsers)
-  console.log('🔄 Attempting immediate voice loading');
+
   loadVoices();
   
   // Setup voice select event listener
@@ -665,7 +664,7 @@ function setupVoiceFunctionality() {
         window.selectedVoice = null;
         localStorage.removeItem("selectedVoiceIndex");
         localStorage.removeItem("selectedVoiceName");
-        console.log('Voice cleared - "Choose voice" option selected');
+
         return;
       }
       
@@ -683,14 +682,6 @@ function setupVoiceFunctionality() {
         localStorage.setItem("selectedVoiceIndex", originalVoiceIndex);
         localStorage.setItem("selectedVoiceName", selectedVoiceObj.name);
         
-        console.log('Voice changed and saved:', {
-          dropdownIndex: e.target.selectedIndex,
-          originalVoiceIndex: originalVoiceIndex,
-          name: selectedVoiceObj.name,
-          lang: selectedVoiceObj.lang,
-          voiceObject: selectedVoiceObj
-        });
-        
         // Test the voice immediately (only if not on options page to avoid duplicate announcements)
         if (!window.location.pathname.includes('options.html')) {
           speak("Voice changed to " + selectedVoiceObj.name.split(' ')[0]);
@@ -706,7 +697,7 @@ function setupVoiceFunctionality() {
       window.speechRate = parseFloat(e.target.value);
       // Save speech rate preference to localStorage
       localStorage.setItem("speechRate", e.target.value);
-      console.log('Speech rate changed and saved:', e.target.value);
+
     });
   }
   
@@ -722,7 +713,7 @@ function loadSavedVoicePreferences() {
     const speechRateSelect = document.getElementById("speechRateSelect");
     if (speechRateSelect) {
       speechRateSelect.value = savedRate;
-      console.log('✅ Restored speech rate:', savedRate);
+
     }
   }
   
@@ -741,14 +732,6 @@ function loadSavedVoicePreferences() {
         if (parseInt(options[i].dataset.originalIndex) === index) {
           voiceSelect.selectedIndex = i;
           window.selectedVoice = voices[index];
-          
-          console.log('✅ Restored voice by index:', {
-            originalIndex: index,
-            dropdownIndex: i,
-            name: voices[index].name,
-            lang: voices[index].lang,
-            voiceObject: voices[index]
-          });
           return; // Successfully loaded
         }
       }
@@ -767,13 +750,6 @@ function loadSavedVoicePreferences() {
           const originalIndex = parseInt(options[i].dataset.originalIndex);
           voiceSelect.selectedIndex = i;
           window.selectedVoice = voices[originalIndex];
-          
-          console.log('✅ Restored voice by name:', {
-            name: savedVoiceName,
-            originalIndex: originalIndex,
-            dropdownIndex: i,
-            voiceObject: voices[originalIndex]
-          });
           return;
         }
       }
@@ -785,7 +761,7 @@ function loadSavedVoicePreferences() {
   if (voiceSelect) {
     voiceSelect.selectedIndex = 0; // "Choose voice" option
     window.selectedVoice = null; // No voice selected
-    console.log('✅ No saved voice - defaulting to "Choose voice" option');
+
   }
 }
 
@@ -794,23 +770,23 @@ function loadVoices() {
   const voiceSelect = document.getElementById("voiceSelect");
   
   if (!voiceSelect) {
-    console.log('voiceSelect element not found, skipping voice loading');
+
     return;
   }
   
   voiceSelect.innerHTML = "";
   
   const voices = speechSynthesis.getVoices();
-  console.log('Available voices:', voices.length);
+
   
   if (voices.length === 0) {
     // Retry loading voices after a short delay
-    console.log('No voices found, retrying...');
+
     setTimeout(loadVoices, 100);
     return;
   }
   
-  console.log('Loading', voices.length, 'voices into dropdown');
+
   
   // Detect iOS for voice filtering
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
@@ -855,14 +831,14 @@ function loadVoices() {
       v.name.includes('Bad News') ||
       v.name.includes('Pipe Organ')
     );
-    console.log(`iOS detected: Filtered to ${filteredVoices.length} iOS voices`);
+
   } else {
     // For non-iOS, filter for English voices or all voices if no English found
     filteredVoices = voices.filter(v => v.lang.startsWith("en"));
     if (filteredVoices.length === 0) {
       filteredVoices = voices; // Use all voices if no English ones
     }
-    console.log(`Desktop detected: Using ${filteredVoices.length} English voices`);
+
   }
   
   // Sort voices by name for better organization
@@ -885,33 +861,31 @@ function loadVoices() {
 
   // Set default to "Choose voice" (will be overridden by saved preferences)
   voiceSelect.selectedIndex = 0;
-  console.log('Set default to "Choose voice" option');
+
 
   // Load saved voice preferences after voices are populated
   loadSavedVoicePreferences();
   
-  console.log('✅ Voice loading complete');
+
 }
 
 // === SPEAK (User-selected voice)
 function speak(text) {
-  console.log('🔊 speak() called with:', text);
-  
   const utter = new SpeechSynthesisUtterance(text);
   
   if (window.selectedVoice) {
     // selectedVoice is now a voice object, not a string
     utter.voice = window.selectedVoice;
-    console.log('Using selected voice:', window.selectedVoice.name);
+
   } else {
     // Fallback to first available voice
     const voices = speechSynthesis.getVoices();
-    console.log('Available voices:', voices.length);
+
     if (voices.length > 0) {
       utter.voice = voices[0];
-      console.log('Using fallback voice:', voices[0].name);
+
     } else {
-      console.log('⚠️ No voices available');
+
     }
   }
   
@@ -921,8 +895,6 @@ function speak(text) {
   utter.volume = 1;
   
   // Add event listeners for debugging
-  utter.onstart = () => console.log('speak() - Speech started');
-  utter.onend = () => console.log('speak() - Speech ended');
   utter.onerror = (event) => console.error('speak() - Speech error:', event);
   
   // Clear any pending speech and speak
@@ -932,23 +904,23 @@ function speak(text) {
 
 // === SPEAK DAVID (used for reminders, task reports)
 function speakDavid(text) {
-  console.log('🔊 Speaking:', text);
+
   
   const utter = new SpeechSynthesisUtterance(text);
   
   // Always use the selected voice instead of trying to find David
   if (window.selectedVoice) {
-    console.log('Using selected voice:', window.selectedVoice.name);
+
     utter.voice = window.selectedVoice;
   } else {
     // Fallback to first available voice
     const voices = speechSynthesis.getVoices();
-    console.log('Available voices:', voices.length);
+
     if (voices.length > 0) {
       utter.voice = voices[0];
-      console.log('Using fallback voice:', voices[0].name);
+
     } else {
-      console.log('⚠️ No voices available yet, using default voice');
+
     }
   }
   
@@ -958,8 +930,6 @@ function speakDavid(text) {
   utter.volume = 1;
   
   // Add event listeners for debugging
-  utter.onstart = () => console.log('Speech started');
-  utter.onend = () => console.log('Speech ended');
   utter.onerror = (event) => console.error('Speech error:', event);
   
   // Clear any pending speech and speak
@@ -969,7 +939,7 @@ function speakDavid(text) {
 
 // === SPEAK TASK (for upcoming tasks)
 function speakTask(task) {
-  console.log('🗣️ Speaking task:', task.task, 'due:', task.time);
+
   
   const now = new Date();
   const due = new Date(task.time);
@@ -1008,7 +978,7 @@ function speakTask(task) {
     }
   }
   
-  console.log('📢 Announcement:', announcement);
+
   speakDavid(announcement);
 }
 
@@ -1024,7 +994,7 @@ function warmUpVoices() {
   }
 
   voicesReady = true;
-  console.log('✅ Voices ready, count:', voices.length);
+
 
   // Optional: Warm-up call (quiet and fast) - only if a voice is selected
   if (window.selectedVoice) {
@@ -1051,25 +1021,25 @@ window.onload = () => {
 
   // Register Service Worker for PWA and notifications
   if ('serviceWorker' in navigator) {
-    console.log('🔧 Registering service worker...');
+
     navigator.serviceWorker.register('./sw.js')
       .then(registration => {
-        console.log('✅ Service worker registered:', registration.scope);
+
         
         // Wait for service worker to be ready before checking notifications
         return navigator.serviceWorker.ready;
       })
       .then(registration => {
-        console.log('✅ Service worker ready:', registration);
+
         
         // Check if notification permission is already granted
         if (Notification && Notification.permission === 'granted') {
-          console.log('✅ Notifications already enabled');
+
           localStorage.setItem('notificationsEnabled', 'true');
         } else if (Notification && Notification.permission === 'default') {
-          console.log('ℹ️ Notification permission not set yet');
+
         } else if (Notification && Notification.permission === 'denied') {
-          console.log('⚠️ Notification permission denied');
+
           localStorage.setItem('notificationsEnabled', 'false');
         }
       })
@@ -1077,7 +1047,7 @@ window.onload = () => {
         console.error('❌ Service worker registration failed:', registrationError);
       });
   } else {
-    console.log('⚠️ Service workers not supported in this browser');
+
   }
 
   // Initialize page based on current page
@@ -1088,15 +1058,15 @@ window.onload = () => {
 
   // Load tasks on task master page only
   if (window.location.pathname.includes('taskmaster.html')) {
-    console.log('Loading tasks on TaskMaster page...');
+
     const all = getTasks();
-    console.log(`Found ${all.length} tasks to render:`, all);
+
     
     all.forEach(task => {
       const ul = document.getElementById(`ul-${task.section}`);
       if (ul) {
         renderTask(task, ul);
-        console.log(`Rendered task "${task.name}" in section "${task.section}"`);
+
       } else {
         console.warn(`Could not find ul element for section "${task.section}"`);
       }
@@ -1118,7 +1088,7 @@ function testLocalStorage() {
     localStorage.removeItem(testKey);
     
     if (retrieved === testValue) {
-      console.log('✅ localStorage is working properly');
+
       return true;
     } else {
       console.error('❌ localStorage test failed - data mismatch');
@@ -1133,7 +1103,6 @@ function testLocalStorage() {
 function getTasks() {
   try {
     const tasks = JSON.parse(localStorage.getItem("todos") || "[]");
-    console.log(`getTasks(): Found ${tasks.length} tasks in localStorage cache`);
     return tasks;
   } catch (error) {
     console.error('Error reading tasks from localStorage:', error);
@@ -1148,11 +1117,9 @@ async function saveTask(task) {
     // Save to Firebase if logged in, or localStorage if guest
     if (typeof saveTasks === 'function') {
       await saveTasks(all);
-      console.log(`saveTask(): Saved task "${task.task}" to Firebase/localStorage. Total tasks: ${all.length}`);
     } else {
       // Fallback to localStorage if firebase-data.js not loaded
       localStorage.setItem("todos", JSON.stringify(all));
-      console.log(`saveTask(): Saved task "${task.task}" to localStorage. Total tasks: ${all.length}`);
     }
   } catch (error) {
     console.error('Error saving task:', error);
@@ -1179,7 +1146,7 @@ async function removeTask(taskId) {
     let scheduledTasks = JSON.parse(localStorage.getItem('scheduledOneSignalTasks') || '[]');
     scheduledTasks = scheduledTasks.filter(t => t.id !== taskId);
     localStorage.setItem('scheduledOneSignalTasks', JSON.stringify(scheduledTasks));
-    console.log('Removed task from OneSignal schedule:', taskId);
+
   }
 }
 function renderTask(task, ul) {
@@ -1223,31 +1190,31 @@ function renderTask(task, ul) {
 // Check and request notifications with iOS PWA support
 async function checkAndRequestNotifications() {
   if (!("Notification" in window)) {
-    console.log("Notifications not supported");
+
     return;
   }
 
   const permission = Notification.permission;
-  console.log("Notification permission status:", permission);
+
 
   // Check if we're in a PWA (standalone mode)
   const isStandalone = window.navigator.standalone === true || 
                       window.matchMedia('(display-mode: standalone)').matches ||
                       window.matchMedia('(display-mode: fullscreen)').matches;
 
-  console.log("Running in standalone mode:", isStandalone);
+
 
   if (permission === "default") {
     if (isStandalone) {
       // In PWA mode, request directly instead of showing custom prompt
-      console.log("PWA detected - requesting notification permission directly");
+
       await requestNotificationPermission();
     } else {
       // In browser mode, request directly
       await requestNotificationPermission();
     }
   } else if (permission === "granted") {
-    console.log("Notifications already enabled");
+
     updateNotificationControls();
   }
 }
@@ -1275,19 +1242,19 @@ function updateNotificationControls() {
 async function requestNotificationPermission() {
   // Check if notifications are supported
   if (!("Notification" in window)) {
-    console.log("This browser does not support notifications");
+
     return false;
   }
 
   // Check current permission status
   let permission = Notification.permission;
-  console.log("Current notification permission:", permission);
+
 
   if (permission === "default") {
     // Request permission directly (works on first visit)
     try {
       permission = await Notification.requestPermission();
-      console.log("Notification permission after request:", permission);
+
     } catch (error) {
       console.error("Error requesting notification permission:", error);
       return false;
@@ -1295,7 +1262,7 @@ async function requestNotificationPermission() {
   }
 
   if (permission === "granted") {
-    console.log("✅ Notifications enabled!");
+
     
     // Update UI controls
     updateNotificationControls();
@@ -1307,7 +1274,7 @@ async function requestNotificationPermission() {
     
     return true;
   } else if (permission === "denied") {
-    console.log("❌ Notifications blocked");
+
     
     // Update UI controls
     updateNotificationControls();
@@ -1336,27 +1303,27 @@ function showWelcomeNotification() {
 }
 
 function showNotification(task, isReminder = false) {
-  console.log(`🔔 showNotification called for task: ${task.task}, isReminder: ${isReminder}`);
+
   
   // Detect iOS
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   
-  console.log('📱 Device: iOS =', isIOS);
+
   
   if (!("Notification" in window)) {
-    console.log('❌ Notifications not supported');
+
     return;
   }
   
-  console.log('📢 Current permission:', Notification.permission);
+
   
   if (Notification.permission !== "granted") {
-    console.log('⚠️ Notification permission not granted');
+
     if (Notification.permission === "default") {
-      console.log('📢 Requesting permission...');
+
       Notification.requestPermission().then(permission => {
-        console.log('📢 Permission response:', permission);
+
         if (permission === "granted") {
           showNotification(task, isReminder);
         }
@@ -1365,7 +1332,7 @@ function showNotification(task, isReminder = false) {
     return;
   }
   
-  console.log('✅ Permission granted, showing notification...');
+
   
   const now = new Date();
   const due = new Date(task.time);
@@ -1391,7 +1358,7 @@ function showNotification(task, isReminder = false) {
     body = `${task.task}\nThis task is due now!`;
   }
 
-  console.log(`📢 Creating notification: ${title}`);
+
   const notification = new Notification(title, {
     body: body,
     icon: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K",
@@ -1402,11 +1369,11 @@ function showNotification(task, isReminder = false) {
     vibrate: isIOS ? undefined : [200, 100, 200]
   });
 
-  console.log('✅ Notification created successfully');
+
 
   // Handle notification click
   notification.onclick = () => {
-    console.log('Notification clicked');
+
     window.focus();
     notification.close();
   };
@@ -1419,24 +1386,24 @@ function showNotification(task, isReminder = false) {
 
 // === DOM BUILD ===
 async function createSections() {
-  console.log('🔨 createSections called');
-  console.log('📍 Current page:', window.location.pathname);
+
+
   
   const sectionsDiv = document.getElementById("sections");
-  console.log('🔍 Sections div found:', sectionsDiv !== null);
+
   
   if (!sectionsDiv) {
-    console.log('⚠️ Sections div not found, skipping section creation');
+
     return;
   }
   
-  console.log('✅ Sections div exists, building task sections...');
+
   
   // Get fresh sections list (including any newly created custom lists) - now async
   const allSections = await getAllSections();
   
-  console.log('📋 All sections to display:', allSections);
-  console.log('📊 Total sections:', allSections.length);
+
+
   
   // Update global SECTIONS for other functions
   SECTIONS = allSections;
@@ -1446,11 +1413,11 @@ async function createSections() {
   
   if (allSections.length === 0) {
     sectionsDiv.innerHTML = '<p style="color: #666; text-align: center; padding: 40px;">No lists found. <a href="list.html" style="color: #4f46e5;">Create your first list</a>!</p>';
-    console.log('📭 No sections to display');
+
     return;
   }
   
-  console.log('✨ Creating ' + allSections.length + ' sections...');
+
   
   allSections.forEach(section => {
   const details = document.createElement("details");
@@ -1537,10 +1504,10 @@ async function createSections() {
         scheduleOneSignalTaskReminder(data);
       } else if (window.iosNativeNotificationsAvailable) {
         // Fallback to iOS native notifications (localhost/development)
-        console.log('📱 Using iOS native notifications for task:', data.task);
+
         // iOS native notifications are handled by the interval checker like desktop
       } else {
-        console.log('⚠️ No iOS notification system available');
+
       }
     }
     // Desktop notifications are handled by the interval checker
@@ -1575,23 +1542,14 @@ function startNotificationChecker() {
   if (!window._reminderTaskIds) window._reminderTaskIds = new Set();
   if (!window._spokenTaskIds) window._spokenTaskIds = new Set();
   
-  console.log('🔔 Starting notification checker...');
-  console.log('🌍 Device timezone:', Intl.DateTimeFormat().resolvedOptions().timeZone);
-  console.log('📢 Notification permission:', Notification.permission);
-  
   // Function to check tasks
   const checkTasks = () => {
     const now = new Date();
     const all = getTasks();
     
-    console.log(`\n🔍 [${ now.toLocaleString()}] Checking ${all.length} tasks for notifications...`);
-    console.log(`🕐 Current time (UTC): ${now.toISOString()}`);
-    console.log(`🕐 Current time (Local): ${now.toLocaleString()}`);
-    
     sendTasksToServiceWorker();
 
     if (all.length === 0) {
-      console.log('📭 No tasks to check');
       return;
     }
 
@@ -1603,27 +1561,17 @@ function startNotificationChecker() {
       const reminderMinutes = task.reminderMinutes || 0;
       const reminderTime = reminderMinutes * 60 * 1000;
       
-      // Detailed logging
-      console.log(`\n📋 Task: "${task.task}"`);
-      console.log(`   📅 Stored time: ${task.time}`);
-      console.log(`   🕐 Due (UTC): ${due.toISOString()}`);
-      console.log(`   🕐 Due (Local): ${due.toLocaleString()}`);
-      console.log(`   ⏱️  Time diff: ${timeDiffMinutes} min (${timeDiffSeconds} sec)`);
-      console.log(`   ⏰ Reminder: ${reminderMinutes} min before`);
-      console.log(`   ✅ Already notified: ${window._notifiedTaskIds.has(task.id)}`);
-      console.log(`   ✅ Already reminded: ${window._reminderTaskIds.has(task.id)}`);
-      
       // Check if within 2 minutes window (instead of 1 minute for better reliability)
       const notificationWindow = 120000; // 2 minutes in milliseconds
       
       if (reminderMinutes > 0 && timeDiff <= reminderTime && timeDiff > (reminderTime - notificationWindow) && !window._reminderTaskIds.has(task.id)) {
-        console.log(`   ⏰ ✅ SENDING REMINDER NOW!`);
+
         window._reminderTaskIds.add(task.id);
         showNotification(task, true);
       }
       
       if (timeDiff <= notificationWindow && timeDiff >= -notificationWindow && !window._notifiedTaskIds.has(task.id)) {
-        console.log(`   🔔 ✅ TASK DUE - SENDING NOTIFICATION NOW!`);
+
         window._notifiedTaskIds.add(task.id);
         showNotification(task, false);
       }
@@ -1631,19 +1579,17 @@ function startNotificationChecker() {
       if (timeDiff <= notificationWindow && timeDiff >= -notificationWindow && !window._spokenTaskIds.has(task.id)) {
         window._spokenTaskIds.add(task.id);
         const reminderMessage = task.msg && task.msg.trim() ? task.msg : `Task: ${task.task}`;
-        console.log(`   🗣️  ✅ SPEAKING TASK NOW!`);
+
         setTimeout(() => speakDavid(reminderMessage), 500);
       }
     });
   };
   
   // Check immediately on startup
-  console.log('🚀 Running initial notification check...');
   checkTasks();
   
   // Then check every 30 seconds (more frequent for better timing)
   setInterval(checkTasks, 30000);
-  console.log('✅ Notification checker started (runs every 30 seconds)');
 }
 
 // === RENDER EXISTING TASKS ===
@@ -1662,13 +1608,7 @@ function getUpcomingTasks() {
   const now = new Date();
   const all = getTasks();
   
-  console.log('📅 Current time:', now.toISOString());
-  console.log('📋 All tasks:', all.length);
-  
   if (all.length === 0) {
-    console.log('📭 No tasks found in storage');
-    return [];
-  }
   
   // Filter for overdue and upcoming tasks (within the next 24 hours)
   const relevant = all.filter(task => {
@@ -1676,12 +1616,10 @@ function getUpcomingTasks() {
     const timeDiff = due - now;
     const isRelevant = timeDiff <= 24 * 60 * 60 * 1000; // Include overdue and next 24 hours
     
-    console.log(`⏰ Task "${task.task}" due ${due.toISOString()}, diff: ${Math.round(timeDiff / 1000 / 60)} minutes, relevant: ${isRelevant}`);
-    
     return isRelevant;
   });
   
-  console.log('🎯 Filtered relevant tasks:', relevant.length);
+
   return relevant;
 }
 

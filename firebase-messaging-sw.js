@@ -22,8 +22,6 @@ const messaging = firebase.messaging();
 
 // Handle background messages
 messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message:', payload);
-  
   const notificationTitle = payload.notification?.title || payload.data?.title || 'TaskMaster Pro';
   const notificationOptions = {
     body: payload.notification?.body || payload.data?.body || 'You have a new notification',
@@ -50,8 +48,6 @@ messaging.onBackgroundMessage((payload) => {
 
 // Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
-  console.log('[firebase-messaging-sw.js] Notification clicked:', event);
-  
   event.notification.close();
   
   if (event.action === 'dismiss') {
@@ -85,7 +81,6 @@ let cachedTasks = [];
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'UPDATE_TASKS') {
     cachedTasks = event.data.tasks || [];
-    console.log('[SW] Tasks updated:', cachedTasks.length);
     // Immediately check for due tasks
     checkTasksAndNotify();
   } else if (event.data && event.data.type === 'CHECK_TASKS') {
@@ -102,11 +97,8 @@ self.addEventListener('periodicsync', (event) => {
 
 // Check on service worker activation
 self.addEventListener('activate', (event) => {
-  console.log('[firebase-messaging-sw.js] Service Worker activated');
   event.waitUntil(
-    self.clients.claim().then(() => {
-      console.log('[SW] Service Worker now controls all pages');
-    })
+    self.clients.claim()
   );
 });
 
@@ -120,8 +112,6 @@ const notifiedTaskIds = new Set();
 const reminderTaskIds = new Set();
 
 async function checkTasksAndNotify() {
-  console.log('[SW] Checking for due tasks...', cachedTasks.length, 'tasks');
-  
   try {
     const now = new Date();
     
@@ -131,17 +121,13 @@ async function checkTasksAndNotify() {
       const reminderMinutes = task.reminderMinutes || 0;
       const reminderTime = reminderMinutes * 60 * 1000;
       
-      console.log(`[SW] Task "${task.task}" - Due: ${due.toLocaleString()}, Diff: ${Math.round(timeDiff/1000/60)}min`);
-      
       // Check if task is due now (within 1 minute window)
       if (timeDiff <= 60000 && timeDiff >= -60000 && !notifiedTaskIds.has(task.id)) {
-        console.log('[SW] 🔔 Task due now:', task.task);
         notifiedTaskIds.add(task.id);
         showTaskNotification(task, false);
       }
       // Check if reminder should be sent
       else if (reminderMinutes > 0 && timeDiff <= reminderTime && timeDiff > reminderTime - 60000 && !reminderTaskIds.has(task.id)) {
-        console.log('[SW] ⏰ Sending reminder:', task.task);
         reminderTaskIds.add(task.id);
         showTaskNotification(task, true);
       }

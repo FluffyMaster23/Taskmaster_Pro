@@ -10,8 +10,6 @@ self.addEventListener('sync', event => {
 
 // Handle notification clicks
 self.addEventListener('notificationclick', event => {
-  console.log('Notification click received:', event.notification);
-  
   event.notification.close();
   
   // Open the app when notification is clicked
@@ -39,7 +37,6 @@ async function checkScheduledTasks() {
   try {
     // This would normally check localStorage, but service workers have limited access
     // OneSignal handles the actual background delivery
-    console.log('Checking scheduled tasks in background');
     return Promise.resolve();
   } catch (error) {
     console.error('Error checking scheduled tasks:', error);

@@ -521,7 +521,6 @@
       const sectionNamesKey = getCustomSectionNamesKey();
       if (sectionNamesKey) {
         localStorage.setItem(sectionNamesKey, JSON.stringify(customListNames));
-        console.log('✅ Section names updated:', customListNames);
       }
     }
     
@@ -596,7 +595,6 @@
     // Initialize page
     document.addEventListener('DOMContentLoaded', function() {
       // Lists will be loaded after authentication completes via onAuthStateChanged
-      console.log('Page loaded, waiting for authentication...');
     });
   </script>
   
@@ -647,7 +645,6 @@
         }
         
         // Load lists from Firebase after authentication
-        console.log('✅ User authenticated, loading lists from Firebase...');
         await displayCustomLists();
       } else {
         welcomeMsg.style.display = 'none';
@@ -656,7 +653,6 @@
         window.isGuestMode = true;
         
         // Show message that user needs to sign in
-        console.log('⚠️ Not logged in - lists require authentication');
         const container = document.getElementById('customListsContainer');
         if (container) {
           container.innerHTML = `
