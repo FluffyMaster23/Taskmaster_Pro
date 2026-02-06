@@ -87,7 +87,16 @@
     <a href="list.html">Create List</a>
     <a href="options.html">Options</a>
     <a id="admin-link" href="admin.html" style="display: none; color: #f59e0b; font-weight: 700;">Admin Dashboard</a>
+  <a href="help.html" target="_blank">Help</a>
   </nav>
+
+  <!-- Upcoming Tasks Section -->
+  <h1>Upcoming Tasks</h1>
+  <div id="upcoming-tasks-container" style="background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+    <div id="upcoming-tasks-list" style="font-size: 14px;">
+      <!-- Upcoming tasks will be dynamically populated here -->
+    </div>
+  </div>
 
   <h1>Your Task Lists</h1>
   
@@ -100,6 +109,136 @@
   <div id="sections" role="region" aria-label="Todo Lists"></div>
 
   <script src="todo.js?v=20260115-002"></script>
+  
+  <script>
+    // Function to display upcoming tasks
+    function displayUpcomingTasks() {
+      const upcomingTasksList = document.getElementById('upcoming-tasks-list');
+      if (!upcomingTasksList) return;
+      
+      const now = new Date();
+      const allTasks = getTasks();
+      
+      if (allTasks.length === 0) {
+        upcomingTasksList.innerHTML = '<p style="color: #666; text-align: center;">No tasks scheduled yet. Create a list and add some tasks!</p>';
+        return;
+      }
+      
+      // Get all tasks with due dates and sort by time
+      const tasksWithDates = allTasks
+        .filter(task => task.time)
+        .sort((a, b) => new Date(a.time) - new Date(b.time));
+      
+      if (tasksWithDates.length === 0) {
+        upcomingTasksList.innerHTML = '<p style="color: #666; text-align: center;">No tasks with due dates found.</p>';
+        return;
+      }
+      
+      // Separate into overdue, today, and future tasks
+      const overdue = [];
+      const today = [];
+      const future = [];
+      
+      tasksWithDates.forEach(task => {
+        const dueDate = new Date(task.time);
+        const timeDiff = dueDate - now;
+        
+        if (timeDiff < 0) {
+          overdue.push(task);
+        } else if (timeDiff < 24 * 60 * 60 * 1000) {
+          today.push(task);
+        } else {
+          future.push(task);
+        }
+      });
+      
+      let html = '';
+      
+      // Display overdue tasks
+      if (overdue.length > 0) {
+        html += '<div style="margin-bottom: 20px;">';
+        html += '<h3 style="color: #dc2626; margin-bottom: 10px; font-size: 1.1em;">⚠️ Overdue</h3>';
+        overdue.forEach(task => {
+          html += formatTaskItem(task, true);
+        });
+        html += '</div>';
+      }
+      
+      // Display today's tasks
+      if (today.length > 0) {
+        html += '<div style="margin-bottom: 20px;">';
+        html += '<h3 style="color: #f59e0b; margin-bottom: 10px; font-size: 1.1em;">📅 Due Today</h3>';
+        today.forEach(task => {
+          html += formatTaskItem(task, false);
+        });
+        html += '</div>';
+      }
+      
+      // Display future tasks
+      if (future.length > 0) {
+        html += '<div>';
+        html += '<h3 style="color: #4f46e5; margin-bottom: 10px; font-size: 1.1em;">📋 Upcoming</h3>';
+        future.forEach(task => {
+          html += formatTaskItem(task, false);
+        });
+        html += '</div>';
+      }
+      
+      upcomingTasksList.innerHTML = html;
+    }
+    
+    // Format individual task item
+    function formatTaskItem(task, isOverdue) {
+      const dueDate = new Date(task.time);
+      const dateStr = dueDate.toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+      const timeStr = dueDate.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      });
+      
+      const bgColor = isOverdue ? '#fee2e2' : '#f9fafb';
+      const borderColor = isOverdue ? '#dc2626' : '#e5e7eb';
+      
+      return `
+        <div style="background: ${bgColor}; border-left: 3px solid ${borderColor}; padding: 12px; margin-bottom: 8px; border-radius: 4px;">
+          <div style="font-weight: 600; color: #1f2937; margin-bottom: 4px;">${task.task}</div>
+          <div style="color: #6b7280; font-size: 13px;">
+            <span style="display: inline-block; margin-right: 15px;">📂 ${task.section || 'No List'}</span>
+            <span style="display: inline-block; margin-right: 15px;">📅 ${dateStr}</span>
+            <span style="display: inline-block;">🕐 ${timeStr}</span>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Initialize upcoming tasks display when page loads
+    window.addEventListener('load', () => {
+      // Wait for authentication and tasks to load
+      setTimeout(() => {
+        displayUpcomingTasks();
+      }, 1000);
+    });
+    
+    // Refresh upcoming tasks when storage changes (tasks updated)
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'todos') {
+        displayUpcomingTasks();
+      }
+    });
+    
+    // Also refresh when user switches tabs back to this page
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        displayUpcomingTasks();
+      }
+    });
+  </script>
 
 </body>
 </html>
