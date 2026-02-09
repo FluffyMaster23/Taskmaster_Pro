@@ -26,7 +26,10 @@ auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((error) => {
 });
 
 // === CONFIG ===
-const DEFAULT_SECTIONS = [];
+if (typeof window.DEFAULT_SECTIONS === 'undefined') {
+  window.DEFAULT_SECTIONS = [];
+}
+var DEFAULT_SECTIONS = window.DEFAULT_SECTIONS;
 
 // Clear old localStorage list data with old user_ prefix
 function clearOldListData() {
