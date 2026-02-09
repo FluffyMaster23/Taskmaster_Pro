@@ -117,9 +117,6 @@
       
       const now = new Date();
       const allTasks = typeof window.getTasks === 'function' ? window.getTasks() : [];
-      if (!window.getTasks) {
-        console.warn('getTasks is not available yet; using empty list for upcoming tasks.');
-      }
       
       if (allTasks.length === 0) {
         upcomingTasksList.innerHTML = '<p style="color: #666; text-align: center;">No tasks scheduled yet. Create a list and add some tasks!</p>';
@@ -188,6 +185,16 @@
       
       upcomingTasksList.innerHTML = html;
     }
+
+    function waitForTasksAndDisplay(retries = 30) {
+      if (typeof window.getTasks === 'function') {
+        displayUpcomingTasks();
+        return;
+      }
+      if (retries > 0) {
+        setTimeout(() => waitForTasksAndDisplay(retries - 1), 100);
+      }
+    }
     
     // Format individual task item
     function formatTaskItem(task, isOverdue) {
@@ -221,10 +228,8 @@
     
     // Initialize upcoming tasks display when page loads
     window.addEventListener('load', () => {
-      // Wait for authentication and tasks to load
-      setTimeout(() => {
-        displayUpcomingTasks();
-      }, 1000);
+      // Wait for getTasks and initial data to be ready
+      waitForTasksAndDisplay();
     });
     
     // Refresh upcoming tasks when storage changes (tasks updated)
