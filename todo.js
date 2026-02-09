@@ -1612,6 +1612,8 @@ function getUpcomingTasks() {
   const all = getTasks();
   
   if (all.length === 0) {
+    return [];
+  }
   
   // Filter for overdue and upcoming tasks (within the next 24 hours)
   const relevant = all.filter(task => {
