@@ -15,8 +15,10 @@ window.firebaseConfig = window.firebaseConfig || {
 if (!firebase.apps.length) {
   firebase.initializeApp(window.firebaseConfig);
 }
-const auth = firebase.auth();
-const db = firebase.firestore();
+var auth = window.auth || firebase.auth();
+var db = window.db || firebase.firestore();
+window.auth = auth;
+window.db = db;
 
 // Set auth persistence to LOCAL
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((error) => {

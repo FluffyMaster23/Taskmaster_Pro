@@ -259,8 +259,8 @@
   <script>
     const ADMIN_EMAIL = 'fluffyfighter23@gmx.de';
     
-    // Firebase config
-    const firebaseConfig = {
+    // Firebase config (reuse if already defined)
+    window.firebaseConfig = window.firebaseConfig || {
       apiKey: "AIzaSyC1S6U4E_IIAw5csnapl8ZoIyBS_Lv5k2A",
       authDomain: "taskmaster-pro-bf98a.firebaseapp.com",
       projectId: "taskmaster-pro-bf98a",
@@ -272,10 +272,12 @@
 
     // Initialize Firebase
     if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
+      firebase.initializeApp(window.firebaseConfig);
     }
-    const auth = firebase.auth();
-    const db = firebase.firestore();
+    var auth = window.auth || firebase.auth();
+    var db = window.db || firebase.firestore();
+    window.auth = auth;
+    window.db = db;
 
     // Set auth persistence to LOCAL
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((error) => {
