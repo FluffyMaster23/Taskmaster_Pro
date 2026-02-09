@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-app-v10';
+const CACHE_NAME = 'todo-app-v12';
 const urlsToCache = [
   './',
   './index.html',
@@ -25,17 +25,24 @@ self.addEventListener('install', event => {
   );
 });
 
-// Fetch files from cache
+// Fetch files from cache (same-origin GET only)
 self.addEventListener('fetch', event => {
+  const requestUrl = new URL(event.request.url);
+  const isSameOrigin = requestUrl.origin === self.location.origin;
+
+  if (event.request.method !== 'GET' || !isSameOrigin) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then(response => {
-        // Return cached version or fetch from network
         return response || fetch(event.request);
       })
       .catch(error => {
         console.error('Service Worker: Fetch failed', error);
-        throw error;
+        return fetch(event.request);
       })
   );
 });

@@ -1863,15 +1863,17 @@ function setUserPresence(user, online) {
 }
 
 // Heartbeat: Update lastSeen every 30 seconds
-let heartbeatInterval;
+if (typeof window !== 'undefined' && typeof window.heartbeatInterval === 'undefined') {
+  window.heartbeatInterval = null;
+}
 
 auth.onAuthStateChanged((user) => {
-  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  if (window.heartbeatInterval) clearInterval(window.heartbeatInterval);
   
   if (user) {
     setUserPresence(user, true);
     
-    heartbeatInterval = setInterval(() => {
+    window.heartbeatInterval = setInterval(() => {
       db.collection('presence').doc(user.uid).update({
         lastSeen: firebase.firestore.FieldValue.serverTimestamp()
       }).catch(error => console.error('Heartbeat error:', error));
