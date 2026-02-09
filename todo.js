@@ -354,8 +354,8 @@ function initializeHomePage() {
 
 // === HYBRID NOTIFICATION SYSTEM ===
 // Uses OneSignal for iOS Safari, FCM for Windows/Desktop
-let messaging = null;
-let fcmToken = null;
+var messaging = window.messaging || null;
+var fcmToken = window.fcmToken || null;
 
 async function initializeFirebaseMessaging() {
 
@@ -384,6 +384,7 @@ async function initializeFirebaseMessaging() {
     }
     
     messaging = firebase.messaging();
+    window.messaging = messaging;
 
     
     // Request notification permission
@@ -417,6 +418,7 @@ async function initializeFirebaseMessaging() {
             vapidKey: 'BCS6sik162IJiqA7odT7O6wGCaffPepZvCHeUWuHReHQrSkQOybm1XWOLZY6ChJP9cYJ25ytTVdwgMK-tJL19ag',
             serviceWorkerRegistration: registration
           });
+          window.fcmToken = fcmToken;
           
           if (fcmToken) {
             localStorage.setItem('fcm_token', fcmToken);
@@ -463,6 +465,7 @@ async function initializeFirebaseMessaging() {
 
             localStorage.setItem('fcm_token', newToken);
             fcmToken = newToken;
+            window.fcmToken = newToken;
           } catch (error) {
             console.error('❌ Token refresh failed:', error);
           }
@@ -475,6 +478,7 @@ async function initializeFirebaseMessaging() {
           if (newToken) {
             localStorage.setItem('fcm_token', newToken);
             fcmToken = newToken;
+            window.fcmToken = newToken;
           }
         } catch (error) {
           console.error('❌ Token refresh failed:', error);
