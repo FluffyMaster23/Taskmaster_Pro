@@ -1171,18 +1171,20 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
     }
     
     // Heartbeat: Update lastSeen every 30 seconds
-    let heartbeatInterval;
+    if (typeof window.heartbeatInterval === 'undefined') {
+      window.heartbeatInterval = null;
+    }
     
     auth.onAuthStateChanged((user) => {
       // Clear any existing heartbeat
-      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      if (window.heartbeatInterval) clearInterval(window.heartbeatInterval);
       
       if (user) {
         // Update presence immediately
         setUserPresence(user, true);
         
         // Set up heartbeat to update lastSeen every 30 seconds
-        heartbeatInterval = setInterval(() => {
+        window.heartbeatInterval = setInterval(() => {
           db.collection('presence').doc(user.uid).update({
             lastSeen: firebase.firestore.FieldValue.serverTimestamp()
           }).catch(error => console.error('Heartbeat error:', error));
