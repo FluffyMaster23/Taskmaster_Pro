@@ -1,7 +1,7 @@
 // === FIREBASE INITIALIZATION ===
 // Version: 2026-01-15-v2
-// Firebase config
-const firebaseConfig = {
+// Firebase config (reuse if already defined)
+window.firebaseConfig = window.firebaseConfig || {
   apiKey: "AIzaSyC1S6U4E_IIAw5csnapl8ZoIyBS_Lv5k2A",
   authDomain: "taskmaster-pro-bf98a.firebaseapp.com",
   projectId: "taskmaster-pro-bf98a",
@@ -13,7 +13,7 @@ const firebaseConfig = {
 
 // Initialize Firebase
 if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
+  firebase.initializeApp(window.firebaseConfig);
 }
 const auth = firebase.auth();
 const db = firebase.firestore();
