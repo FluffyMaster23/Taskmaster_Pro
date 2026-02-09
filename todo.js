@@ -1009,7 +1009,10 @@ function speakTask(task) {
 
 // === INITIAL LOAD
 // === PRELOAD & WARM-UP ===
-let voicesReady = false;
+if (typeof window.voicesReady === 'undefined') {
+  window.voicesReady = false;
+}
+var voicesReady = window.voicesReady;
 
 function warmUpVoices() {
   const voices = speechSynthesis.getVoices();
