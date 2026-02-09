@@ -454,18 +454,34 @@ async function initializeFirebaseMessaging() {
         }
       });
       
-      // Handle token refresh
-      messaging.onTokenRefresh(async () => {
+      // Handle token refresh (compat API may not expose onTokenRefresh)
+      if (typeof messaging.onTokenRefresh === 'function') {
+        messaging.onTokenRefresh(async () => {
 
+          try {
+            const newToken = await messaging.getToken();
+
+            localStorage.setItem('fcm_token', newToken);
+            fcmToken = newToken;
+          } catch (error) {
+            console.error('❌ Token refresh failed:', error);
+          }
+        });
+      }
+
+      const refreshFcmToken = async () => {
         try {
           const newToken = await messaging.getToken();
-
-          localStorage.setItem('fcm_token', newToken);
-          fcmToken = newToken;
+          if (newToken) {
+            localStorage.setItem('fcm_token', newToken);
+            fcmToken = newToken;
+          }
         } catch (error) {
           console.error('❌ Token refresh failed:', error);
         }
-      });
+      };
+
+      setInterval(refreshFcmToken, 6 * 60 * 60 * 1000);
       
     } else if (permission === 'denied') {
 
