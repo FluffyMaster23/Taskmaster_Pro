@@ -128,7 +128,10 @@ async function getAllSections() {
 }
 
 // Dynamic SECTIONS array that includes custom lists (will be updated async)
-let SECTIONS = [];
+if (typeof window.SECTIONS === 'undefined') {
+  window.SECTIONS = [];
+}
+var SECTIONS = window.SECTIONS;
 
 window._clearMessageSpoken = false;
 window._spokenTaskIds = new Set();

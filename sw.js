@@ -1,8 +1,8 @@
-const CACHE_NAME = 'todo-app-v14';
+const CACHE_NAME = 'todo-app-v15';
 const urlsToCache = [
   './',
   './index.html',
-  './todo.js?v=20260209-002',
+  './todo.js?v=20260209-003',
   './manifest.json',
   './styles.css',
   './options.html',
