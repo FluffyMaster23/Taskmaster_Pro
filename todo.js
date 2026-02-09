@@ -1109,6 +1109,9 @@ function getTasks() {
     return [];
   }
 }
+if (typeof window !== 'undefined') {
+  window.getTasks = getTasks;
+}
 async function saveTask(task) {
   try {
     const all = getTasks();

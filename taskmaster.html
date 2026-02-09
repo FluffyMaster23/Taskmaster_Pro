@@ -87,7 +87,6 @@
     <a href="list.html">Create List</a>
     <a href="options.html">Options</a>
     <a id="admin-link" href="admin.html" style="display: none; color: #f59e0b; font-weight: 700;">Admin Dashboard</a>
-  <a href="help.html" target="_blank">Help</a>
   </nav>
 
   <!-- Upcoming Tasks Section -->
@@ -117,7 +116,10 @@
       if (!upcomingTasksList) return;
       
       const now = new Date();
-      const allTasks = getTasks();
+      const allTasks = typeof window.getTasks === 'function' ? window.getTasks() : [];
+      if (!window.getTasks) {
+        console.warn('getTasks is not available yet; using empty list for upcoming tasks.');
+      }
       
       if (allTasks.length === 0) {
         upcomingTasksList.innerHTML = '<p style="color: #666; text-align: center;">No tasks scheduled yet. Create a list and add some tasks!</p>';
