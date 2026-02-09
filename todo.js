@@ -403,8 +403,8 @@ async function initializeFirebaseMessaging() {
       if ('serviceWorker' in navigator) {
         try {
 
-          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-            scope: '/'
+          const registration = await navigator.serviceWorker.register('./firebase-messaging-sw.js', {
+            scope: './'
           });
 
           

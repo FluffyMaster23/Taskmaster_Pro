@@ -67,7 +67,8 @@ self.addEventListener('notificationclick', (event) => {
         }
         // Otherwise, open a new window
         if (clients.openWindow) {
-          return clients.openWindow('/taskmaster.html');
+          const targetUrl = new URL('taskmaster.html', self.registration.scope).href;
+          return clients.openWindow(targetUrl);
         }
       })
   );
