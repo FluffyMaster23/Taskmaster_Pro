@@ -805,8 +805,6 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
             if (parseInt(options[i].dataset.originalIndex) === index) {
               voiceSelect.selectedIndex = i;
               window.selectedVoice = voices[index];
-              
-              });
               return; // Successfully loaded
             }
           }
