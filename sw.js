@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-app-v12';
+const CACHE_NAME = 'todo-app-v13';
 const urlsToCache = [
   './',
   './index.html',
@@ -27,24 +27,27 @@ self.addEventListener('install', event => {
 
 // Fetch files from cache (same-origin GET only)
 self.addEventListener('fetch', event => {
-  const requestUrl = new URL(event.request.url);
-  const isSameOrigin = requestUrl.origin === self.location.origin;
+  try {
+    const requestUrl = new URL(event.request.url);
+    const isSameOrigin = requestUrl.origin === self.location.origin;
 
-  if (event.request.method !== 'GET' || !isSameOrigin) {
-    event.respondWith(fetch(event.request));
-    return;
+    if (event.request.method !== 'GET' || !isSameOrigin) {
+      return;
+    }
+
+    event.respondWith(
+      caches.match(event.request)
+        .then(response => {
+          return response || fetch(event.request);
+        })
+        .catch(error => {
+          console.error('Service Worker: Fetch failed', error);
+          return fetch(event.request);
+        })
+    );
+  } catch (error) {
+    console.error('Service Worker: Fetch handler error', error);
   }
-
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        return response || fetch(event.request);
-      })
-      .catch(error => {
-        console.error('Service Worker: Fetch failed', error);
-        return fetch(event.request);
-      })
-  );
 });
 
 // Activate Service Worker and update cache
