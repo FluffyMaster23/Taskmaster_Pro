@@ -228,9 +228,20 @@ async function initializeTaskMasterPage() {
 
     setupTasksListener();
   }
+
+  if (window.currentUser && typeof setupDailyGoalsListener === 'function') {
+    setupDailyGoalsListener();
+  }
+
+  if (window.currentUser && typeof setupWeeklyGoalsListener === 'function') {
+    setupWeeklyGoalsListener();
+  }
   
   // Create task sections (now async)
   await createSections();
+
+  // Initialize goals sections (daily + weekly)
+  initializeGoalsSections();
   
   // Check if we should focus on a specific list (from list.html)
   const focusList = sessionStorage.getItem('focusList');
@@ -274,6 +285,695 @@ async function initializeTaskMasterPage() {
   
   // Start the notification checker
   startNotificationChecker();
+}
+
+function initializeGoalsSections() {
+  if (!window.location.pathname.includes('taskmaster.html')) {
+    return;
+  }
+
+  if (window._goalsInitialized) {
+    return;
+  }
+  window._goalsInitialized = true;
+
+  setDefaultWeeklyGoalDates();
+  setupDailyGoalForm();
+  setupWeeklyGoalForm();
+  refreshAllGoalViews();
+}
+
+function setDefaultWeeklyGoalDates() {
+  const startInput = document.getElementById('weekly-goal-start');
+  const endInput = document.getElementById('weekly-goal-end');
+  if (!startInput || !endInput) {
+    return;
+  }
+
+  const today = new Date();
+  const start = formatDateInputValue(today);
+  const endDate = new Date(today);
+  endDate.setDate(endDate.getDate() + 6);
+  const end = formatDateInputValue(endDate);
+
+  if (!startInput.value) startInput.value = start;
+  if (!endInput.value) endInput.value = end;
+}
+
+function formatDateInputValue(dateObj) {
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const d = String(dateObj.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function getTodayKey() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function asPositiveInt(value, fallback = 1) {
+  const parsed = parseInt(value, 10);
+  if (Number.isNaN(parsed) || parsed < 1) return fallback;
+  return parsed;
+}
+
+function clampGoalCurrent(goal) {
+  const target = asPositiveInt(goal.target, 1);
+  const current = Math.max(0, Math.min(asPositiveInt(goal.current || 0, 0), target));
+  return { target, current };
+}
+
+function getDailyGoalsLocal() {
+  try {
+    return JSON.parse(localStorage.getItem('dailyGoals') || '[]');
+  } catch (error) {
+    console.error('Error reading daily goals:', error);
+    return [];
+  }
+}
+
+function getWeeklyGoalsLocal() {
+  try {
+    return JSON.parse(localStorage.getItem('weeklyGoals') || '[]');
+  } catch (error) {
+    console.error('Error reading weekly goals:', error);
+    return [];
+  }
+}
+
+async function loadDailyGoalsData() {
+  if (window.currentUser && typeof loadDailyGoals === 'function') {
+    try {
+      const goals = await loadDailyGoals();
+      localStorage.setItem('dailyGoals', JSON.stringify(goals || []));
+      return goals || [];
+    } catch (error) {
+      console.error('Error loading daily goals:', error);
+    }
+  }
+  return getDailyGoalsLocal();
+}
+
+async function loadWeeklyGoalsData() {
+  if (window.currentUser && typeof loadWeeklyGoals === 'function') {
+    try {
+      const goals = await loadWeeklyGoals();
+      localStorage.setItem('weeklyGoals', JSON.stringify(goals || []));
+      return goals || [];
+    } catch (error) {
+      console.error('Error loading weekly goals:', error);
+    }
+  }
+  return getWeeklyGoalsLocal();
+}
+
+async function saveDailyGoalsData(goals) {
+  localStorage.setItem('dailyGoals', JSON.stringify(goals));
+  if (window.currentUser && typeof saveDailyGoals === 'function') {
+    try {
+      await saveDailyGoals(goals);
+    } catch (error) {
+      console.error('Error saving daily goals:', error);
+    }
+  }
+}
+
+async function saveWeeklyGoalsData(goals) {
+  localStorage.setItem('weeklyGoals', JSON.stringify(goals));
+  if (window.currentUser && typeof saveWeeklyGoals === 'function') {
+    try {
+      await saveWeeklyGoals(goals);
+    } catch (error) {
+      console.error('Error saving weekly goals:', error);
+    }
+  }
+}
+
+function announceGoalsUpdate(regionId, text) {
+  const region = document.getElementById(regionId);
+  if (!region) return;
+  region.textContent = '';
+  setTimeout(() => {
+    region.textContent = text;
+  }, 25);
+}
+
+function setupDailyGoalForm() {
+  const form = document.getElementById('daily-goal-form');
+  if (!form) return;
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const titleInput = document.getElementById('daily-goal-title');
+    const targetInput = document.getElementById('daily-goal-target');
+    const descriptionInput = document.getElementById('daily-goal-description');
+    if (!titleInput || !targetInput || !descriptionInput) return;
+
+    const title = titleInput.value.trim();
+    const target = asPositiveInt(targetInput.value, 1);
+    const description = descriptionInput.value.trim();
+
+    if (!title) {
+      alert('Daily goal title is required.');
+      titleInput.focus();
+      return;
+    }
+
+    const goals = await loadDailyGoalsData();
+    const dailyGoal = {
+      id: `daily-${Date.now()}`,
+      title,
+      description,
+      target,
+      current: 0,
+      createdDate: getTodayKey(),
+      status: 'active'
+    };
+
+    goals.push(dailyGoal);
+    await saveDailyGoalsData(goals);
+
+    titleInput.value = '';
+    targetInput.value = '';
+    descriptionInput.value = '';
+
+    await renderDailyGoals({
+      focusId: dailyGoal.id,
+      focusControl: 'increment'
+    });
+    announceGoalsUpdate('daily-goals-live', `Daily goal created: ${dailyGoal.title}.`);
+  });
+}
+
+function parseWeeklyGoalPhrase(phrase) {
+  const text = (phrase || '').trim();
+  if (!text) return null;
+
+  const result = {
+    title: text,
+    target: null,
+    type: null,
+    startDate: getTodayKey(),
+    endDate: null
+  };
+
+  const targetMatch = text.match(/(\d+)/);
+  if (targetMatch) {
+    result.target = asPositiveInt(targetMatch[1], 1);
+  }
+
+  const lower = text.toLowerCase();
+  if (/(workday|work day|daily|day)/.test(lower)) {
+    result.type = 'daily-progress';
+  } else {
+    result.type = 'quantity';
+  }
+
+  const weekdayMap = {
+    sunday: 0,
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6
+  };
+
+  const weekdayMatch = lower.match(/by\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)/);
+  if (weekdayMatch) {
+    const targetWeekday = weekdayMap[weekdayMatch[1]];
+    const today = new Date();
+    const end = new Date(today);
+    const delta = (targetWeekday - today.getDay() + 7) % 7;
+    end.setDate(today.getDate() + delta);
+    result.endDate = formatDateInputValue(end);
+  }
+
+  if (!result.endDate) {
+    const end = new Date();
+    end.setDate(end.getDate() + 6);
+    result.endDate = formatDateInputValue(end);
+  }
+
+  return result;
+}
+
+function setupWeeklyGoalForm() {
+  const form = document.getElementById('weekly-goal-form');
+  const parseBtn = document.getElementById('parse-weekly-goal-btn');
+  if (!form) return;
+
+  if (parseBtn) {
+    parseBtn.addEventListener('click', () => {
+      const quickInput = document.getElementById('weekly-goal-quick-input');
+      const titleInput = document.getElementById('weekly-goal-title');
+      const targetInput = document.getElementById('weekly-goal-target');
+      const typeInput = document.getElementById('weekly-goal-type');
+      const startInput = document.getElementById('weekly-goal-start');
+      const endInput = document.getElementById('weekly-goal-end');
+      if (!quickInput || !titleInput || !targetInput || !typeInput || !startInput || !endInput) return;
+
+      const parsed = parseWeeklyGoalPhrase(quickInput.value);
+      if (!parsed) {
+        announceGoalsUpdate('weekly-goals-live', 'No quick goal text to parse.');
+        return;
+      }
+
+      titleInput.value = parsed.title;
+      if (parsed.target) targetInput.value = String(parsed.target);
+      if (parsed.type) typeInput.value = parsed.type;
+      if (parsed.startDate) startInput.value = parsed.startDate;
+      if (parsed.endDate) endInput.value = parsed.endDate;
+
+      announceGoalsUpdate('weekly-goals-live', 'Weekly goal suggestion applied to form fields.');
+      titleInput.focus();
+    });
+  }
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const titleInput = document.getElementById('weekly-goal-title');
+    const targetInput = document.getElementById('weekly-goal-target');
+    const typeInput = document.getElementById('weekly-goal-type');
+    const startInput = document.getElementById('weekly-goal-start');
+    const endInput = document.getElementById('weekly-goal-end');
+    const descriptionInput = document.getElementById('weekly-goal-description');
+
+    if (!titleInput || !targetInput || !typeInput || !startInput || !endInput || !descriptionInput) {
+      return;
+    }
+
+    const title = titleInput.value.trim();
+    const target = asPositiveInt(targetInput.value, 1);
+    const type = typeInput.value === 'quantity' ? 'quantity' : 'daily-progress';
+    const startDate = startInput.value;
+    const endDate = endInput.value;
+    const description = descriptionInput.value.trim();
+
+    if (!title) {
+      alert('Weekly goal title is required.');
+      titleInput.focus();
+      return;
+    }
+
+    if (!startDate || !endDate) {
+      alert('Start and end date are required.');
+      return;
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+      alert('Start date cannot be after end date.');
+      startInput.focus();
+      return;
+    }
+
+    const goals = await loadWeeklyGoalsData();
+    const weeklyGoal = {
+      id: `weekly-${Date.now()}`,
+      title,
+      description,
+      target,
+      current: 0,
+      type,
+      startDate,
+      endDate,
+      completionDates: [],
+      status: 'active'
+    };
+
+    goals.push(weeklyGoal);
+    await saveWeeklyGoalsData(goals);
+
+    titleInput.value = '';
+    targetInput.value = '';
+    descriptionInput.value = '';
+    const quickInput = document.getElementById('weekly-goal-quick-input');
+    if (quickInput) quickInput.value = '';
+    typeInput.value = 'daily-progress';
+    setDefaultWeeklyGoalDates();
+
+    await renderWeeklyGoals({
+      focusId: weeklyGoal.id,
+      focusControl: weeklyGoal.type === 'daily-progress' ? 'today' : 'increment'
+    });
+    announceGoalsUpdate('weekly-goals-live', `Weekly goal created: ${weeklyGoal.title}.`);
+  });
+}
+
+function goalProgressText(current, target) {
+  const safeTarget = Math.max(1, target);
+  const percent = Math.round((current / safeTarget) * 100);
+  return {
+    text: `${current}/${safeTarget} completed`,
+    srText: `${current} of ${safeTarget} completed, ${percent} percent.`,
+    percent
+  };
+}
+
+function makeGoalControlId(prefix, goalId) {
+  return `${prefix}-${goalId}`.replace(/[^a-zA-Z0-9-_]/g, '_');
+}
+
+async function incrementDailyGoal(goalId) {
+  const goals = await loadDailyGoalsData();
+  const idx = goals.findIndex(g => g.id === goalId);
+  if (idx === -1) return;
+
+  const goal = goals[idx];
+  const stats = clampGoalCurrent(goal);
+  const nextCurrent = Math.min(stats.target, stats.current + 1);
+  goal.current = nextCurrent;
+
+  if (nextCurrent >= stats.target) {
+    goal.status = 'completed';
+    goal.completedAt = new Date().toISOString();
+  }
+
+  goals[idx] = goal;
+  await saveDailyGoalsData(goals);
+  await renderDailyGoals({ focusId: goalId, focusControl: 'increment' });
+
+  const progress = goalProgressText(goal.current, goal.target);
+  announceGoalsUpdate('daily-goals-live', `${goal.title}: ${progress.srText}`);
+}
+
+async function completeDailyGoal(goalId) {
+  const goals = await loadDailyGoalsData();
+  const idx = goals.findIndex(g => g.id === goalId);
+  if (idx === -1) return;
+
+  const goal = goals[idx];
+  goal.current = asPositiveInt(goal.target, 1);
+  goal.status = 'completed';
+  goal.completedAt = new Date().toISOString();
+  goals[idx] = goal;
+
+  await saveDailyGoalsData(goals);
+  await renderDailyGoals({ focusId: goalId, focusControl: 'finish' });
+  announceGoalsUpdate('daily-goals-live', `${goal.title} completed.`);
+}
+
+async function renderDailyGoals(options = {}) {
+  const list = document.getElementById('daily-goals-list');
+  if (!list) return;
+
+  const goals = await loadDailyGoalsData();
+  list.innerHTML = '';
+
+  if (!goals.length) {
+    const empty = document.createElement('li');
+    empty.textContent = 'No daily goals yet. Create your first daily goal above.';
+    list.appendChild(empty);
+    return;
+  }
+
+  goals.forEach((goal) => {
+    const { target, current } = clampGoalCurrent(goal);
+    goal.target = target;
+    goal.current = current;
+    const completed = goal.status === 'completed' || current >= target;
+    if (completed) goal.status = 'completed';
+
+    const progress = goalProgressText(current, target);
+
+    const li = document.createElement('li');
+    li.className = 'goal-card';
+
+    const heading = document.createElement('h3');
+    heading.textContent = goal.title;
+    li.appendChild(heading);
+
+    if (goal.description) {
+      const desc = document.createElement('p');
+      desc.className = 'goal-meta';
+      desc.textContent = goal.description;
+      li.appendChild(desc);
+    }
+
+    const progressLine = document.createElement('p');
+    progressLine.className = 'goal-meta';
+    progressLine.textContent = `Progress: ${progress.text}`;
+    li.appendChild(progressLine);
+
+    const progressPct = document.createElement('p');
+    progressPct.className = 'goal-meta';
+    progressPct.textContent = `Progress percentage: ${progress.percent}%`;
+    li.appendChild(progressPct);
+
+    const sr = document.createElement('p');
+    sr.className = 'visually-hidden';
+    sr.textContent = progress.srText;
+    li.appendChild(sr);
+
+    const status = document.createElement('p');
+    status.className = 'goal-status';
+    status.textContent = completed ? `Status: Complete - ${progress.text}` : 'Status: In progress';
+    li.appendChild(status);
+
+    const actions = document.createElement('div');
+    actions.className = 'goal-actions';
+
+    const incBtn = document.createElement('button');
+    incBtn.type = 'button';
+    incBtn.id = makeGoalControlId('daily-inc', goal.id);
+    incBtn.textContent = 'Add One Completion';
+    incBtn.setAttribute('aria-label', `Add one completion for daily goal ${goal.title}`);
+    incBtn.disabled = completed;
+    incBtn.addEventListener('click', async () => {
+      await incrementDailyGoal(goal.id);
+    });
+    actions.appendChild(incBtn);
+
+    const finishBtn = document.createElement('button');
+    finishBtn.type = 'button';
+    finishBtn.id = makeGoalControlId('daily-finish', goal.id);
+    finishBtn.className = 'secondary';
+    finishBtn.textContent = 'Finish Goal Now';
+    finishBtn.setAttribute('aria-label', `Finish daily goal ${goal.title}`);
+    finishBtn.disabled = completed;
+    finishBtn.addEventListener('click', async () => {
+      await completeDailyGoal(goal.id);
+    });
+    actions.appendChild(finishBtn);
+
+    li.appendChild(actions);
+    list.appendChild(li);
+  });
+
+  if (options.focusId && options.focusControl) {
+    const focusMap = {
+      increment: makeGoalControlId('daily-inc', options.focusId),
+      finish: makeGoalControlId('daily-finish', options.focusId)
+    };
+    const id = focusMap[options.focusControl];
+    if (id) {
+      const node = document.getElementById(id);
+      if (node) node.focus();
+    }
+  }
+}
+
+async function incrementWeeklyGoal(goalId, mode) {
+  const goals = await loadWeeklyGoalsData();
+  const idx = goals.findIndex(g => g.id === goalId);
+  if (idx === -1) return;
+
+  const goal = goals[idx];
+  const stats = clampGoalCurrent(goal);
+  const today = getTodayKey();
+  const completionDates = Array.isArray(goal.completionDates) ? goal.completionDates : [];
+
+  if (mode === 'today' && goal.type === 'daily-progress') {
+    if (completionDates.includes(today)) {
+      await renderWeeklyGoals({ focusId: goalId, focusControl: 'today' });
+      announceGoalsUpdate('weekly-goals-live', `${goal.title}: Today's mission complete - come back tomorrow.`);
+      return;
+    }
+    completionDates.push(today);
+    goal.completionDates = completionDates;
+  }
+
+  const nextCurrent = Math.min(stats.target, stats.current + 1);
+  goal.current = nextCurrent;
+
+  if (nextCurrent >= stats.target) {
+    goal.status = 'completed';
+    goal.completedAt = new Date().toISOString();
+  }
+
+  goals[idx] = goal;
+  await saveWeeklyGoalsData(goals);
+  await renderWeeklyGoals({ focusId: goalId, focusControl: mode === 'today' ? 'today' : 'increment' });
+
+  const progress = goalProgressText(goal.current, goal.target);
+  if (goal.status === 'completed') {
+    announceGoalsUpdate('weekly-goals-live', `${goal.title}: Expedition complete - ${progress.text}.`);
+  } else {
+    announceGoalsUpdate('weekly-goals-live', `${goal.title}: ${progress.srText}`);
+  }
+}
+
+async function completeWeeklyGoal(goalId) {
+  const goals = await loadWeeklyGoalsData();
+  const idx = goals.findIndex(g => g.id === goalId);
+  if (idx === -1) return;
+
+  const goal = goals[idx];
+  goal.current = asPositiveInt(goal.target, 1);
+  goal.status = 'completed';
+  goal.completedAt = new Date().toISOString();
+  goals[idx] = goal;
+
+  await saveWeeklyGoalsData(goals);
+  await renderWeeklyGoals({ focusId: goalId, focusControl: 'finish' });
+  announceGoalsUpdate('weekly-goals-live', `${goal.title} completed.`);
+}
+
+async function renderWeeklyGoals(options = {}) {
+  const list = document.getElementById('weekly-goals-list');
+  if (!list) return;
+
+  const goals = await loadWeeklyGoalsData();
+  list.innerHTML = '';
+
+  if (!goals.length) {
+    const empty = document.createElement('li');
+    empty.textContent = 'No weekly goals yet. Create your first weekly goal above.';
+    list.appendChild(empty);
+    return;
+  }
+
+  const today = getTodayKey();
+
+  goals.forEach((goal) => {
+    const { target, current } = clampGoalCurrent(goal);
+    goal.target = target;
+    goal.current = current;
+    goal.type = goal.type === 'quantity' ? 'quantity' : 'daily-progress';
+    goal.completionDates = Array.isArray(goal.completionDates) ? goal.completionDates : [];
+
+    const completed = goal.status === 'completed' || current >= target;
+    if (completed) goal.status = 'completed';
+
+    const todayAlreadyDone = goal.type === 'daily-progress' && goal.completionDates.includes(today);
+    const progress = goalProgressText(current, target);
+
+    const li = document.createElement('li');
+    li.className = 'goal-card';
+
+    const heading = document.createElement('h3');
+    heading.textContent = goal.title;
+    li.appendChild(heading);
+
+    if (goal.description) {
+      const desc = document.createElement('p');
+      desc.className = 'goal-meta';
+      desc.textContent = goal.description;
+      li.appendChild(desc);
+    }
+
+    const typeLine = document.createElement('p');
+    typeLine.className = 'goal-meta';
+    typeLine.textContent = goal.type === 'daily-progress'
+      ? 'Type: Daily-progress weekly goal (once per calendar day)'
+      : 'Type: Quantity weekly goal (multiple per day)';
+    li.appendChild(typeLine);
+
+    const dateLine = document.createElement('p');
+    dateLine.className = 'goal-meta';
+    dateLine.textContent = `Window: ${goal.startDate || 'N/A'} to ${goal.endDate || 'N/A'}`;
+    li.appendChild(dateLine);
+
+    const progressLine = document.createElement('p');
+    progressLine.className = 'goal-meta';
+    progressLine.textContent = `Progress: ${progress.text}`;
+    li.appendChild(progressLine);
+
+    const pctLine = document.createElement('p');
+    pctLine.className = 'goal-meta';
+    pctLine.textContent = `Progress percentage: ${progress.percent}%`;
+    li.appendChild(pctLine);
+
+    const sr = document.createElement('p');
+    sr.className = 'visually-hidden';
+    sr.textContent = progress.srText;
+    li.appendChild(sr);
+
+    const missionStatus = document.createElement('p');
+    missionStatus.className = 'goal-status';
+    if (completed) {
+      missionStatus.textContent = `Status: Expedition Complete - ${progress.text}`;
+    } else if (goal.type === 'daily-progress' && todayAlreadyDone) {
+      missionStatus.textContent = "Today's mission complete - come back tomorrow.";
+    } else {
+      missionStatus.textContent = 'Status: In progress';
+    }
+    li.appendChild(missionStatus);
+
+    const actions = document.createElement('div');
+    actions.className = 'goal-actions';
+
+    if (goal.type === 'daily-progress') {
+      const todayBtn = document.createElement('button');
+      todayBtn.type = 'button';
+      todayBtn.id = makeGoalControlId('weekly-today', goal.id);
+      todayBtn.textContent = 'Complete Today\'s Mission';
+      todayBtn.setAttribute('aria-label', `Complete today's mission for weekly goal ${goal.title}`);
+      todayBtn.disabled = completed || todayAlreadyDone;
+      todayBtn.addEventListener('click', async () => {
+        await incrementWeeklyGoal(goal.id, 'today');
+      });
+      actions.appendChild(todayBtn);
+    } else {
+      const incBtn = document.createElement('button');
+      incBtn.type = 'button';
+      incBtn.id = makeGoalControlId('weekly-inc', goal.id);
+      incBtn.textContent = 'Add One Completion';
+      incBtn.setAttribute('aria-label', `Add one completion for weekly quantity goal ${goal.title}`);
+      incBtn.disabled = completed;
+      incBtn.addEventListener('click', async () => {
+        await incrementWeeklyGoal(goal.id, 'increment');
+      });
+      actions.appendChild(incBtn);
+    }
+
+    const finishBtn = document.createElement('button');
+    finishBtn.type = 'button';
+    finishBtn.id = makeGoalControlId('weekly-finish', goal.id);
+    finishBtn.className = 'secondary';
+    finishBtn.textContent = 'Finish Weekly Goal Now';
+    finishBtn.setAttribute('aria-label', `Finish weekly goal ${goal.title}`);
+    finishBtn.disabled = completed;
+    finishBtn.addEventListener('click', async () => {
+      await completeWeeklyGoal(goal.id);
+    });
+    actions.appendChild(finishBtn);
+
+    li.appendChild(actions);
+    list.appendChild(li);
+  });
+
+  if (options.focusId && options.focusControl) {
+    const focusMap = {
+      today: makeGoalControlId('weekly-today', options.focusId),
+      increment: makeGoalControlId('weekly-inc', options.focusId),
+      finish: makeGoalControlId('weekly-finish', options.focusId)
+    };
+    const id = focusMap[options.focusControl];
+    if (id) {
+      const node = document.getElementById(id);
+      if (node) node.focus();
+    }
+  }
+}
+
+async function refreshAllGoalViews() {
+  await Promise.all([renderDailyGoals(), renderWeeklyGoals()]);
 }
 
 function initializeOptionsPage() {
@@ -1797,10 +2497,26 @@ auth.onAuthStateChanged(async (user) => {
     if (typeof setupTasksListener === 'function') {
       setupTasksListener();
     }
+
+    if (typeof setupDailyGoalsListener === 'function') {
+      setupDailyGoalsListener();
+    }
+
+    if (typeof setupWeeklyGoalsListener === 'function') {
+      setupWeeklyGoalsListener();
+    }
     
     // Reload sections from Firebase after authentication
     if (typeof createSections === 'function') {
       await createSections();
+    }
+
+    if (typeof initializeGoalsSections === 'function') {
+      initializeGoalsSections();
+    }
+
+    if (typeof refreshAllGoalViews === 'function') {
+      await refreshAllGoalViews();
     }
     
     // Also check for list updates periodically
@@ -1841,9 +2557,21 @@ auth.onAuthStateChanged(async (user) => {
       window.tasksListenerUnsubscribe();
       window.tasksListenerUnsubscribe = null;
     }
+
+    if (window.dailyGoalsListenerUnsubscribe) {
+      window.dailyGoalsListenerUnsubscribe();
+      window.dailyGoalsListenerUnsubscribe = null;
+    }
+
+    if (window.weeklyGoalsListenerUnsubscribe) {
+      window.weeklyGoalsListenerUnsubscribe();
+      window.weeklyGoalsListenerUnsubscribe = null;
+    }
     
     // Clear any cached data
     localStorage.removeItem('todos');
+    localStorage.removeItem('dailyGoals');
+    localStorage.removeItem('weeklyGoals');
     
     // Redirect to login page if on taskmaster page
     if (window.location.pathname.includes('taskmaster.html')) {
@@ -1916,6 +2644,12 @@ window.addEventListener('storage', async (e) => {
       }
     }, 500);
   }
+
+  if (e.key === 'dailyGoals' || e.key === 'weeklyGoals') {
+    if (typeof refreshAllGoalViews === 'function') {
+      await refreshAllGoalViews();
+    }
+  }
 });
 
 // Listen for focus events (when switching back to this tab)
@@ -1930,5 +2664,9 @@ window.addEventListener('focus', async () => {
         !currentSections.every(section => displayedSections.includes(section))) {
       await createSections();
     }
+  }
+
+  if (typeof refreshAllGoalViews === 'function') {
+    await refreshAllGoalViews();
   }
 });

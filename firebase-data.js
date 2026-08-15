@@ -297,3 +297,163 @@ async function loadSettings(keys) {
     return settings;
   }
 }
+
+// Setup real-time listener for daily goals updates
+function setupDailyGoalsListener() {
+  if (!window.currentUser) {
+    return;
+  }
+
+  const userId = window.currentUser.uid;
+
+  db.collection('users').doc(userId).collection('dailyGoals').doc('data').get()
+    .then((doc) => {
+      if (doc.exists) {
+        const goals = doc.data().goals || [];
+        localStorage.setItem('dailyGoals', JSON.stringify(goals));
+        if (typeof renderDailyGoals === 'function') {
+          renderDailyGoals();
+        }
+      }
+    })
+    .catch((error) => {
+      console.error('Error loading initial daily goals:', error);
+    });
+
+  const unsubscribe = db.collection('users').doc(userId).collection('dailyGoals').doc('data')
+    .onSnapshot((doc) => {
+      if (doc.exists) {
+        const goals = doc.data().goals || [];
+        localStorage.setItem('dailyGoals', JSON.stringify(goals));
+        if (typeof renderDailyGoals === 'function') {
+          renderDailyGoals();
+        }
+      }
+    }, (error) => {
+      console.error('Error listening to daily goals updates:', error);
+    });
+
+  window.dailyGoalsListenerUnsubscribe = unsubscribe;
+}
+
+// Setup real-time listener for weekly goals updates
+function setupWeeklyGoalsListener() {
+  if (!window.currentUser) {
+    return;
+  }
+
+  const userId = window.currentUser.uid;
+
+  db.collection('users').doc(userId).collection('weeklyGoals').doc('data').get()
+    .then((doc) => {
+      if (doc.exists) {
+        const goals = doc.data().goals || [];
+        localStorage.setItem('weeklyGoals', JSON.stringify(goals));
+        if (typeof renderWeeklyGoals === 'function') {
+          renderWeeklyGoals();
+        }
+      }
+    })
+    .catch((error) => {
+      console.error('Error loading initial weekly goals:', error);
+    });
+
+  const unsubscribe = db.collection('users').doc(userId).collection('weeklyGoals').doc('data')
+    .onSnapshot((doc) => {
+      if (doc.exists) {
+        const goals = doc.data().goals || [];
+        localStorage.setItem('weeklyGoals', JSON.stringify(goals));
+        if (typeof renderWeeklyGoals === 'function') {
+          renderWeeklyGoals();
+        }
+      }
+    }, (error) => {
+      console.error('Error listening to weekly goals updates:', error);
+    });
+
+  window.weeklyGoalsListenerUnsubscribe = unsubscribe;
+}
+
+async function saveDailyGoals(goals) {
+  if (!window.currentUser) {
+    localStorage.setItem('dailyGoals', JSON.stringify(goals || []));
+    return;
+  }
+
+  try {
+    const userId = window.currentUser.uid;
+    await db.collection('users').doc(userId).collection('dailyGoals').doc('data').set({
+      goals: goals || [],
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    localStorage.setItem('dailyGoals', JSON.stringify(goals || []));
+  } catch (error) {
+    console.error('Error saving daily goals:', error);
+    throw error;
+  }
+}
+
+async function loadDailyGoals() {
+  if (!window.currentUser) {
+    try {
+      return JSON.parse(localStorage.getItem('dailyGoals') || '[]');
+    } catch (error) {
+      console.error('Error reading local daily goals:', error);
+      return [];
+    }
+  }
+
+  try {
+    const userId = window.currentUser.uid;
+    const doc = await db.collection('users').doc(userId).collection('dailyGoals').doc('data').get();
+    const goals = doc.exists ? (doc.data().goals || []) : [];
+    localStorage.setItem('dailyGoals', JSON.stringify(goals));
+    return goals;
+  } catch (error) {
+    console.error('Error loading daily goals:', error);
+    return [];
+  }
+}
+
+async function saveWeeklyGoals(goals) {
+  if (!window.currentUser) {
+    localStorage.setItem('weeklyGoals', JSON.stringify(goals || []));
+    return;
+  }
+
+  try {
+    const userId = window.currentUser.uid;
+    await db.collection('users').doc(userId).collection('weeklyGoals').doc('data').set({
+      goals: goals || [],
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    localStorage.setItem('weeklyGoals', JSON.stringify(goals || []));
+  } catch (error) {
+    console.error('Error saving weekly goals:', error);
+    throw error;
+  }
+}
+
+async function loadWeeklyGoals() {
+  if (!window.currentUser) {
+    try {
+      return JSON.parse(localStorage.getItem('weeklyGoals') || '[]');
+    } catch (error) {
+      console.error('Error reading local weekly goals:', error);
+      return [];
+    }
+  }
+
+  try {
+    const userId = window.currentUser.uid;
+    const doc = await db.collection('users').doc(userId).collection('weeklyGoals').doc('data').get();
+    const goals = doc.exists ? (doc.data().goals || []) : [];
+    localStorage.setItem('weeklyGoals', JSON.stringify(goals));
+    return goals;
+  } catch (error) {
+    console.error('Error loading weekly goals:', error);
+    return [];
+  }
+}
