@@ -14,6 +14,9 @@ function setupTasksListener() {
         if (doc.exists) {
           const tasks = doc.data().tasks || [];
           localStorage.setItem('todos', JSON.stringify(tasks));
+          if (typeof window.refreshAppleRemindersExport === 'function') {
+            window.refreshAppleRemindersExport(tasks);
+          }
           
           // Render tasks if on taskmaster page
           if (window.location.pathname.includes('taskmaster.html')) {
@@ -40,6 +43,9 @@ function setupTasksListener() {
           
           // Update localStorage cache
           localStorage.setItem('todos', JSON.stringify(tasks));
+          if (typeof window.refreshAppleRemindersExport === 'function') {
+            window.refreshAppleRemindersExport(tasks);
+          }
           
           // Refresh UI if on taskmaster page
           if (window.location.pathname.includes('taskmaster.html')) {
@@ -146,6 +152,9 @@ async function loadTasks() {
       const tasks = doc.data().tasks || [];
       // Update localStorage cache
       localStorage.setItem('todos', JSON.stringify(tasks));
+      if (typeof window.refreshAppleRemindersExport === 'function') {
+        window.refreshAppleRemindersExport(tasks);
+      }
       return tasks;
     } else {
       return [];

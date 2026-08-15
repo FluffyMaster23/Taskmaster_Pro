@@ -1310,6 +1310,9 @@ if ('serviceWorker' in navigator) {
     if (event.data && event.data.type === 'GET_TASKS') {
       const tasks = getTasks();
       event.ports[0].postMessage({ tasks: tasks });
+    } else if (event.data && event.data.type === 'REQUEST_APPLE_REMINDERS_ICS') {
+      const ics = localStorage.getItem(APPLE_REMINDERS_EXPORT_KEY) || buildAppleRemindersIcs(getTasks());
+      publishAppleRemindersIcs(ics);
     }
   });
 }
@@ -1807,6 +1810,8 @@ window.onload = () => {
       window._clearMessageSpoken = false;
     }
   }
+
+  refreshAppleRemindersExport();
 };
 
 // === STORAGE + TASK HANDLING
@@ -1843,6 +1848,175 @@ function getTasks() {
 if (typeof window !== 'undefined') {
   window.getTasks = getTasks;
 }
+
+const APPLE_REMINDERS_EXPORT_KEY = 'taskmasterAppleRemindersICS';
+const APPLE_REMINDERS_QUEUE_KEY = 'taskmasterAppleRemindersQueue';
+
+function escapeIcsText(value) {
+  return String(value || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/\n/g, '\\n')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;');
+}
+
+function formatIcsUtc(dateValue) {
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}Z`;
+}
+
+function buildAppleRemindersIcs(tasks) {
+  const dtStamp = formatIcsUtc(new Date().toISOString());
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'CALSCALE:GREGORIAN',
+    'PRODID:-//TaskMaster Pro//Apple Reminders Bridge//EN',
+    'METHOD:PUBLISH'
+  ];
+
+  tasks.forEach((task) => {
+    const due = formatIcsUtc(task.time);
+    if (!due) return;
+
+    const summary = escapeIcsText(task.task || 'Task');
+    const description = escapeIcsText(task.msg || `Task from ${task.section || 'General'}`);
+    const category = escapeIcsText(task.section || 'TaskMaster');
+
+    lines.push('BEGIN:VTODO');
+    lines.push(`UID:taskmaster-${escapeIcsText(task.id)}@taskmaster-pro.local`);
+    lines.push(`DTSTAMP:${dtStamp}`);
+    lines.push(`DUE:${due}`);
+    lines.push(`SUMMARY:${summary}`);
+    lines.push(`DESCRIPTION:${description}`);
+    lines.push(`CATEGORIES:${category}`);
+    lines.push('STATUS:NEEDS-ACTION');
+    lines.push('END:VTODO');
+  });
+
+  lines.push('END:VCALENDAR');
+  return `${lines.join('\r\n')}\r\n`;
+}
+
+async function publishAppleRemindersIcs(icsContent) {
+  if (!('serviceWorker' in navigator)) {
+    return;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const message = {
+      type: 'UPDATE_APPLE_REMINDERS_ICS',
+      ics: icsContent
+    };
+
+    if (navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage(message);
+    }
+    if (registration.active) {
+      registration.active.postMessage(message);
+    }
+    if (registration.waiting) {
+      registration.waiting.postMessage(message);
+    }
+    if (registration.installing) {
+      registration.installing.postMessage(message);
+    }
+  } catch (error) {
+    console.error('Unable to publish Apple reminders export to service worker:', error);
+  }
+}
+
+async function registerAppleRemindersBackgroundSync() {
+  if (!('serviceWorker' in navigator)) {
+    return;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    if (registration.sync && typeof registration.sync.register === 'function') {
+      await registration.sync.register('apple-reminders-sync');
+    }
+  } catch (error) {
+    // Background Sync is optional and not supported on all browsers.
+  }
+}
+
+function upsertAppleReminderQueue(task) {
+  try {
+    const queue = JSON.parse(localStorage.getItem(APPLE_REMINDERS_QUEUE_KEY) || '[]');
+    const nextItem = {
+      id: task.id,
+      task: task.task,
+      msg: task.msg || '',
+      section: task.section || '',
+      time: task.time,
+      reminderMinutes: task.reminderMinutes || 0,
+      updatedAt: new Date().toISOString(),
+      status: 'active'
+    };
+
+    const existingIndex = queue.findIndex((item) => item.id === task.id);
+    if (existingIndex >= 0) {
+      queue[existingIndex] = nextItem;
+    } else {
+      queue.push(nextItem);
+    }
+    localStorage.setItem(APPLE_REMINDERS_QUEUE_KEY, JSON.stringify(queue));
+  } catch (error) {
+    console.error('Unable to update Apple reminders queue:', error);
+  }
+}
+
+function removeAppleReminderFromQueue(taskId) {
+  try {
+    const queue = JSON.parse(localStorage.getItem(APPLE_REMINDERS_QUEUE_KEY) || '[]');
+    const filtered = queue.filter((item) => item.id !== taskId);
+    localStorage.setItem(APPLE_REMINDERS_QUEUE_KEY, JSON.stringify(filtered));
+  } catch (error) {
+    console.error('Unable to remove Apple reminder queue item:', error);
+  }
+}
+
+async function refreshAppleRemindersExport(tasks) {
+  try {
+    const allTasks = Array.isArray(tasks) ? tasks : getTasks();
+    const ics = buildAppleRemindersIcs(allTasks);
+    localStorage.setItem(APPLE_REMINDERS_EXPORT_KEY, ics);
+    localStorage.setItem('taskmasterAppleRemindersUpdatedAt', new Date().toISOString());
+    await publishAppleRemindersIcs(ics);
+    await registerAppleRemindersBackgroundSync();
+  } catch (error) {
+    console.error('Unable to refresh Apple reminders export:', error);
+  }
+}
+
+function downloadAppleRemindersIcs() {
+  const ics = localStorage.getItem(APPLE_REMINDERS_EXPORT_KEY);
+  if (!ics) {
+    alert('No reminders export found yet. Add a task first.');
+    return;
+  }
+
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = 'taskmaster-reminders.ics';
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+}
+
+window.refreshAppleRemindersExport = refreshAppleRemindersExport;
+window.downloadAppleRemindersIcs = downloadAppleRemindersIcs;
+
 async function saveTask(task) {
   try {
     const all = getTasks();
@@ -1855,6 +2029,9 @@ async function saveTask(task) {
       // Fallback to localStorage if firebase-data.js not loaded
       localStorage.setItem("todos", JSON.stringify(all));
     }
+
+    upsertAppleReminderQueue(task);
+    await refreshAppleRemindersExport(all);
   } catch (error) {
     console.error('Error saving task:', error);
   }
@@ -1882,6 +2059,9 @@ async function removeTask(taskId) {
     localStorage.setItem('scheduledOneSignalTasks', JSON.stringify(scheduledTasks));
 
   }
+
+  removeAppleReminderFromQueue(taskId);
+  await refreshAppleRemindersExport(filtered);
 }
 function renderTask(task, ul) {
   const li = document.createElement("li");

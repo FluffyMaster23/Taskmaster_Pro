@@ -1,4 +1,6 @@
 const CACHE_NAME = 'todo-app-v19';
+const APPLE_REMINDERS_PATH = '/apple-reminders.ics';
+const APPLE_REMINDERS_CACHE_KEY = '/__taskmaster_apple_reminders__.ics';
 const urlsToCache = [
   './',
   './index.html',
@@ -31,6 +33,11 @@ self.addEventListener('fetch', event => {
     const isSameOrigin = requestUrl.origin === self.location.origin;
 
     if (event.request.method !== 'GET' || !isSameOrigin) {
+      return;
+    }
+
+    if (requestUrl.pathname.endsWith(APPLE_REMINDERS_PATH)) {
+      event.respondWith(getAppleRemindersResponse());
       return;
     }
 
@@ -125,6 +132,20 @@ self.addEventListener('sync', event => {
   if (event.tag === 'todo-reminder') {
     event.waitUntil(checkReminders());
   }
+
+  if (event.tag === 'apple-reminders-sync') {
+    event.waitUntil(refreshAppleRemindersFromClients());
+  }
+});
+
+self.addEventListener('message', event => {
+  if (!event.data || typeof event.data !== 'object') {
+    return;
+  }
+
+  if (event.data.type === 'UPDATE_APPLE_REMINDERS_ICS' && typeof event.data.ics === 'string') {
+    event.waitUntil(storeAppleRemindersIcs(event.data.ics));
+  }
 });
 
 // Handle notification clicks
@@ -161,4 +182,49 @@ function checkReminders() {
   // This would normally check for due tasks and send notifications
   // For now, it's a placeholder since task checking happens in the main app
   return Promise.resolve();
+}
+
+async function storeAppleRemindersIcs(icsContent) {
+  const cache = await caches.open(CACHE_NAME);
+  const response = new Response(icsContent, {
+    headers: {
+      'Content-Type': 'text/calendar; charset=utf-8',
+      'Cache-Control': 'no-store'
+    }
+  });
+  await cache.put(APPLE_REMINDERS_CACHE_KEY, response);
+}
+
+async function getAppleRemindersResponse() {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(APPLE_REMINDERS_CACHE_KEY);
+  if (cached) {
+    return cached;
+  }
+
+  const emptyCalendar = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'CALSCALE:GREGORIAN',
+    'PRODID:-//TaskMaster Pro//Apple Reminders Bridge//EN',
+    'METHOD:PUBLISH',
+    'END:VCALENDAR',
+    ''
+  ].join('\r\n');
+
+  await storeAppleRemindersIcs(emptyCalendar);
+  return new Response(emptyCalendar, {
+    headers: {
+      'Content-Type': 'text/calendar; charset=utf-8',
+      'Cache-Control': 'no-store'
+    }
+  });
+}
+
+async function refreshAppleRemindersFromClients() {
+  const clientList = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+
+  clientList.forEach(client => {
+    client.postMessage({ type: 'REQUEST_APPLE_REMINDERS_ICS' });
+  });
 }
