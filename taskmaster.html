@@ -200,78 +200,12 @@
   
   <div id="sections" role="region" aria-label="Todo Lists"></div>
 
-  <h1 id="daily-goals-section">Daily Goals</h1>
-  <section class="goals-section" aria-labelledby="daily-goals-section">
-    <p>Daily goals can be completed multiple times per day until they reach the target.</p>
-
-    <form id="daily-goal-form" aria-label="Create daily goal">
-      <div class="goals-form-grid">
-        <div>
-          <label class="form-label" for="daily-goal-title">Goal title</label>
-          <input id="daily-goal-title" name="daily-goal-title" type="text" required maxlength="120" />
-        </div>
-        <div>
-          <label class="form-label" for="daily-goal-target">Target number</label>
-          <input id="daily-goal-target" name="daily-goal-target" type="number" min="1" step="1" required />
-        </div>
-        <div class="full-width">
-          <label class="form-label" for="daily-goal-description">Description (optional)</label>
-          <input id="daily-goal-description" name="daily-goal-description" type="text" maxlength="240" />
-        </div>
-      </div>
-      <button id="create-daily-goal-btn" type="submit">Create Daily Goal</button>
-    </form>
-
-    <div id="daily-goals-live" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
-    <ul id="daily-goals-list" class="goals-list" aria-label="Daily goals list"></ul>
-  </section>
-
-  <h1 id="weekly-goals-section">Weekly Goals</h1>
-  <section class="goals-section" aria-labelledby="weekly-goals-section">
-    <p>Weekly goals support daily-progress mode (max once per calendar day) and quantity mode (multiple increments per day).</p>
-
-    <form id="weekly-goal-form" aria-label="Create weekly goal">
-      <div class="goals-form-grid">
-        <div class="full-width">
-          <label class="form-label" for="weekly-goal-quick-input">Quick input (optional)</label>
-          <input id="weekly-goal-quick-input" name="weekly-goal-quick-input" type="text" placeholder="Complete 5 job-hunting workdays by Friday" />
-          <button id="parse-weekly-goal-btn" type="button">Parse Suggestion</button>
-        </div>
-
-        <div>
-          <label class="form-label" for="weekly-goal-title">Goal title</label>
-          <input id="weekly-goal-title" name="weekly-goal-title" type="text" required maxlength="120" />
-        </div>
-        <div>
-          <label class="form-label" for="weekly-goal-target">Target number</label>
-          <input id="weekly-goal-target" name="weekly-goal-target" type="number" min="1" step="1" required />
-        </div>
-        <div>
-          <label class="form-label" for="weekly-goal-type">Weekly goal type</label>
-          <select id="weekly-goal-type" name="weekly-goal-type" required>
-            <option value="daily-progress">Daily-progress weekly goal (once per day)</option>
-            <option value="quantity">Quantity weekly goal (multiple per day)</option>
-          </select>
-        </div>
-        <div>
-          <label class="form-label" for="weekly-goal-start">Start date</label>
-          <input id="weekly-goal-start" name="weekly-goal-start" type="date" required />
-        </div>
-        <div>
-          <label class="form-label" for="weekly-goal-end">End date</label>
-          <input id="weekly-goal-end" name="weekly-goal-end" type="date" required />
-        </div>
-        <div class="full-width">
-          <label class="form-label" for="weekly-goal-description">Description (optional)</label>
-          <input id="weekly-goal-description" name="weekly-goal-description" type="text" maxlength="240" />
-        </div>
-      </div>
-      <button id="create-weekly-goal-btn" type="submit">Create Weekly Goal</button>
-    </form>
-
-    <div id="weekly-goals-live" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
-    <ul id="weekly-goals-list" class="goals-list" aria-label="Weekly goals list"></ul>
-  </section>
+  <div style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 14px; margin-bottom: 22px;">
+    Daily and weekly goals now open on dedicated pages:
+    <a href="daily-goals.html" style="margin-left: 8px;">Daily Goals</a>
+    <span style="margin: 0 6px;">|</span>
+    <a href="weekly-goals.html">Weekly Goals</a>
+  </div>
 
   <script src="todo.js?v=20260209-007"></script>
   

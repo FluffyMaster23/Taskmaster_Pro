@@ -202,6 +202,16 @@ function initializeCurrentPage() {
     case 'taskmaster.html':
       initializeTaskMasterPage();
       break;
+    case 'daily-goals.html':
+      if (typeof window.initializeDailyGoalsPageView === 'function') {
+        window.initializeDailyGoalsPageView();
+      }
+      break;
+    case 'weekly-goals.html':
+      if (typeof window.initializeWeeklyGoalsPageView === 'function') {
+        window.initializeWeeklyGoalsPageView();
+      }
+      break;
     case 'options.html':
       initializeOptionsPage();
       break;
@@ -287,19 +297,42 @@ async function initializeTaskMasterPage() {
   startNotificationChecker();
 }
 
-function initializeGoalsSections() {
-  if (!window.location.pathname.includes('taskmaster.html')) {
+function initializeGoalsSections(options = {}) {
+  const enableDaily = options.daily !== false;
+  const enableWeekly = options.weekly !== false;
+  const modeKey = `${enableDaily ? 'd' : '-'}${enableWeekly ? 'w' : '-'}`;
+
+  if (window._goalsInitializedMode === modeKey) {
     return;
   }
 
-  if (window._goalsInitialized) {
+  let hasGoalSection = false;
+
+  if (enableDaily) {
+    const dailyForm = document.getElementById('daily-goal-form');
+    const dailyList = document.getElementById('daily-goals-list');
+    if (dailyForm || dailyList) {
+      setupDailyGoalForm();
+      hasGoalSection = true;
+    }
+  }
+
+  if (enableWeekly) {
+    const weeklyForm = document.getElementById('weekly-goal-form');
+    const weeklyList = document.getElementById('weekly-goals-list');
+    if (weeklyForm || weeklyList) {
+      setDefaultWeeklyGoalDates();
+      setupWeeklyGoalForm();
+      hasGoalSection = true;
+    }
+  }
+
+  if (!hasGoalSection) {
     return;
   }
-  window._goalsInitialized = true;
 
-  setDefaultWeeklyGoalDates();
-  setupDailyGoalForm();
-  setupWeeklyGoalForm();
+  window._goalsInitializedMode = modeKey;
+
   refreshAllGoalViews();
 }
 
@@ -678,6 +711,58 @@ async function completeDailyGoal(goalId) {
   announceGoalsUpdate('daily-goals-live', `${goal.title} completed.`);
 }
 
+async function editDailyGoal(goalId) {
+  const goals = await loadDailyGoalsData();
+  const idx = goals.findIndex(g => g.id === goalId);
+  if (idx === -1) return;
+
+  const goal = goals[idx];
+
+  const nextTitleRaw = prompt('Edit daily goal title:', goal.title || '');
+  if (nextTitleRaw === null) return;
+  const nextTitle = nextTitleRaw.trim();
+  if (!nextTitle) {
+    alert('Daily goal title cannot be empty.');
+    return;
+  }
+
+  const nextTargetRaw = prompt('Edit daily goal target number:', String(goal.target || 1));
+  if (nextTargetRaw === null) return;
+  const nextTarget = asPositiveInt(nextTargetRaw, 1);
+
+  const nextDescriptionRaw = prompt('Edit daily goal description (optional):', goal.description || '');
+  if (nextDescriptionRaw === null) return;
+
+  goal.title = nextTitle;
+  goal.target = nextTarget;
+  goal.description = nextDescriptionRaw.trim();
+  goal.current = Math.min(asPositiveInt(goal.current || 0, 0), nextTarget);
+  goal.status = goal.current >= nextTarget ? 'completed' : 'active';
+  if (goal.status !== 'completed') {
+    delete goal.completedAt;
+  }
+
+  goals[idx] = goal;
+  await saveDailyGoalsData(goals);
+  await renderDailyGoals({ focusId: goalId, focusControl: 'edit' });
+  announceGoalsUpdate('daily-goals-live', `Daily goal updated: ${goal.title}.`);
+}
+
+async function deleteDailyGoal(goalId) {
+  const goals = await loadDailyGoalsData();
+  const idx = goals.findIndex(g => g.id === goalId);
+  if (idx === -1) return;
+
+  const goal = goals[idx];
+  const ok = confirm(`Delete daily goal "${goal.title}"?`);
+  if (!ok) return;
+
+  goals.splice(idx, 1);
+  await saveDailyGoalsData(goals);
+  await renderDailyGoals();
+  announceGoalsUpdate('daily-goals-live', `Daily goal deleted: ${goal.title}.`);
+}
+
 async function renderDailyGoals(options = {}) {
   const list = document.getElementById('daily-goals-list');
   if (!list) return;
@@ -761,6 +846,28 @@ async function renderDailyGoals(options = {}) {
     });
     actions.appendChild(finishBtn);
 
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.id = makeGoalControlId('daily-edit', goal.id);
+    editBtn.className = 'secondary';
+    editBtn.textContent = 'Edit Goal';
+    editBtn.setAttribute('aria-label', `Edit daily goal ${goal.title}`);
+    editBtn.addEventListener('click', async () => {
+      await editDailyGoal(goal.id);
+    });
+    actions.appendChild(editBtn);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.id = makeGoalControlId('daily-delete', goal.id);
+    deleteBtn.className = 'secondary';
+    deleteBtn.textContent = 'Delete Goal';
+    deleteBtn.setAttribute('aria-label', `Delete daily goal ${goal.title}`);
+    deleteBtn.addEventListener('click', async () => {
+      await deleteDailyGoal(goal.id);
+    });
+    actions.appendChild(deleteBtn);
+
     li.appendChild(actions);
     list.appendChild(li);
   });
@@ -768,7 +875,9 @@ async function renderDailyGoals(options = {}) {
   if (options.focusId && options.focusControl) {
     const focusMap = {
       increment: makeGoalControlId('daily-inc', options.focusId),
-      finish: makeGoalControlId('daily-finish', options.focusId)
+      finish: makeGoalControlId('daily-finish', options.focusId),
+      edit: makeGoalControlId('daily-edit', options.focusId),
+      delete: makeGoalControlId('daily-delete', options.focusId)
     };
     const id = focusMap[options.focusControl];
     if (id) {
@@ -832,6 +941,89 @@ async function completeWeeklyGoal(goalId) {
   await saveWeeklyGoalsData(goals);
   await renderWeeklyGoals({ focusId: goalId, focusControl: 'finish' });
   announceGoalsUpdate('weekly-goals-live', `${goal.title} completed.`);
+}
+
+async function editWeeklyGoal(goalId) {
+  const goals = await loadWeeklyGoalsData();
+  const idx = goals.findIndex(g => g.id === goalId);
+  if (idx === -1) return;
+
+  const goal = goals[idx];
+
+  const nextTitleRaw = prompt('Edit weekly goal title:', goal.title || '');
+  if (nextTitleRaw === null) return;
+  const nextTitle = nextTitleRaw.trim();
+  if (!nextTitle) {
+    alert('Weekly goal title cannot be empty.');
+    return;
+  }
+
+  const nextTargetRaw = prompt('Edit weekly goal target number:', String(goal.target || 1));
+  if (nextTargetRaw === null) return;
+  const nextTarget = asPositiveInt(nextTargetRaw, 1);
+
+  const currentType = goal.type === 'quantity' ? 'quantity' : 'daily-progress';
+  const nextTypeRaw = prompt('Edit weekly goal type (daily-progress or quantity):', currentType);
+  if (nextTypeRaw === null) return;
+  const normalizedType = nextTypeRaw.trim().toLowerCase();
+  const nextType = normalizedType === 'quantity' ? 'quantity' : 'daily-progress';
+
+  const nextStartRaw = prompt('Edit start date (YYYY-MM-DD):', goal.startDate || getTodayKey());
+  if (nextStartRaw === null) return;
+  const nextStart = nextStartRaw.trim();
+
+  const nextEndRaw = prompt('Edit end date (YYYY-MM-DD):', goal.endDate || getTodayKey());
+  if (nextEndRaw === null) return;
+  const nextEnd = nextEndRaw.trim();
+
+  if (!nextStart || !nextEnd) {
+    alert('Start and end dates are required.');
+    return;
+  }
+  if (Number.isNaN(new Date(nextStart).getTime()) || Number.isNaN(new Date(nextEnd).getTime())) {
+    alert('Please use valid dates in YYYY-MM-DD format.');
+    return;
+  }
+  if (new Date(nextStart) > new Date(nextEnd)) {
+    alert('Start date cannot be after end date.');
+    return;
+  }
+
+  const nextDescriptionRaw = prompt('Edit weekly goal description (optional):', goal.description || '');
+  if (nextDescriptionRaw === null) return;
+
+  goal.title = nextTitle;
+  goal.target = nextTarget;
+  goal.type = nextType;
+  goal.startDate = nextStart;
+  goal.endDate = nextEnd;
+  goal.description = nextDescriptionRaw.trim();
+  goal.current = Math.min(asPositiveInt(goal.current || 0, 0), nextTarget);
+  goal.completionDates = Array.isArray(goal.completionDates) ? goal.completionDates : [];
+  goal.status = goal.current >= nextTarget ? 'completed' : 'active';
+  if (goal.status !== 'completed') {
+    delete goal.completedAt;
+  }
+
+  goals[idx] = goal;
+  await saveWeeklyGoalsData(goals);
+  await renderWeeklyGoals({ focusId: goalId, focusControl: 'edit' });
+  announceGoalsUpdate('weekly-goals-live', `Weekly goal updated: ${goal.title}.`);
+}
+
+async function deleteWeeklyGoal(goalId) {
+  const goals = await loadWeeklyGoalsData();
+  const idx = goals.findIndex(g => g.id === goalId);
+  if (idx === -1) return;
+
+  const goal = goals[idx];
+  const ok = confirm(`Delete weekly goal "${goal.title}"?`);
+  if (!ok) return;
+
+  goals.splice(idx, 1);
+  await saveWeeklyGoalsData(goals);
+  await renderWeeklyGoals();
+  announceGoalsUpdate('weekly-goals-live', `Weekly goal deleted: ${goal.title}.`);
 }
 
 async function renderWeeklyGoals(options = {}) {
@@ -954,6 +1146,28 @@ async function renderWeeklyGoals(options = {}) {
     });
     actions.appendChild(finishBtn);
 
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.id = makeGoalControlId('weekly-edit', goal.id);
+    editBtn.className = 'secondary';
+    editBtn.textContent = 'Edit Goal';
+    editBtn.setAttribute('aria-label', `Edit weekly goal ${goal.title}`);
+    editBtn.addEventListener('click', async () => {
+      await editWeeklyGoal(goal.id);
+    });
+    actions.appendChild(editBtn);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.id = makeGoalControlId('weekly-delete', goal.id);
+    deleteBtn.className = 'secondary';
+    deleteBtn.textContent = 'Delete Goal';
+    deleteBtn.setAttribute('aria-label', `Delete weekly goal ${goal.title}`);
+    deleteBtn.addEventListener('click', async () => {
+      await deleteWeeklyGoal(goal.id);
+    });
+    actions.appendChild(deleteBtn);
+
     li.appendChild(actions);
     list.appendChild(li);
   });
@@ -962,7 +1176,9 @@ async function renderWeeklyGoals(options = {}) {
     const focusMap = {
       today: makeGoalControlId('weekly-today', options.focusId),
       increment: makeGoalControlId('weekly-inc', options.focusId),
-      finish: makeGoalControlId('weekly-finish', options.focusId)
+      finish: makeGoalControlId('weekly-finish', options.focusId),
+      edit: makeGoalControlId('weekly-edit', options.focusId),
+      delete: makeGoalControlId('weekly-delete', options.focusId)
     };
     const id = focusMap[options.focusControl];
     if (id) {
@@ -2063,10 +2279,92 @@ async function removeTask(taskId) {
   removeAppleReminderFromQueue(taskId);
   await refreshAppleRemindersExport(filtered);
 }
+
+function formatPromptDateTimeValue(isoValue) {
+  const date = new Date(isoValue);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const pad = (n) => String(n).padStart(2, '0');
+  const y = date.getFullYear();
+  const m = pad(date.getMonth() + 1);
+  const d = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const mm = pad(date.getMinutes());
+  return `${y}-${m}-${d} ${hh}:${mm}`;
+}
+
+function parsePromptDateTimeValue(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return null;
+  const normalized = text.includes('T') ? text : text.replace(' ', 'T');
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.toISOString();
+}
+
+async function editTaskById(taskId) {
+  const all = getTasks();
+  const idx = all.findIndex(t => t.id === taskId);
+  if (idx === -1) return;
+
+  const task = all[idx];
+
+  const nextTaskRaw = prompt('Edit task title:', task.task || '');
+  if (nextTaskRaw === null) return;
+  const nextTask = nextTaskRaw.trim();
+  if (!nextTask) {
+    alert('Task title cannot be empty.');
+    return;
+  }
+
+  const nextMsgRaw = prompt('Edit reminder message (optional):', task.msg || '');
+  if (nextMsgRaw === null) return;
+
+  const nextTimeRaw = prompt('Edit due date/time (YYYY-MM-DD HH:MM):', formatPromptDateTimeValue(task.time));
+  if (nextTimeRaw === null) return;
+  const nextTime = parsePromptDateTimeValue(nextTimeRaw);
+  if (!nextTime) {
+    alert('Please enter a valid date/time in YYYY-MM-DD HH:MM format.');
+    return;
+  }
+
+  const currentReminder = Number.isFinite(task.reminderMinutes) ? task.reminderMinutes : 0;
+  const nextReminderRaw = prompt('Edit reminder lead time in minutes (0, 5, 10...):', String(currentReminder));
+  if (nextReminderRaw === null) return;
+  const nextReminder = Math.max(0, parseInt(nextReminderRaw, 10) || 0);
+
+  const updatedTask = {
+    ...task,
+    task: nextTask,
+    msg: nextMsgRaw.trim(),
+    time: nextTime,
+    reminderMinutes: nextReminder
+  };
+
+  all[idx] = updatedTask;
+
+  if (typeof saveTasks === 'function') {
+    await saveTasks(all);
+  } else {
+    localStorage.setItem('todos', JSON.stringify(all));
+  }
+
+  upsertAppleReminderQueue(updatedTask);
+  await refreshAppleRemindersExport(all);
+  await createSections();
+}
 function renderTask(task, ul) {
   const li = document.createElement("li");
-  
-  // Convert ISO string to local time for display
+
+  li.style.display = 'flex';
+  li.style.alignItems = 'center';
+  li.style.gap = '8px';
+  li.style.flexWrap = 'wrap';
+
   const dueDate = new Date(task.time);
   const localTimeString = dueDate.toLocaleString(undefined, {
     month: 'short',
@@ -2076,13 +2374,10 @@ function renderTask(task, ul) {
     minute: '2-digit',
     hour12: true
   });
-  
-  li.textContent = `${task.task} — Due: ${localTimeString}`;
 
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
   checkbox.setAttribute("aria-label", `Complete task: ${task.task}`);
-  checkbox.style.marginRight = "10px";
 
   checkbox.addEventListener("change", async () => {
     if (checkbox.checked) {
@@ -2096,7 +2391,40 @@ function renderTask(task, ul) {
     }
   });
 
-  li.prepend(checkbox);
+  const textSpan = document.createElement('span');
+  textSpan.style.flex = '1';
+  textSpan.style.minWidth = '220px';
+  textSpan.textContent = `${task.task} — Due: ${localTimeString}`;
+
+  const editBtn = document.createElement('button');
+  editBtn.type = 'button';
+  editBtn.textContent = 'Edit';
+  editBtn.style.width = 'auto';
+  editBtn.style.padding = '4px 10px';
+  editBtn.style.cursor = 'pointer';
+  editBtn.setAttribute('aria-label', `Edit task: ${task.task}`);
+  editBtn.addEventListener('click', async () => {
+    await editTaskById(task.id);
+  });
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.textContent = 'Delete';
+  deleteBtn.style.width = 'auto';
+  deleteBtn.style.padding = '4px 10px';
+  deleteBtn.style.cursor = 'pointer';
+  deleteBtn.setAttribute('aria-label', `Delete task: ${task.task}`);
+  deleteBtn.addEventListener('click', async () => {
+    const ok = confirm(`Delete task "${task.task}"?`);
+    if (!ok) return;
+    await removeTask(task.id);
+    li.remove();
+  });
+
+  li.appendChild(checkbox);
+  li.appendChild(textSpan);
+  li.appendChild(editBtn);
+  li.appendChild(deleteBtn);
   ul.appendChild(li);
 }
 
