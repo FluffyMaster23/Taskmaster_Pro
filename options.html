@@ -17,8 +17,6 @@
   <!-- PWA Manifest -->
   <link rel="manifest" href="./manifest.json" />
   
-  <!-- OneSignal for iOS Safari notifications -->
-  <script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" async=""></script>
   
   <!-- Firebase SDK (includes Cloud Messaging for Windows/Desktop) -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -182,8 +180,8 @@
     </label>
     <p style="font-size: 0.9em; color: #6b7280; margin-top: 5px;">Check this box to trigger the notification permission prompt and enable push notifications for task reminders.</p>
     
-    <p style="margin-top: 15px;">Notifications are automatically configured based on your platform (iOS uses OneSignal, desktop uses native notifications).</p>
-    <p style="font-size: 0.9em; color: #f59e0b; margin-top: 10px;"><strong>Note for iOS:</strong> Notifications require the app to be deployed on HTTPS. Local development (localhost) may not support OneSignal notifications on iOS devices.</p>
+    <p style="margin-top: 15px;">Notifications are automatically configured based on your platform (notifications use the configured browser/Firebase notification system).</p>
+    <p style="font-size: 0.9em; color: #f59e0b; margin-top: 10px;"><strong>Note for iOS:</strong> Notifications require the app to be deployed on HTTPS. Local development (localhost) may not support browser notifications notifications on iOS devices.</p>
     
     <!-- Test Notification Button -->
     <button onclick="testNotification()" style="margin-top: 15px; background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
@@ -196,6 +194,39 @@
       Debug Notifications
     </button>
     <p style="font-size: 0.8em; color: #6b7280; margin-top: 5px;">View detailed notification status and troubleshooting info.</p>
+
+    <hr style="margin: 24px 0; border: 0; border-top: 1px solid #e5e7eb;">
+    <h3>ntfy Phone Push</h3>
+
+    <label for="enableNtfy">
+      <input type="checkbox" id="enableNtfy" style="width: auto; margin-right: 10px;">
+      Send TaskMaster reminders to ntfy
+    </label>
+
+    <p style="font-size: 0.9em; color: #6b7280; margin-top: 5px;">
+      TaskMaster Pro will publish advance reminders and due-now alerts to your ntfy topic.
+    </p>
+
+    <label for="ntfyServer">ntfy Server:</label>
+    <input id="ntfyServer" type="url" value="https://ntfy.sh"
+      style="display:block; width:95%; max-width:400px; padding:8px; margin:5px 0 15px 0;">
+
+    <label for="ntfyTopic">ntfy Topic:</label>
+    <input id="ntfyTopic" type="text" value="fluffy-la-alerts-b214a859aa9d49bd"
+      style="display:block; width:95%; max-width:400px; padding:8px; margin:5px 0 15px 0;">
+
+    <button onclick="saveNtfySettings()"
+      style="margin-top:10px; background:#4f46e5; color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer;">
+      Save ntfy Settings
+    </button>
+
+    <button onclick="testNtfyNotification()"
+      style="margin-top:10px; background:#10b981; color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer;">
+      Test ntfy Phone Notification
+    </button>
+
+    <p id="ntfyStatus" role="status" aria-live="polite"
+      style="font-size:0.9em; color:#374151; margin-top:8px;"></p>
   </div>
 
   <!-- Delete Account Section -->
@@ -279,74 +310,74 @@
           }
         }
         
-        // Method 2: Try OneSignal for Safari or as fallback
-        if (window.OneSignal && (isSafari || Notification.permission !== 'granted')) {
+
+
 
           
-          // Wait for OneSignal to be ready
-          window.OneSignal.push(function() {
+
+
 
             
-            // Get detailed OneSignal status
-            window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+
+
 
               
               if (isEnabled) {
 
                 
-                window.OneSignal.sendSelfNotification(
+
                   "🧪 TaskMaster Pro Test",
-                  "OneSignal iOS notification is working! ✅",
+
                   window.location.href,
                   "/favicon.ico"
                 ).then(function() {
 
-                  alert('✅ OneSignal test notification sent! Check your notification center.');
+
                 }).catch(function(error) {
-                  console.error('❌ OneSignal test failed:', error);
-                  alert('❌ OneSignal test failed: ' + error.message + '\n\nTry: iOS Settings → Notifications → Allow notifications for this site');
+
+
                 });
               } else {
 
                 
-                // Force OneSignal registration to resolve "pending setup"
-                window.OneSignal.registerForPushNotifications().then(function() {
+
+
 
                   
                   // Wait a moment for the subscription to be active, then try sending again
                   setTimeout(() => {
-                    window.OneSignal.isPushNotificationsEnabled(function(isNowEnabled) {
+
                       if (isNowEnabled) {
 
-                        window.OneSignal.sendSelfNotification(
+
                           "TaskMaster Pro Test",
-                          "OneSignal iOS notification is now working! ✅",
+
                           window.location.href,
                           "/favicon.ico"
                         ).then(function() {
-                          alert('✅ OneSignal setup complete! Test notification sent!');
+
                         }).catch(function(error) {
                           console.error('❌ Test after registration failed:', error);
-                          alert('✅ OneSignal registration successful! Please try the test button again.');
+
                         });
                       } else {
-                        alert('✅ OneSignal registration successful! Please try the test button again.');
+
                       }
                     });
                   }, 2000);
                   
                 }).catch(function(error) {
-                  console.error('❌ OneSignal registration failed:', error);
+
                   
                   // Show detailed troubleshooting based on the specific error
-                  let troubleshooting = `❌ OneSignal registration failed: ${error.message}\n\n`;
+
                   
                   if (error.message.includes('not supported')) {
-                    troubleshooting += `Browser not supported:\n• Try using Safari on iOS\n• Ensure iOS 12+ for OneSignal support`;
+
                   } else if (error.message.includes('permission')) {
                     troubleshooting += `Permission issue:\n• iOS Settings → Safari → Notifications → Allow\n• Refresh page and try again`;
                   } else if (error.message.includes('https')) {
-                    troubleshooting += `HTTPS required:\n• OneSignal requires secure connection\n• Try on deployed site instead of localhost`;
+
                   } else {
                     troubleshooting += `General troubleshooting:\n1. Make sure you're using Safari on iOS\n2. Enable: iOS Settings → Safari → Notifications\n3. Allow notifications when prompted\n4. Ensure HTTPS connection\n5. Try refreshing the page completely`;
                   }
@@ -359,18 +390,18 @@
             });
             
             // Also check user ID for debugging
-            window.OneSignal.getUserId(function(userId) {
+
 
             });
             
             // Check subscription details
-            window.OneSignal.getSubscription(function(subscription) {
+
 
             });
           });
-        } else if (!window.OneSignal) {
 
-          alert('❌ OneSignal not available. Make sure:\n1. You\'re on HTTPS\n2. The page has fully loaded\n3. OneSignal SDK is properly loaded');
+
+
         }
         
         // If nothing worked, show comprehensive help
@@ -461,19 +492,19 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
         debugInfo += `⚙️ Service Worker: Not Supported ❌\n`;
       }
       
-      // Check OneSignal status
-      if (window.OneSignal) {
-        debugInfo += `🔥 OneSignal: Available ✅\n`;
+
+
+
         
-        window.OneSignal.push(function() {
-          window.OneSignal.isPushNotificationsEnabled(function(isEnabled) {
-            debugInfo += `📡 OneSignal Enabled: ${isEnabled ? 'Yes ✅' : 'No ❌'}\n`;
+
+
+
             
-            window.OneSignal.getUserId(function(userId) {
-              debugInfo += `👤 OneSignal User ID: ${userId || 'None'}\n`;
+
+
               
-              window.OneSignal.getSubscription(function(subscription) {
-                debugInfo += `📧 OneSignal Subscription: ${subscription ? 'Active' : 'None'}\n`;
+
+
                 
                 if (isIOS) {
                   debugInfo += `\n🍎 iOS TROUBLESHOOTING:\n`;
@@ -482,7 +513,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
                     debugInfo += `• Enable: iOS Settings → Safari → Notifications\n`;
                     debugInfo += `• Allow notifications when prompted\n`;
                     if (!isHTTPS) {
-                      debugInfo += `• ⚠️ HTTPS required for OneSignal on iOS\n`;
+
                     }
                   } else {
                     debugInfo += `• Using ${isFirefox ? 'Firefox' : 'Other Browser'}\n`;
@@ -506,9 +537,9 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
           });
         });
       } else {
-        debugInfo += `🔥 OneSignal: Not Available ❌\n`;
+
         debugInfo += `• Check if HTTPS is enabled\n`;
-        debugInfo += `• Ensure OneSignal SDK loaded correctly\n`;
+
         
         alert(debugInfo);
 
@@ -656,8 +687,8 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
 
       
       if (isIOS) {
-        if (window.oneSignalEnabled) {
-          statusSpan.textContent = "iOS notifications active (OneSignal)";
+
+
         } else if (window.iosNativeNotificationsAvailable && Notification && Notification.permission === 'granted') {
           statusSpan.textContent = "iOS notifications active (Native Web Push)";
         } else if (window.iosNativeNotificationsAvailable) {
@@ -890,14 +921,14 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       
       // Check current notification status
-      if (isIOS && isSafari && window.OneSignal) {
 
-        OneSignal.push(function() {
-          OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+
+
+
 
             checkbox.checked = isEnabled;
             if (isEnabled) {
-              statusSpan.textContent = "Notifications enabled (OneSignal)";
+
             }
           });
         });
@@ -939,21 +970,21 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
 
 
       
-      if (isIOS && isSafari && window.OneSignal) {
 
-        statusSpan.textContent = "Requesting OneSignal permissions...";
+
+
         
-        OneSignal.push(function() {
 
-          OneSignal.showNativePrompt().then(function() {
+
+
 
             setTimeout(() => {
-              OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+
 
                 if (isEnabled) {
-                  statusSpan.textContent = "Notifications enabled (OneSignal)";
+
                   checkbox.checked = true;
-                  window.oneSignalEnabled = true;
+
                 } else {
                   statusSpan.textContent = "Notifications denied";
                   checkbox.checked = false;
@@ -961,14 +992,14 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
               });
             }, 1000);
           }).catch(function(error) {
-            console.error('OneSignal prompt failed:', error);
 
-            OneSignal.registerForPushNotifications().then(function() {
-              statusSpan.textContent = "Notifications enabled (OneSignal)";
+
+
+
               checkbox.checked = true;
-              window.oneSignalEnabled = true;
+
             }).catch(function(error2) {
-              console.error('OneSignal registration failed:', error2);
+
               statusSpan.textContent = "Notifications denied";
               checkbox.checked = false;
             });
@@ -1256,6 +1287,76 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
         }
       }
     }
+  </script>
+
+
+  <script>
+    function loadNtfySettings() {
+      const enabled = document.getElementById('enableNtfy');
+      const server = document.getElementById('ntfyServer');
+      const topic = document.getElementById('ntfyTopic');
+      if (!enabled || !server || !topic) return;
+
+      enabled.checked = localStorage.getItem('taskmasterNtfyEnabled') !== 'false';
+      server.value = localStorage.getItem('taskmasterNtfyServer') || 'https://ntfy.sh';
+      topic.value = localStorage.getItem('taskmasterNtfyTopic') || 'fluffy-la-alerts-b214a859aa9d49bd';
+    }
+
+    function saveNtfySettings() {
+      const enabled = document.getElementById('enableNtfy').checked;
+      const server = document.getElementById('ntfyServer').value.trim().replace(/\/+$/, '');
+      const topic = document.getElementById('ntfyTopic').value.trim();
+      const status = document.getElementById('ntfyStatus');
+
+      if (!server || !topic) {
+        status.textContent = 'Enter both an ntfy server and topic.';
+        return;
+      }
+
+      localStorage.setItem('taskmasterNtfyEnabled', enabled ? 'true' : 'false');
+      localStorage.setItem('taskmasterNtfyServer', server);
+      localStorage.setItem('taskmasterNtfyTopic', topic);
+
+      status.textContent = enabled
+        ? 'ntfy phone push enabled and saved.'
+        : 'ntfy phone push disabled and saved.';
+    }
+
+    async function testNtfyNotification() {
+      saveNtfySettings();
+
+      const status = document.getElementById('ntfyStatus');
+      const server = (localStorage.getItem('taskmasterNtfyServer') || 'https://ntfy.sh').replace(/\/+$/, '');
+      const topic = (localStorage.getItem('taskmasterNtfyTopic') || '').trim();
+
+      if (!topic) {
+        status.textContent = 'Enter an ntfy topic first.';
+        return;
+      }
+
+      status.textContent = 'Sending ntfy test...';
+
+      try {
+        const response = await fetch(`${server}/${encodeURIComponent(topic)}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Title': 'TaskMaster Pro - ntfy Test',
+            'Priority': '4',
+            'Tags': 'white_check_mark'
+          },
+          body: 'TaskMaster Pro ntfy phone notifications are working.'
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        status.textContent = 'ntfy test sent. Check your phone.';
+      } catch (error) {
+        console.error('ntfy test failed:', error);
+        status.textContent = 'ntfy test failed: ' + error.message;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', loadNtfySettings);
   </script>
 
 </body>

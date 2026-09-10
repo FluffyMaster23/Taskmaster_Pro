@@ -1277,9 +1277,89 @@ function initializeHomePage() {
 // === TAB FUNCTIONALITY ===
 
 // === HYBRID NOTIFICATION SYSTEM ===
-// Uses OneSignal for iOS Safari, FCM for Windows/Desktop
+// Uses Firebase Cloud Messaging where supported and browser-native notifications as fallback
 var messaging = window.messaging || null;
 var fcmToken = window.fcmToken || null;
+
+// === NTFY PUSH DELIVERY ===
+// Firebase remains in place for auth/sync. ntfy is an additional phone push channel.
+const DEFAULT_NTFY_SERVER = 'https://ntfy.sh';
+const DEFAULT_NTFY_TOPIC = 'fluffy-la-alerts-b214a859aa9d49bd';
+
+function getNtfySettings() {
+  return {
+    enabled: localStorage.getItem('taskmasterNtfyEnabled') !== 'false',
+    server: (localStorage.getItem('taskmasterNtfyServer') || DEFAULT_NTFY_SERVER).replace(/\/+$/, ''),
+    topic: (localStorage.getItem('taskmasterNtfyTopic') || DEFAULT_NTFY_TOPIC).trim()
+  };
+}
+
+function getNtfySentMap() {
+  try {
+    return JSON.parse(localStorage.getItem('taskmasterNtfySent') || '{}');
+  } catch (_) {
+    return {};
+  }
+}
+
+function pruneNtfySentMap(sent) {
+  const cutoff = Date.now() - (14 * 24 * 60 * 60 * 1000);
+  Object.keys(sent).forEach(key => {
+    if (!sent[key] || sent[key] < cutoff) delete sent[key];
+  });
+  return sent;
+}
+
+async function sendNtfyTaskNotification(task, isReminder = false) {
+  const settings = getNtfySettings();
+  if (!settings.enabled || !settings.topic) return false;
+
+  const kind = isReminder ? 'reminder' : 'due';
+  const key = `${task.id || task.task}:${task.time}:${kind}`;
+  const sent = pruneNtfySentMap(getNtfySentMap());
+
+  if (sent[key]) return false;
+
+  const title = isReminder
+    ? `TaskMaster Pro - Reminder: ${task.task}`
+    : `TaskMaster Pro - Task Due: ${task.task}`;
+
+  let body;
+  if (isReminder) {
+    const lead = Number(task.reminderMinutes || 0);
+    body = lead > 0
+      ? `${task.msg && task.msg.trim() ? task.msg.trim() + '\n' : ''}Due in ${lead} minute${lead === 1 ? '' : 's'}.`
+      : (task.msg && task.msg.trim() ? task.msg.trim() : 'Task reminder.');
+  } else {
+    body = `${task.msg && task.msg.trim() ? task.msg.trim() + '\n' : ''}This task is due now!`;
+  }
+
+  try {
+    const response = await fetch(`${settings.server}/${encodeURIComponent(settings.topic)}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Title': title,
+        'Priority': isReminder ? '4' : '5',
+        'Tags': isReminder ? 'alarm_clock' : 'bell'
+      },
+      body
+    });
+
+    if (!response.ok) {
+      throw new Error(`ntfy returned HTTP ${response.status}`);
+    }
+
+    sent[key] = Date.now();
+    localStorage.setItem('taskmasterNtfySent', JSON.stringify(pruneNtfySentMap(sent)));
+    return true;
+  } catch (error) {
+    console.error('ntfy notification failed:', error);
+    return false;
+  }
+}
+
+window.sendNtfyTaskNotification = sendNtfyTaskNotification;
 
 async function initializeFirebaseMessaging() {
 
@@ -1294,10 +1374,9 @@ async function initializeFirebaseMessaging() {
     return;
   }
   
-  // iOS Safari uses OneSignal
+  // iOS Safari/Home Screen web apps use the browser-native notification fallback.
   if (isIOS && isSafari) {
-
-    return initializeOneSignal();
+    return initializeNativeNotifications();
   }
   
   try {
@@ -1424,65 +1503,7 @@ async function initializeFirebaseMessaging() {
   }
 }
 
-// === ONESIGNAL INITIALIZATION (iOS Safari only) ===
-async function initializeOneSignal() {
-  window.OneSignal = window.OneSignal || [];
-  
-  return new Promise((resolve) => {
-    OneSignal.push(function() {
-      OneSignal.init({
-        appId: "194275f5-45ac-4ac1-85ff-924bbe00f066",
-        safari_web_id: "web.onesignal.auto.194275f5-45ac-4ac1-85ff-924bbe00f066",
-        notifyButton: {
-          enable: false,
-        },
-        allowLocalhostAsSecureOrigin: true,
-        autoRegister: false,
-        autoResubscribe: true,
-        serviceWorkerParam: {
-          scope: './',
-          updateViaCache: 'none'
-        },
-        serviceWorkerPath: 'OneSignalSDKWorker.js',
-        persistNotification: true,
-        requiresUserPrivacyConsent: false,
-        promptOptions: {
-          slidedown: {
-            enabled: true,
-            autoPrompt: true,
-            timeDelay: 1,
-            pageViews: 1
-          }
-        },
-        welcomeNotification: {
-          disable: true
-        }
-      }).then(function() {
-        setTimeout(() => {
-          OneSignal.showNativePrompt().catch(() => {
-            OneSignal.registerForPushNotifications().catch(() => {});
-          });
-        }, 500);
-        
-        OneSignal.isPushNotificationsEnabled(function(isEnabled) {
-          window.oneSignalEnabled = isEnabled;
-        });
-        
-        OneSignal.on('subscriptionChange', function (isSubscribed) {
-          window.oneSignalEnabled = isSubscribed;
-        });
-        
-        resolve();
-      }).catch(function(error) {
-        if (Notification.permission !== 'granted') {
-          Notification.requestPermission();
-        }
-        resolve();
-      });
-    });
-  });
-}
-
+// === NATIVE NOTIFICATION FALLBACK ===
 function initializeNativeNotifications() {
 
   
@@ -2264,19 +2285,7 @@ async function removeTask(taskId) {
     // Fallback to localStorage if firebase-data.js not loaded
     localStorage.setItem("todos", JSON.stringify(filtered));
   }
-  
-  // Also remove from OneSignal scheduled tasks for iOS
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  
-  if (isIOS) {
-    let scheduledTasks = JSON.parse(localStorage.getItem('scheduledOneSignalTasks') || '[]');
-    scheduledTasks = scheduledTasks.filter(t => t.id !== taskId);
-    localStorage.setItem('scheduledOneSignalTasks', JSON.stringify(scheduledTasks));
-
-  }
-
-  removeAppleReminderFromQueue(taskId);
+removeAppleReminderFromQueue(taskId);
   await refreshAppleRemindersExport(filtered);
 }
 
@@ -2545,6 +2554,9 @@ function showWelcomeNotification() {
 }
 
 function showNotification(task, isReminder = false) {
+  // Publish to ntfy independently of local browser notification permission.
+  sendNtfyTaskNotification(task, isReminder);
+
 
   
   // Detect iOS
@@ -2735,23 +2747,9 @@ async function createSections() {
     const data = { id, section, task, msg, time: isoTime, reminderMinutes };
     await saveTask(data);
     renderTask(data, ul);
-    
-    // Schedule notifications based on platform
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    
-    if (isIOS) {
-      if (window.oneSignalEnabled) {
-        // Schedule OneSignal notification for iOS (production)
-        scheduleOneSignalTaskReminder(data);
-      } else if (window.iosNativeNotificationsAvailable) {
-        // Fallback to iOS native notifications (localhost/development)
-
-        // iOS native notifications are handled by the interval checker like desktop
-      } else {
-
-      }
-    }
+    // Notifications are handled by the existing interval checker;
+    // Firebase Messaging remains available where the browser supports it.
+    // iOS uses the browser-native notification fallback.
     // Desktop notifications are handled by the interval checker
     
     taskInput.value = "";

@@ -1,0 +1,16 @@
+TaskMaster Pro - Firebase restored, OneSignal removed
+
+Included:
+- Firebase App/Auth/Firestore SDKs and original Firebase configuration
+- firebase-data.js cloud sync helpers
+- todo.js with Firebase Messaging retained where supported
+- firebase-messaging-sw.js for desktop/background FCM handling
+- Browser-native notification fallback for iOS Safari/Home Screen PWA
+- Existing pages, goals, task, voice, reminder and Apple-reminder logic
+
+Removed:
+- OneSignal SDK
+- OneSignal app ID from manifest.json
+- OneSignal service worker and OneSignal initialization/scheduling branches
+
+Important: Firebase Messaging still needs your Firebase project/cloud-side message sender logic if you want true server-originated push reminders while the app is closed. The existing interval reminder checker continues to handle in-app/browser-local reminders when the app is running.

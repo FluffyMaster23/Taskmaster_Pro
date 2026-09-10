@@ -1,0 +1,29 @@
+TaskMaster Pro - Firebase + ntfy
+
+Firebase is preserved for authentication, Firestore sync, and existing Firebase Messaging support.
+OneSignal remains removed.
+
+Setup:
+1. Open Options.
+2. In Notification Settings, find "ntfy Phone Push".
+3. Leave "Send TaskMaster reminders to ntfy" checked.
+4. Server: https://ntfy.sh
+5. Topic: fluffy-la-alerts-b214a859aa9d49bd
+6. Save ntfy Settings.
+7. Use "Test ntfy Phone Notification".
+
+Behavior:
+- TaskMaster Pro's existing 30-second reminder checker still controls timing.
+- When an advance reminder fires, TaskMaster publishes it to ntfy.
+- When a task becomes due, TaskMaster publishes a due-now alert to ntfy.
+- Browser/FCM notifications continue to work as before.
+- ntfy publishing does not require browser Notification permission.
+- Duplicate ntfy sends are suppressed for 14 days using localStorage.
+
+Important:
+At least one TaskMaster Pro tab/PWA instance must be running for its existing JavaScript
+reminder checker to publish to ntfy. Once published, the ntfy app can alert your iPhone
+even if TaskMaster Pro is closed on the phone.
+
+For reminders when every TaskMaster Pro browser/PWA is closed, you would need a
+server-side scheduler or Firebase Cloud Function.
