@@ -1,29 +1,33 @@
-TaskMaster Pro - Firebase + ntfy
+TaskMaster Pro scheduled ntfy reminders
 
-Firebase is preserved for authentication, Firestore sync, and existing Firebase Messaging support.
-OneSignal remains removed.
+Notification delivery uses ntfy, not Firebase Cloud Messaging. Firebase remains the
+app's authentication/task database and runs the scheduled job that publishes reminders
+to ntfy. The ntfy app receives those messages on iOS/Android, so the TaskMaster browser
+does not need to be open.
 
-Setup:
-1. Open Options.
-2. In Notification Settings, find "ntfy Phone Push".
-3. Leave "Send TaskMaster reminders to ntfy" checked.
-4. Server: https://ntfy.sh
-5. Topic: fluffy-la-alerts-b214a859aa9d49bd
-6. Save ntfy Settings.
-7. Use "Test ntfy Phone Notification".
+One-time setup:
+1. Install the ntfy app on the phone and subscribe to the same topic configured in
+   TaskMaster Pro (default: fluffy-la-alerts-b214a859aa9d49bd).
+2. In Firebase Console, confirm Firestore and Cloud Functions are enabled and upgrade
+   the project to the Blaze plan for scheduled functions.
+3. From the repository root, install/use Firebase CLI, sign in, select project
+   taskmaster-pro-bf98a, then deploy:
+       firebase login
+       firebase use taskmaster-pro-bf98a
+       firebase deploy --only functions
+4. Sign in to TaskMaster Pro, open Options, keep "Send TaskMaster reminders to ntfy"
+   enabled, enter the ntfy server and topic, and click "Save ntfy Settings".
+   Saving syncs the server/topic/enabled preference to the signed-in account in Firestore.
+5. Save tasks to Firestore. Guest/local-only tasks cannot be checked by the server.
 
-Behavior:
-- TaskMaster Pro's existing 30-second reminder checker still controls timing.
-- When an advance reminder fires, TaskMaster publishes it to ntfy.
-- When a task becomes due, TaskMaster publishes a due-now alert to ntfy.
-- Browser/FCM notifications continue to work as before.
-- ntfy publishing does not require browser Notification permission.
-- Duplicate ntfy sends are suppressed for 14 days using localStorage.
+The scheduled function runs every minute. It sends advance reminders and due alerts
+within a five-minute grace window, and records deliveries to prevent duplicates.
+Delivery timing depends on the scheduler, internet, and ntfy service.
 
-Important:
-At least one TaskMaster Pro tab/PWA instance must be running for its existing JavaScript
-reminder checker to publish to ntfy. Once published, the ntfy app can alert your iPhone
-even if TaskMaster Pro is closed on the phone.
+No Firebase Messaging tokens or Firebase push notifications are used. Firebase is still
+the task store and scheduler; notifications are delivered by the configured ntfy server.
 
-For reminders when every TaskMaster Pro browser/PWA is closed, you would need a
-server-side scheduler or Firebase Cloud Function.
+Security note: ntfy.sh topics are public to anyone who knows the topic name. Avoid
+putting sensitive task details in notifications, and use a private ntfy server/topic
+if you need access control. The current settings support a server URL and topic but do
+not configure ntfy authentication credentials.

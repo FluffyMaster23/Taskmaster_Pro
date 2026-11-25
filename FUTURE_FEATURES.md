@@ -16,7 +16,7 @@
 ## Completed Features ✅
 - Real-time task and list synchronization across devices
 - Firebase authentication and Firestore integration
-- Push notifications (FCM for desktop/Android, OneSignal for iOS Safari)
+- Scheduled phone push notifications through ntfy
 - Custom list creation and management
 - Admin dashboard with user presence tracking
 - Auto-clear localStorage after 2 hours for guest users

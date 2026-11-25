@@ -163,8 +163,7 @@ window.addEventListener('DOMContentLoaded', function() {
     alert('All data cleared! Refresh the page to start fresh and see notification prompts.');
   };
   
-  // Initialize Firebase Cloud Messaging for notifications
-  initializeFirebaseMessaging();
+  initializeNativeNotifications();
 
   // Page-specific initialization
   initializeCurrentPage();
@@ -229,9 +228,6 @@ async function initializeTaskMasterPage() {
   
   // Setup voice functionality
   setupVoiceFunctionality();
-  
-  // Setup Firebase Cloud Messaging for notifications
-  initializeFirebaseMessaging();
   
   // Setup real-time task listener if user is already logged in
   if (window.currentUser && !window.isGuestMode && typeof setupTasksListener === 'function') {
@@ -1208,9 +1204,6 @@ function initializeOptionsPage() {
 function initializeHomePage() {
 
   
-  // Initialize Firebase Cloud Messaging for notifications
-  initializeFirebaseMessaging();
-  
   // Start notification checker even on home page for background notifications
   startNotificationChecker();
   
@@ -1276,234 +1269,7 @@ function initializeHomePage() {
 
 // === TAB FUNCTIONALITY ===
 
-// === HYBRID NOTIFICATION SYSTEM ===
-// Uses Firebase Cloud Messaging where supported and browser-native notifications as fallback
-var messaging = window.messaging || null;
-var fcmToken = window.fcmToken || null;
-
-// === NTFY PUSH DELIVERY ===
-// Firebase remains in place for auth/sync. ntfy is an additional phone push channel.
-const DEFAULT_NTFY_SERVER = 'https://ntfy.sh';
-const DEFAULT_NTFY_TOPIC = 'fluffy-la-alerts-b214a859aa9d49bd';
-
-function getNtfySettings() {
-  return {
-    enabled: localStorage.getItem('taskmasterNtfyEnabled') !== 'false',
-    server: (localStorage.getItem('taskmasterNtfyServer') || DEFAULT_NTFY_SERVER).replace(/\/+$/, ''),
-    topic: (localStorage.getItem('taskmasterNtfyTopic') || DEFAULT_NTFY_TOPIC).trim()
-  };
-}
-
-function getNtfySentMap() {
-  try {
-    return JSON.parse(localStorage.getItem('taskmasterNtfySent') || '{}');
-  } catch (_) {
-    return {};
-  }
-}
-
-function pruneNtfySentMap(sent) {
-  const cutoff = Date.now() - (14 * 24 * 60 * 60 * 1000);
-  Object.keys(sent).forEach(key => {
-    if (!sent[key] || sent[key] < cutoff) delete sent[key];
-  });
-  return sent;
-}
-
-async function sendNtfyTaskNotification(task, isReminder = false) {
-  const settings = getNtfySettings();
-  if (!settings.enabled || !settings.topic) return false;
-
-  const kind = isReminder ? 'reminder' : 'due';
-  const key = `${task.id || task.task}:${task.time}:${kind}`;
-  const sent = pruneNtfySentMap(getNtfySentMap());
-
-  if (sent[key]) return false;
-
-  const title = isReminder
-    ? `TaskMaster Pro - Reminder: ${task.task}`
-    : `TaskMaster Pro - Task Due: ${task.task}`;
-
-  let body;
-  if (isReminder) {
-    const lead = Number(task.reminderMinutes || 0);
-    body = lead > 0
-      ? `${task.msg && task.msg.trim() ? task.msg.trim() + '\n' : ''}Due in ${lead} minute${lead === 1 ? '' : 's'}.`
-      : (task.msg && task.msg.trim() ? task.msg.trim() : 'Task reminder.');
-  } else {
-    body = `${task.msg && task.msg.trim() ? task.msg.trim() + '\n' : ''}This task is due now!`;
-  }
-
-  try {
-    const response = await fetch(`${settings.server}/${encodeURIComponent(settings.topic)}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Title': title,
-        'Priority': isReminder ? '4' : '5',
-        'Tags': isReminder ? 'alarm_clock' : 'bell'
-      },
-      body
-    });
-
-    if (!response.ok) {
-      throw new Error(`ntfy returned HTTP ${response.status}`);
-    }
-
-    sent[key] = Date.now();
-    localStorage.setItem('taskmasterNtfySent', JSON.stringify(pruneNtfySentMap(sent)));
-    return true;
-  } catch (error) {
-    console.error('ntfy notification failed:', error);
-    return false;
-  }
-}
-
-window.sendNtfyTaskNotification = sendNtfyTaskNotification;
-
-async function initializeFirebaseMessaging() {
-
-  
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-  
-  // Check if browser supports notifications
-  if (!('Notification' in window)) {
-
-    return;
-  }
-  
-  // iOS Safari/Home Screen web apps use the browser-native notification fallback.
-  if (isIOS && isSafari) {
-    return initializeNativeNotifications();
-  }
-  
-  try {
-    // Check if Firebase Messaging is supported
-    if (!firebase.messaging.isSupported()) {
-
-      return initializeNativeNotifications();
-    }
-    
-    messaging = firebase.messaging();
-    window.messaging = messaging;
-
-    
-    // Request notification permission
-
-    let permission = Notification.permission;
-    
-    if (permission === 'default') {
-      permission = await Notification.requestPermission();
-
-    } else {
-
-    }
-    
-    if (permission === 'granted') {
-
-      
-      if ('serviceWorker' in navigator) {
-        try {
-
-          const registration = await navigator.serviceWorker.register('./firebase-messaging-sw.js', {
-            scope: './'
-          });
-
-          
-          // Wait for service worker to be ready
-          await navigator.serviceWorker.ready;
-
-          
-
-          fcmToken = await messaging.getToken({
-            vapidKey: 'BCS6sik162IJiqA7odT7O6wGCaffPepZvCHeUWuHReHQrSkQOybm1XWOLZY6ChJP9cYJ25ytTVdwgMK-tJL19ag',
-            serviceWorkerRegistration: registration
-          });
-          window.fcmToken = fcmToken;
-          
-          if (fcmToken) {
-            localStorage.setItem('fcm_token', fcmToken);
-            window.fcmEnabled = true;
-          } else {
-
-          }
-        } catch (swError) {
-          console.error('❌ Service worker registration failed:', swError);
-
-          initializeNativeNotifications();
-        }
-      } else {
-
-        initializeNativeNotifications();
-      }
-      
-      // Handle foreground messages
-      messaging.onMessage((payload) => {
-
-        const notificationTitle = payload.notification?.title || 'TaskMaster Pro';
-        const notificationOptions = {
-          body: payload.notification?.body || payload.data?.body,
-          icon: '/favicon.ico',
-          badge: '/favicon.ico',
-          tag: payload.data?.tag || 'taskmaster',
-          requireInteraction: false,
-          data: payload.data,
-          vibrate: [200, 100, 200]
-        };
-        
-        if (Notification.permission === 'granted') {
-
-          new Notification(notificationTitle, notificationOptions);
-        }
-      });
-      
-      // Handle token refresh (compat API may not expose onTokenRefresh)
-      if (typeof messaging.onTokenRefresh === 'function') {
-        messaging.onTokenRefresh(async () => {
-
-          try {
-            const newToken = await messaging.getToken();
-
-            localStorage.setItem('fcm_token', newToken);
-            fcmToken = newToken;
-            window.fcmToken = newToken;
-          } catch (error) {
-            console.error('❌ Token refresh failed:', error);
-          }
-        });
-      }
-
-      const refreshFcmToken = async () => {
-        try {
-          const newToken = await messaging.getToken();
-          if (newToken) {
-            localStorage.setItem('fcm_token', newToken);
-            fcmToken = newToken;
-            window.fcmToken = newToken;
-          }
-        } catch (error) {
-          console.error('❌ Token refresh failed:', error);
-        }
-      };
-
-      setInterval(refreshFcmToken, 6 * 60 * 60 * 1000);
-      
-    } else if (permission === 'denied') {
-
-    } else {
-
-    }
-    
-  } catch (error) {
-    console.error('❌ Firebase Messaging initialization error:', error);
-
-    initializeNativeNotifications();
-  }
-}
-
-// === NATIVE NOTIFICATION FALLBACK ===
+// === BROWSER NOTIFICATION PERMISSION ===
 function initializeNativeNotifications() {
 
   
@@ -2554,11 +2320,6 @@ function showWelcomeNotification() {
 }
 
 function showNotification(task, isReminder = false) {
-  // Publish to ntfy independently of local browser notification permission.
-  sendNtfyTaskNotification(task, isReminder);
-
-
-  
   // Detect iOS
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2747,10 +2508,8 @@ async function createSections() {
     const data = { id, section, task, msg, time: isoTime, reminderMinutes };
     await saveTask(data);
     renderTask(data, ul);
-    // Notifications are handled by the existing interval checker;
-    // Firebase Messaging remains available where the browser supports it.
-    // iOS uses the browser-native notification fallback.
-    // Desktop notifications are handled by the interval checker
+    // Browser-local notifications run in the interval checker; scheduled ntfy delivery
+    // is handled by the server for signed-in accounts.
     
     taskInput.value = "";
     messageInput.value = "";

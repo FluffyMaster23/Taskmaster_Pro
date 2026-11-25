@@ -18,11 +18,10 @@
   <link rel="manifest" href="./manifest.json" />
   
   
-  <!-- Firebase SDK (includes Cloud Messaging for Windows/Desktop) -->
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
   
   <!-- Favicon and App Icons -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iIzRmNDZlNSIvPgogIDxwYXRoIGQ9Ik0xOCAyNGw0IDRsOC04IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K" />
@@ -204,7 +203,10 @@
     </label>
 
     <p style="font-size: 0.9em; color: #6b7280; margin-top: 5px;">
-      TaskMaster Pro will publish advance reminders and due-now alerts to your ntfy topic.
+      After scheduled functions are deployed, signed-in tasks are sent to ntfy even when this app and browser are closed.
+    </p>
+    <p style="font-size: 0.9em; color: #6b7280; margin-top: 5px;">
+      Subscribe to this topic in the ntfy phone app. Browser notification permission is not required for ntfy delivery.
     </p>
 
     <label for="ntfyServer">ntfy Server:</label>
@@ -1291,7 +1293,7 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
 
 
   <script>
-    function loadNtfySettings() {
+    async function loadNtfySettings(user) {
       const enabled = document.getElementById('enableNtfy');
       const server = document.getElementById('ntfyServer');
       const topic = document.getElementById('ntfyTopic');
@@ -1300,9 +1302,33 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       enabled.checked = localStorage.getItem('taskmasterNtfyEnabled') !== 'false';
       server.value = localStorage.getItem('taskmasterNtfyServer') || 'https://ntfy.sh';
       topic.value = localStorage.getItem('taskmasterNtfyTopic') || 'fluffy-la-alerts-b214a859aa9d49bd';
+
+      if (!user) return;
+
+      try {
+        const userDocument = await firebase.firestore().collection('users').doc(user.uid).get();
+        const settings = userDocument.get('notificationSettings');
+        if (!settings) return;
+
+        if (typeof settings.ntfyEnabled === 'boolean') {
+          enabled.checked = settings.ntfyEnabled;
+          localStorage.setItem('taskmasterNtfyEnabled', String(settings.ntfyEnabled));
+        }
+        if (typeof settings.ntfyServer === 'string') {
+          server.value = settings.ntfyServer;
+          localStorage.setItem('taskmasterNtfyServer', settings.ntfyServer);
+        }
+        if (typeof settings.ntfyTopic === 'string') {
+          topic.value = settings.ntfyTopic;
+          localStorage.setItem('taskmasterNtfyTopic', settings.ntfyTopic);
+        }
+      } catch (error) {
+        console.error('Unable to load ntfy settings from Firestore:', error);
+        document.getElementById('ntfyStatus').textContent = 'Could not load ntfy settings from your account.';
+      }
     }
 
-    function saveNtfySettings() {
+    async function saveNtfySettings() {
       const enabled = document.getElementById('enableNtfy').checked;
       const server = document.getElementById('ntfyServer').value.trim().replace(/\/+$/, '');
       const topic = document.getElementById('ntfyTopic').value.trim();
@@ -1317,13 +1343,34 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       localStorage.setItem('taskmasterNtfyServer', server);
       localStorage.setItem('taskmasterNtfyTopic', topic);
 
+      const user = firebase.auth().currentUser;
+      if (!user) {
+        status.textContent = 'Saved on this device only. Sign in to enable scheduled ntfy reminders.';
+        return true;
+      }
+
+      try {
+        await firebase.firestore().collection('users').doc(user.uid).set({
+          notificationSettings: {
+            ntfyEnabled: enabled,
+            ntfyServer: server,
+            ntfyTopic: topic
+          }
+        }, { merge: true });
+      } catch (error) {
+        console.error('Unable to sync ntfy settings for scheduled reminders:', error);
+        status.textContent = 'Saved locally, but server settings could not be updated: ' + error.message;
+        return false;
+      }
+
       status.textContent = enabled
-        ? 'ntfy phone push enabled and saved.'
-        : 'ntfy phone push disabled and saved.';
+        ? 'ntfy phone push enabled and synced for scheduled reminders.'
+        : 'ntfy phone push disabled and synced.';
+      return true;
     }
 
     async function testNtfyNotification() {
-      saveNtfySettings();
+      if (!await saveNtfySettings()) return;
 
       const status = document.getElementById('ntfyStatus');
       const server = (localStorage.getItem('taskmasterNtfyServer') || 'https://ntfy.sh').replace(/\/+$/, '');
@@ -1356,7 +1403,12 @@ Current: ${isHTTPS ? 'HTTPS ✅' : 'HTTP ❌'} | ${isSafari ? 'Safari' : isFiref
       }
     }
 
-    window.addEventListener('DOMContentLoaded', loadNtfySettings);
+    window.addEventListener('DOMContentLoaded', function() {
+      loadNtfySettings(firebase.auth().currentUser);
+      firebase.auth().onAuthStateChanged(user => {
+        if (user) loadNtfySettings(user);
+      });
+    });
   </script>
 
 </body>

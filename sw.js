@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-app-v19';
+const CACHE_NAME = 'todo-app-v21';
 const APPLE_REMINDERS_PATH = '/apple-reminders.ics';
 const APPLE_REMINDERS_CACHE_KEY = '/__taskmaster_apple_reminders__.ics';
 const urlsToCache = [
@@ -76,56 +76,6 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Handle push notifications (for Firebase/OneSignal)
-self.addEventListener('push', event => {
-
-  
-  let notificationData = {
-    title: 'TaskMaster Pro',
-    body: 'You have a task reminder!',
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
-    tag: 'taskmaster-reminder',
-    requireInteraction: false,
-    vibrate: [200, 100, 200]
-  };
-  
-  // Try to parse push data if available
-  if (event.data) {
-    try {
-      const data = event.data.json();
-      notificationData = {
-        title: data.title || notificationData.title,
-        body: data.body || data.message || notificationData.body,
-        icon: data.icon || notificationData.icon,
-        badge: data.badge || notificationData.badge,
-        tag: data.tag || notificationData.tag,
-        requireInteraction: data.requireInteraction || notificationData.requireInteraction,
-        vibrate: data.vibrate || notificationData.vibrate,
-        data: data.data || {}
-      };
-    } catch (error) {
-
-    }
-  }
-  
-  event.waitUntil(
-    self.registration.showNotification(notificationData.title, {
-      body: notificationData.body,
-      icon: notificationData.icon,
-      badge: notificationData.badge,
-      tag: notificationData.tag,
-      requireInteraction: notificationData.requireInteraction,
-      vibrate: notificationData.vibrate,
-      data: notificationData.data
-    }).then(() => {
-
-    }).catch(error => {
-      console.error('Service Worker: Could not show notification', error);
-    })
-  );
-});
-
 // Handle background sync for notifications
 self.addEventListener('sync', event => {
 
@@ -159,13 +109,14 @@ self.addEventListener('notificationclick', event => {
       // Check if there's already a window open
       for (let i = 0; i < clientList.length; i++) {
         const client = clientList[i];
-        if (client.url === self.registration.scope && 'focus' in client) {
+        if (client.url.startsWith(self.registration.scope) && 'focus' in client) {
           return client.focus();
         }
       }
       // If no window is open, open a new one
       if (clients.openWindow) {
-        return clients.openWindow('./');
+        const targetUrl = event.notification.data && event.notification.data.url || './';
+        return clients.openWindow(new URL(targetUrl, self.registration.scope).href);
       }
     })
   );
